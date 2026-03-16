@@ -19,8 +19,8 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
-        "polkadot-api": "catalog:",
-        "@noble/hashes": "catalog:"
+        "@polkadot-api/substrate-bindings": "^0.17.0",
+        "polkadot-api": "catalog:"
     },
     "devDependencies": {
         "typescript": "catalog:"
