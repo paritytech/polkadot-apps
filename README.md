@@ -5,7 +5,8 @@ Reusable TypeScript components for rapidly developing applications within the Po
 ## Getting Started
 
 ```bash
-pnpm install
+bash setup.sh
+
 pnpm build
 pnpm test
 ```
