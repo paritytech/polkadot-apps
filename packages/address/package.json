@@ -18,6 +18,10 @@
         "build": "tsc -p tsconfig.json",
         "clean": "rm -rf dist"
     },
+    "dependencies": {
+        "polkadot-api": "catalog:",
+        "@noble/hashes": "catalog:"
+    },
     "devDependencies": {
         "typescript": "catalog:"
     }
