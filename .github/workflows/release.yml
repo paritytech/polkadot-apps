@@ -1,0 +1,76 @@
+name: Release
+
+on:
+    push:
+        branches: [main]
+
+permissions:
+    contents: write
+
+jobs:
+    release:
+        # Skip bot commits (from version bump commits pushed by this workflow)
+        if: github.actor != 'github-actions[bot]'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            # Check for pending changesets before doing anything expensive
+            - name: Check for changesets
+              id: changesets
+              run: |
+                  if ls .changeset/*.md 2>/dev/null | grep -qv README.md; then
+                    echo "found=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "found=false" >> $GITHUB_OUTPUT
+                  fi
+
+            - if: steps.changesets.outputs.found == 'true'
+              uses: pnpm/action-setup@v4
+            - if: steps.changesets.outputs.found == 'true'
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  registry-url: "https://registry.npmjs.org"
+
+            - if: steps.changesets.outputs.found == 'true'
+              run: pnpm install
+
+            # Version packages (consumes changesets, bumps versions)
+            - name: Version packages
+              if: steps.changesets.outputs.found == 'true'
+              run: pnpm changeset version
+
+            # Format files modified by changeset version
+            - name: Format
+              if: steps.changesets.outputs.found == 'true'
+              run: pnpm format
+
+            # Build all publishable packages
+            - name: Build packages
+              if: steps.changesets.outputs.found == 'true'
+              run: pnpm -r --filter "@polkadot-apps/address" --filter "@polkadot-apps/crypto" --filter "@polkadot-apps/bulletin" --filter "@polkadot-apps/chain-client" --filter "@polkadot-apps/storage" build
+
+            # Commit version bumps
+            - name: Commit version changes
+              if: steps.changesets.outputs.found == 'true'
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git add -A
+                  git diff --cached --quiet || git commit -m "chore: version packages"
+                  git push
+
+            # Publish to npm
+            - name: Publish to npm
+              if: steps.changesets.outputs.found == 'true'
+              run: pnpm changeset publish
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_AUTOMATION_TOKEN }}
+
+            # Push git tags created by changeset publish
+            - name: Push tags
+              if: steps.changesets.outputs.found == 'true'
+              run: git push --tags

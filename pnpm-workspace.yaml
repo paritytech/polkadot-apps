@@ -1,0 +1,15 @@
+packages:
+    - "packages/*"
+
+catalog:
+    polkadot-api: ^1.23.3
+    "@novasamatech/product-sdk": ^0.1.0
+    dexie: ^4.0.11
+    tweetnacl: ^1.0.3
+    "@noble/hashes": ^2.0.1
+    multiformats: ^13.4.2
+    typescript: ^5.9.3
+    turbo: ^2.3.0
+    "@biomejs/biome": ^1.9.4
+    vitest: ^3.1.4
+    "@types/node": ^24.10.1

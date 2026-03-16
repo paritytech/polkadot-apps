@@ -1,0 +1,20 @@
+{
+    "name": "polkadot-apps",
+    "private": true,
+    "packageManager": "pnpm@9.15.0",
+    "scripts": {
+        "build": "turbo build",
+        "dev": "turbo dev",
+        "clean": "turbo clean",
+        "test": "vitest run",
+        "format": "biome format --write .",
+        "format:check": "biome format ."
+    },
+    "devDependencies": {
+        "@biomejs/biome": "catalog:",
+        "@changesets/cli": "^2.29.8",
+        "turbo": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:"
+    }
+}
