@@ -72,5 +72,4 @@ if (import.meta.vitest) {
             "Sealed data too short",
         );
     });
-
 }
