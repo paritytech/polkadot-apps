@@ -1,5 +1,11 @@
 # @polkadot-apps/address
 
+## 0.1.3
+
+### Patch Changes
+
+- 8adfb60: test release
+
 ## 0.1.2
 
 ### Patch Changes

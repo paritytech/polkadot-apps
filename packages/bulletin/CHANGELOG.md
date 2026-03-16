@@ -1,5 +1,13 @@
 # @polkadot-apps/bulletin
 
+## 0.1.3
+
+### Patch Changes
+
+- 8adfb60: test release
+- Updated dependencies [8adfb60]
+  - @polkadot-apps/address@0.1.3
+
 ## 0.1.2
 
 ### Patch Changes
