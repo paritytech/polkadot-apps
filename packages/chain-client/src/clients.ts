@@ -224,3 +224,114 @@ export function isConnected(descriptor: ChainDefinition): boolean {
     if (!genesis) return false;
     return getClientCache().has(genesis);
 }
+
+if (import.meta.vitest) {
+    const { test, expect, beforeEach } = import.meta.vitest;
+
+    const fakeDescriptor = { genesis: "0xtest" } as unknown as ChainDefinition;
+    const fakeClient = { destroy: () => {}, getTypedApi: () => ({}) } as unknown as PolkadotClient;
+
+    function seedCache(genesis: string, client: PolkadotClient) {
+        getClientCache().set(genesis, {
+            client,
+            api: new Map(),
+            contractSdk: null,
+            initPromise: null,
+        });
+    }
+
+    beforeEach(() => {
+        clearClientCache();
+        envCache.clear();
+    });
+
+    test("isConnected returns false for unknown chain", () => {
+        expect(isConnected(fakeDescriptor)).toBe(false);
+    });
+
+    test("isConnected returns true after cache is populated", () => {
+        seedCache("0xtest", fakeClient);
+        expect(isConnected(fakeDescriptor)).toBe(true);
+    });
+
+    test("isConnected returns false for descriptor without genesis", () => {
+        expect(isConnected({} as ChainDefinition)).toBe(false);
+    });
+
+    test("getClient returns client from cache", () => {
+        seedCache("0xtest", fakeClient);
+        expect(getClient(fakeDescriptor)).toBe(fakeClient);
+    });
+
+    test("getClient throws for unconnected chain", () => {
+        expect(() => getClient(fakeDescriptor)).toThrow(/Chain not connected/);
+    });
+
+    test("getClient throws for descriptor without genesis", () => {
+        expect(() => getClient({} as ChainDefinition)).toThrow(/no genesis hash/);
+    });
+
+    test("destroyAll calls client.destroy() and clears caches", () => {
+        let destroyed = false;
+        const trackableClient = { destroy: () => { destroyed = true; }, getTypedApi: () => ({}) } as unknown as PolkadotClient;
+        seedCache("0xtest", trackableClient);
+        envCache.set("paseo", Promise.resolve({} as ChainAPI<"paseo">));
+        destroyAll();
+        expect(destroyed).toBe(true);
+        expect(isConnected(fakeDescriptor)).toBe(false);
+        expect(envCache.size).toBe(0);
+    });
+
+    test("getChainAPI returns same result for same environment", async () => {
+        const fakeResult = {} as ChainAPI<"paseo">;
+        envCache.set("paseo", Promise.resolve(fakeResult));
+        const result = await getChainAPI("paseo");
+        expect(result).toBe(fakeResult);
+    });
+
+    test("getChainAPI returns different results for different environments", async () => {
+        const paseoResult = { env: "paseo" } as unknown as ChainAPI<"paseo">;
+        const polkadotResult = { env: "polkadot" } as unknown as ChainAPI<"polkadot">;
+        envCache.set("paseo", Promise.resolve(paseoResult));
+        envCache.set("polkadot", Promise.resolve(polkadotResult));
+        const a = await getChainAPI("paseo");
+        const b = await getChainAPI("polkadot");
+        expect(a).not.toBe(b);
+    });
+
+    test("getChainAPI deduplicates concurrent calls", async () => {
+        const fakeResult = {} as ChainAPI<"kusama">;
+        envCache.set("kusama", Promise.resolve(fakeResult));
+        const [a, b] = await Promise.all([getChainAPI("kusama"), getChainAPI("kusama")]);
+        expect(a).toBe(b);
+    });
+
+    test("full lifecycle: connect, verify, destroy, verify disconnected", () => {
+        seedCache("0xtest", fakeClient);
+        expect(isConnected(fakeDescriptor)).toBe(true);
+        expect(getClient(fakeDescriptor)).toBe(fakeClient);
+        destroyAll();
+        expect(isConnected(fakeDescriptor)).toBe(false);
+        expect(() => getClient(fakeDescriptor)).toThrow(/Chain not connected/);
+    });
+
+    test("descriptors have genesis hashes", () => {
+        expect(polkadot_asset_hub.genesis).toBeTruthy();
+        expect(kusama_asset_hub.genesis).toBeTruthy();
+        expect(paseo_asset_hub.genesis).toBeTruthy();
+        expect(bulletin.genesis).toBeTruthy();
+        expect(individuality.genesis).toBeTruthy();
+    });
+
+    test("rpcs defined for all environments", () => {
+        for (const env of ["polkadot", "kusama", "paseo"] as const) {
+            const envRpcs = rpcs[env];
+            expect(envRpcs.assetHub.rpcs.length).toBeGreaterThan(0);
+            expect(envRpcs.bulletin.rpcs.length).toBeGreaterThan(0);
+            expect(envRpcs.individuality.rpcs.length).toBeGreaterThan(0);
+            expect(envRpcs.assetHub.genesis).toBeTruthy();
+            expect(envRpcs.bulletin.genesis).toBeTruthy();
+            expect(envRpcs.individuality.genesis).toBeTruthy();
+        }
+    });
+}
