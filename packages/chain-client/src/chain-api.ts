@@ -42,8 +42,12 @@ const chainFactories = {
     paseo: createPaseoChains,
 } as const;
 
-/** Fully typed chain APIs for an environment, derived from descriptors. */
-export type Chains<E extends Environment> = ReturnType<(typeof chainFactories)[E]> & {
+type InkModule = typeof import("@polkadot-api/sdk-ink");
+type ContractSdk = ReturnType<InkModule["createInkSdk"]>;
+
+/** Fully typed chain API for an environment, derived from descriptors. */
+export type ChainAPI<E extends Environment> = ReturnType<(typeof chainFactories)[E]> & {
+    contracts: ContractSdk;
     destroy: () => void;
 };
 
@@ -66,31 +70,33 @@ const rpcs = {
     },
 } as const;
 
-const envCache = new Map<Environment, Promise<Chains<Environment>>>();
+const envCache = new Map<Environment, Promise<ChainAPI<Environment>>>();
 
 /**
- * Get typed chain APIs for a given environment.
+ * Get the typed chain API for a given environment.
  *
- * Returns asset hub, bulletin, and individuality — fully typed from descriptors.
+ * Returns asset hub, bulletin, individuality, and contracts — fully typed from descriptors.
  * Connections use host routing (via product-sdk) when inside a container,
  * falling back to direct RPC.
  *
  * @example
  * ```ts
- * const chains = await getChains("paseo")
- * const balance = await chains.assetHub.query.System.Account.getValue(addr)
+ * const api = await getChainAPI("paseo")
+ * await api.assetHub.query.System.Account.getValue(addr)
+ * await api.bulletin.query.TransactionStorage.ByteFee.getValue()
+ * const contract = api.contracts.getContract(descriptor, address)
  * ```
  */
-export async function getChains<E extends Environment>(env: E): Promise<Chains<E>> {
+export async function getChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>> {
     const existing = envCache.get(env);
-    if (existing) return existing as Promise<Chains<E>>;
+    if (existing) return existing as Promise<ChainAPI<E>>;
 
-    const promise = initChains<E>(env);
-    envCache.set(env, promise as Promise<Chains<Environment>>);
+    const promise = initChainAPI<E>(env);
+    envCache.set(env, promise as Promise<ChainAPI<Environment>>);
     return promise;
 }
 
-async function initChains<E extends Environment>(env: E): Promise<Chains<E>> {
+async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>> {
     const envRpcs = rpcs[env];
     const clientCache = getClientCache();
 
@@ -106,7 +112,7 @@ async function initChains<E extends Environment>(env: E): Promise<Chains<E>> {
     const bClient = createClient(bProvider);
     const iClient = createClient(iProvider);
 
-    // Populate HMR cache so getContractSdk/isConnected/destroy work
+    // Populate HMR cache so utility functions (isConnected, destroy, etc.) work
     const populateCache = (genesis: string, client: PolkadotClient) => {
         if (!clientCache.has(genesis)) {
             clientCache.set(genesis, {
@@ -121,12 +127,21 @@ async function initChains<E extends Environment>(env: E): Promise<Chains<E>> {
     populateCache(envRpcs.bulletin.genesis, bClient);
     populateCache(envRpcs.individuality.genesis, iClient);
 
+    // Contract SDK on asset hub (where contracts are deployed)
+    const { createInkSdk } = await import("@polkadot-api/sdk-ink");
+    const contracts = createInkSdk(ahClient, { atBest: true });
+
+    // Cache the contract SDK in HMR cache too
+    const ahEntry = clientCache.get(envRpcs.assetHub.genesis);
+    if (ahEntry) ahEntry.contractSdk = contracts;
+
     // Build typed APIs — types flow from descriptors via ReturnType
     const factory = chainFactories[env];
     const apis = factory(ahClient, bClient, iClient);
 
     return {
         ...apis,
+        contracts,
         destroy() {
             for (const { genesis } of Object.values(envRpcs)) {
                 const entry = clientCache.get(genesis);
@@ -137,7 +152,7 @@ async function initChains<E extends Environment>(env: E): Promise<Chains<E>> {
             }
             envCache.delete(env);
         },
-    } as Chains<E>;
+    } as ChainAPI<E>;
 }
 
 /** Destroy all environments. */

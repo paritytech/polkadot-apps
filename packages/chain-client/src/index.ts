@@ -1,6 +1,6 @@
-// Primary API — environment-based typed chains
-export { getChains, destroyAll } from "./chains.js";
-export type { Environment, Chains } from "./chains.js";
+// Primary API — environment-based typed chain API
+export { getChainAPI, destroyAll } from "./chain-api.js";
+export type { Environment, ChainAPI } from "./chain-api.js";
 
 // Utilities for connected chains
 export {
