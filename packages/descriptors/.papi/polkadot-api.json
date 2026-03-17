@@ -1,36 +1,36 @@
 {
-  "version": 0,
-  "descriptorPath": "generated",
-  "entries": {
-    "polkadot_asset_hub": {
-      "chain": "polkadot_asset_hub",
-      "metadata": ".papi/metadata/polkadot_asset_hub.scale",
-      "genesis": "0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f",
-      "codeHash": "0xc9a41123542a13aefbf7f98350fd1284c9eb403385697412d697fc1c955abb65"
-    },
-    "kusama_asset_hub": {
-      "chain": "ksmcc3_asset_hub",
-      "metadata": ".papi/metadata/kusama_asset_hub.scale",
-      "genesis": "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
-      "codeHash": "0xdefa3628d113f815fda8bbf9874c879adec02779df43737d77473347e72138c6"
-    },
-    "paseo_asset_hub": {
-      "chain": "paseo_asset_hub",
-      "metadata": ".papi/metadata/paseo_asset_hub.scale",
-      "genesis": "0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2",
-      "codeHash": "0xc66e1574f0df569b29c04d46ae77aeebb622c79fd582de906913886f7853e74b"
-    },
-    "bulletin": {
-      "wsUrl": "wss://paseo-bulletin-rpc.polkadot.io",
-      "metadata": ".papi/metadata/paseo_bulletin.scale",
-      "genesis": "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea",
-      "codeHash": "0xb1d08a90f72ba20c542f968083aca0a387286affc586ba95fe43a657b639c716"
-    },
-    "individuality": {
-      "wsUrl": "wss://previewnet.substrate.dev/people",
-      "metadata": ".papi/metadata/individuality.scale",
-      "genesis": "0xe583155e68c7b71e9d2443f846eaba0016d0c38aa807884923545a7003f5bef0",
-      "codeHash": "0x99b35abc51f0ea903011f606d5564f4be93e2f81160f2c53bda3f02d026ba175"
+    "version": 0,
+    "descriptorPath": "generated",
+    "entries": {
+        "polkadot_asset_hub": {
+            "chain": "polkadot_asset_hub",
+            "metadata": ".papi/metadata/polkadot_asset_hub.scale",
+            "genesis": "0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f",
+            "codeHash": "0xc9a41123542a13aefbf7f98350fd1284c9eb403385697412d697fc1c955abb65"
+        },
+        "kusama_asset_hub": {
+            "chain": "ksmcc3_asset_hub",
+            "metadata": ".papi/metadata/kusama_asset_hub.scale",
+            "genesis": "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
+            "codeHash": "0xdefa3628d113f815fda8bbf9874c879adec02779df43737d77473347e72138c6"
+        },
+        "paseo_asset_hub": {
+            "chain": "paseo_asset_hub",
+            "metadata": ".papi/metadata/paseo_asset_hub.scale",
+            "genesis": "0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2",
+            "codeHash": "0xc66e1574f0df569b29c04d46ae77aeebb622c79fd582de906913886f7853e74b"
+        },
+        "bulletin": {
+            "wsUrl": "wss://paseo-bulletin-rpc.polkadot.io",
+            "metadata": ".papi/metadata/paseo_bulletin.scale",
+            "genesis": "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea",
+            "codeHash": "0xb1d08a90f72ba20c542f968083aca0a387286affc586ba95fe43a657b639c716"
+        },
+        "individuality": {
+            "wsUrl": "wss://previewnet.substrate.dev/people",
+            "metadata": ".papi/metadata/individuality.scale",
+            "genesis": "0xe583155e68c7b71e9d2443f846eaba0016d0c38aa807884923545a7003f5bef0",
+            "codeHash": "0x99b35abc51f0ea903011f606d5564f4be93e2f81160f2c53bda3f02d026ba175"
+        }
     }
-  }
 }

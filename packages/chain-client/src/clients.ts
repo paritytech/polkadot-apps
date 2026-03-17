@@ -53,20 +53,47 @@ export type ChainAPI<E extends Environment> = ReturnType<(typeof chainFactories)
 
 const rpcs = {
     polkadot: {
-        assetHub: { genesis: polkadot_asset_hub.genesis!, rpcs: ["wss://polkadot-asset-hub-rpc.polkadot.io", "wss://sys.ibp.network/asset-hub-polkadot"] },
+        assetHub: {
+            genesis: polkadot_asset_hub.genesis!,
+            rpcs: [
+                "wss://polkadot-asset-hub-rpc.polkadot.io",
+                "wss://sys.ibp.network/asset-hub-polkadot",
+            ],
+        },
         // Bulletin and individuality only exist on Paseo/Preview-net for now
         bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
-        individuality: { genesis: individuality.genesis!, rpcs: ["wss://previewnet.substrate.dev/people"] },
+        individuality: {
+            genesis: individuality.genesis!,
+            rpcs: ["wss://previewnet.substrate.dev/people"],
+        },
     },
     kusama: {
-        assetHub: { genesis: kusama_asset_hub.genesis!, rpcs: ["wss://kusama-asset-hub-rpc.polkadot.io", "wss://sys.ibp.network/asset-hub-kusama"] },
+        assetHub: {
+            genesis: kusama_asset_hub.genesis!,
+            rpcs: [
+                "wss://kusama-asset-hub-rpc.polkadot.io",
+                "wss://sys.ibp.network/asset-hub-kusama",
+            ],
+        },
         bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
-        individuality: { genesis: individuality.genesis!, rpcs: ["wss://previewnet.substrate.dev/people"] },
+        individuality: {
+            genesis: individuality.genesis!,
+            rpcs: ["wss://previewnet.substrate.dev/people"],
+        },
     },
     paseo: {
-        assetHub: { genesis: paseo_asset_hub.genesis!, rpcs: ["wss://sys.ibp.network/asset-hub-paseo", "wss://asset-hub-paseo-rpc.dwellir.com"] },
+        assetHub: {
+            genesis: paseo_asset_hub.genesis!,
+            rpcs: [
+                "wss://sys.ibp.network/asset-hub-paseo",
+                "wss://asset-hub-paseo-rpc.dwellir.com",
+            ],
+        },
         bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
-        individuality: { genesis: individuality.genesis!, rpcs: ["wss://previewnet.substrate.dev/people"] },
+        individuality: {
+            genesis: individuality.genesis!,
+            rpcs: ["wss://previewnet.substrate.dev/people"],
+        },
     },
 } as const;
 
@@ -102,9 +129,15 @@ async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
 
     // Create providers (handles host routing + smoldot fallback)
     const [ahProvider, bProvider, iProvider] = await Promise.all([
-        createProvider(envRpcs.assetHub.genesis, { rpcs: envRpcs.assetHub.rpcs as unknown as string[] }),
-        createProvider(envRpcs.bulletin.genesis, { rpcs: envRpcs.bulletin.rpcs as unknown as string[] }),
-        createProvider(envRpcs.individuality.genesis, { rpcs: envRpcs.individuality.rpcs as unknown as string[] }),
+        createProvider(envRpcs.assetHub.genesis, {
+            rpcs: envRpcs.assetHub.rpcs as unknown as string[],
+        }),
+        createProvider(envRpcs.bulletin.genesis, {
+            rpcs: envRpcs.bulletin.rpcs as unknown as string[],
+        }),
+        createProvider(envRpcs.individuality.genesis, {
+            rpcs: envRpcs.individuality.rpcs as unknown as string[],
+        }),
     ]);
 
     // Create clients
@@ -146,7 +179,11 @@ async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
             for (const { genesis } of Object.values(envRpcs)) {
                 const entry = clientCache.get(genesis);
                 if (entry) {
-                    try { entry.client.destroy(); } catch { /* already destroyed */ }
+                    try {
+                        entry.client.destroy();
+                    } catch {
+                        /* already destroyed */
+                    }
                     clientCache.delete(genesis);
                 }
             }
