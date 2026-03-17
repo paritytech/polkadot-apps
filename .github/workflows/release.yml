@@ -1,7 +1,9 @@
 name: Release
 
 on:
-    push:
+    workflow_run:
+        workflows: [CI]
+        types: [completed]
         branches: [main]
 
 permissions:
@@ -9,8 +11,7 @@ permissions:
 
 jobs:
     release:
-        # Skip bot commits (from version bump commits pushed by this workflow)
-        if: github.actor != 'github-actions[bot]'
+        if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.actor.login != 'github-actions[bot]'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
