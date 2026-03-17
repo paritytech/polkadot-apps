@@ -1,5 +1,11 @@
 # @polkadot-apps/address
 
+## 0.3.0
+
+### Minor Changes
+
+- 77b7afb: Implement address utilities: SS58 encode/decode/validate/normalize, H160 derivation (pallet-revive keccak256 + 0xEE padding rule), H160-SS58 round-trip conversion, display truncation, and address comparison
+
 ## 0.2.0
 
 ### Minor Changes

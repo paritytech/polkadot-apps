@@ -3,6 +3,10 @@ import { sha256 } from "@noble/hashes/sha2.js";
 
 export { hkdf, extract, expand } from "@noble/hashes/hkdf.js";
 
+/**
+ * HKDF-SHA256 key derivation.
+ * Returns a 32-byte derived key. Accepts string or Uint8Array for salt and info.
+ */
 export function deriveKey(
     ikm: Uint8Array,
     salt: Uint8Array | string,
