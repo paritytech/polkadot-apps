@@ -1,101 +1,63 @@
 import type { ChainDefinition, PolkadotClient, TypedApi } from "polkadot-api";
-import { createClient } from "polkadot-api";
 import { getClientCache, clearClientCache } from "./hmr.js";
-import { getChainMeta } from "./registry.js";
-import { createProvider } from "./providers.js";
-import type { ChainEntry } from "./types.js";
 
 function extractGenesis(descriptor: ChainDefinition): string {
     const genesis = descriptor.genesis;
     if (!genesis) {
         throw new Error(
             "Descriptor has no genesis hash. " +
-                "Upgrade polkadot-api (run `papi add` again) or use registerChain() for this chain.",
+                "Upgrade polkadot-api (run `papi add` again).",
         );
     }
     return genesis;
 }
 
 /**
- * Get a fully typed PAPI API for a chain.
+ * Get a fully typed PAPI API for a chain that is already connected via getChains().
  *
- * Lazily initializes a singleton client per genesis hash.
- * Reads connection details from the built-in well-known registry,
- * or from metadata added via registerChain().
+ * For the primary workflow, use getChains("paseo") instead.
+ * This is useful when you have a different descriptor for an already-connected chain.
  */
-export async function getTypedApi<D extends ChainDefinition>(descriptor: D): Promise<TypedApi<D>> {
+export function getTypedApi<D extends ChainDefinition>(descriptor: D): TypedApi<D> {
     const genesis = extractGenesis(descriptor);
     const cache = getClientCache();
 
-    // Return cached api if available
-    const existing = cache.get(genesis);
-    if (existing?.api.has(descriptor)) {
-        return existing.api.get(descriptor) as TypedApi<D>;
-    }
-
-    // If init is in flight, wait for it then return api
-    if (existing?.initPromise) {
-        await existing.initPromise;
-        if (existing.api.has(descriptor)) {
-            return existing.api.get(descriptor) as TypedApi<D>;
-        }
-        // Client exists but this descriptor hasn't been used yet
-        const api = existing.client.getTypedApi(descriptor);
-        existing.api.set(descriptor, api);
-        return api;
-    }
-
-    // If client exists but no initPromise (already resolved), create api
-    if (existing?.client) {
-        const api = existing.client.getTypedApi(descriptor);
-        existing.api.set(descriptor, api);
-        return api;
-    }
-
-    // New chain — initialize
-    const meta = getChainMeta(genesis);
-    if (!meta) {
+    const entry = cache.get(genesis);
+    if (!entry?.client) {
         throw new Error(
-            `Unknown chain (genesis: ${genesis}). ` +
-                `Call registerChain("${genesis}", { rpcs: [...] }) to add connection details.`,
+            `Chain not connected (genesis: ${genesis}). ` +
+                `Call getChains() first to establish connections.`,
         );
     }
 
-    const entry: ChainEntry = {
-        client: null!,
-        api: new Map(),
-        contractSdk: null,
-        initPromise: null,
-    };
+    // Return cached api if available for this descriptor
+    if (entry.api.has(descriptor)) {
+        return entry.api.get(descriptor) as TypedApi<D>;
+    }
 
-    // Set initPromise SYNCHRONOUSLY before any await to prevent
-    // React StrictMode double-effects and concurrent callers from duplicating.
-    entry.initPromise = (async () => {
-        const provider = await createProvider(genesis, meta);
-        entry.client = createClient(provider);
-    })();
-    cache.set(genesis, entry);
-
-    await entry.initPromise;
-    entry.initPromise = null;
-
+    // Create and cache for this descriptor
     const api = entry.client.getTypedApi(descriptor);
     entry.api.set(descriptor, api);
     return api;
 }
 
 /**
- * Get the raw PolkadotClient for a chain.
- * Triggers lazy initialization if not yet connected.
+ * Get the raw PolkadotClient for a connected chain.
  */
-export async function getClient(descriptor: ChainDefinition): Promise<PolkadotClient> {
-    await getTypedApi(descriptor);
+export function getClient(descriptor: ChainDefinition): PolkadotClient {
     const genesis = extractGenesis(descriptor);
-    return getClientCache().get(genesis)!.client;
+    const entry = getClientCache().get(genesis);
+    if (!entry?.client) {
+        throw new Error(
+            `Chain not connected (genesis: ${genesis}). ` +
+                `Call getChains() first to establish connections.`,
+        );
+    }
+    return entry.client;
 }
 
 /**
- * Get a contract SDK instance for a chain.
+ * Get a contract SDK instance for a connected chain.
  * Dynamically imports @polkadot-api/sdk-ink — zero cost if never called.
  * Cached per chain.
  */
@@ -106,7 +68,7 @@ export async function getContractSdk(descriptor: ChainDefinition): Promise<unkno
 
     if (entry?.contractSdk) return entry.contractSdk;
 
-    const client = await getClient(descriptor);
+    const client = getClient(descriptor);
     const { createInkSdk } = await import("@polkadot-api/sdk-ink");
     const sdk = createInkSdk(client, { atBest: true });
 
@@ -141,18 +103,3 @@ export function destroy(descriptor: ChainDefinition): void {
         cache.delete(genesis);
     }
 }
-
-/**
- * Destroy all chain clients. Use for app shutdown.
- */
-export function destroyAll(): void {
-    clearClientCache();
-}
-
-// TODO: Add in-source tests for clients.ts once we have a mock ChainDefinition fixture.
-// Tests needed:
-// - getTypedApi reads descriptor.genesis for cache lookup
-// - getTypedApi deduplicates concurrent calls for same genesis hash
-// - isConnected returns true only for initialized chains
-// - destroy() clears single cache entry
-// - destroyAll() clears entire cache

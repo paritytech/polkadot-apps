@@ -23,6 +23,7 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
+        "@polkadot-apps/descriptors": "workspace:*",
         "polkadot-api": "catalog:"
     },
     "peerDependencies": {
