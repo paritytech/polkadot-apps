@@ -1,0 +1,10 @@
+{
+    "$schema": "https://typedoc.org/schema.json",
+    "entryPoints": ["packages/*"],
+    "entryPointStrategy": "packages",
+    "out": "docs",
+    "name": "Polkadot Apps",
+    "excludePrivate": true,
+    "excludeInternal": true,
+    "cleanOutputDir": true
+}
