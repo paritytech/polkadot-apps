@@ -1,80 +1,181 @@
-import type { ChainDefinition, PolkadotClient, TypedApi } from "polkadot-api";
+import type { ChainDefinition, PolkadotClient } from "polkadot-api";
+import { createClient } from "polkadot-api";
+import {
+    polkadot_asset_hub,
+    kusama_asset_hub,
+    paseo_asset_hub,
+    bulletin,
+    individuality,
+} from "@polkadot-apps/descriptors";
+import { createProvider } from "./providers.js";
 import { getClientCache, clearClientCache } from "./hmr.js";
+import type { ChainEntry } from "./types.js";
 
-function extractGenesis(descriptor: ChainDefinition): string {
-    const genesis = descriptor.genesis;
-    if (!genesis) {
-        throw new Error(
-            "Descriptor has no genesis hash. " +
-                "Upgrade polkadot-api (run `papi add` again).",
-        );
-    }
-    return genesis;
+export type Environment = "polkadot" | "kusama" | "paseo";
+
+// Typed factories per environment — types flow directly from descriptors
+function createPolkadotChains(ah: PolkadotClient, b: PolkadotClient, i: PolkadotClient) {
+    return {
+        assetHub: ah.getTypedApi(polkadot_asset_hub),
+        bulletin: b.getTypedApi(bulletin),
+        individuality: i.getTypedApi(individuality),
+    };
+}
+function createKusamaChains(ah: PolkadotClient, b: PolkadotClient, i: PolkadotClient) {
+    return {
+        assetHub: ah.getTypedApi(kusama_asset_hub),
+        bulletin: b.getTypedApi(bulletin),
+        individuality: i.getTypedApi(individuality),
+    };
+}
+function createPaseoChains(ah: PolkadotClient, b: PolkadotClient, i: PolkadotClient) {
+    return {
+        assetHub: ah.getTypedApi(paseo_asset_hub),
+        bulletin: b.getTypedApi(bulletin),
+        individuality: i.getTypedApi(individuality),
+    };
 }
 
+const chainFactories = {
+    polkadot: createPolkadotChains,
+    kusama: createKusamaChains,
+    paseo: createPaseoChains,
+} as const;
+
+type InkModule = typeof import("@polkadot-api/sdk-ink");
+type ContractSdk = ReturnType<InkModule["createInkSdk"]>;
+
+/** Fully typed chain API for an environment, derived from descriptors. */
+export type ChainAPI<E extends Environment> = ReturnType<(typeof chainFactories)[E]> & {
+    contracts: ContractSdk;
+    destroy: () => void;
+};
+
+const rpcs = {
+    polkadot: {
+        assetHub: { genesis: polkadot_asset_hub.genesis!, rpcs: ["wss://polkadot-asset-hub-rpc.polkadot.io", "wss://sys.ibp.network/asset-hub-polkadot"] },
+        // Bulletin and individuality only exist on Paseo/Preview-net for now
+        bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
+        individuality: { genesis: individuality.genesis!, rpcs: ["wss://previewnet.substrate.dev/people"] },
+    },
+    kusama: {
+        assetHub: { genesis: kusama_asset_hub.genesis!, rpcs: ["wss://kusama-asset-hub-rpc.polkadot.io", "wss://sys.ibp.network/asset-hub-kusama"] },
+        bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
+        individuality: { genesis: individuality.genesis!, rpcs: ["wss://previewnet.substrate.dev/people"] },
+    },
+    paseo: {
+        assetHub: { genesis: paseo_asset_hub.genesis!, rpcs: ["wss://sys.ibp.network/asset-hub-paseo", "wss://asset-hub-paseo-rpc.dwellir.com"] },
+        bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
+        individuality: { genesis: individuality.genesis!, rpcs: ["wss://previewnet.substrate.dev/people"] },
+    },
+} as const;
+
+const envCache = new Map<Environment, Promise<ChainAPI<Environment>>>();
+
 /**
- * Get a fully typed PAPI API for a chain that is already connected via getChains().
+ * Get the typed chain API for a given environment.
  *
- * For the primary workflow, use getChains("paseo") instead.
- * This is useful when you have a different descriptor for an already-connected chain.
+ * Returns asset hub, bulletin, individuality, and contracts — fully typed from descriptors.
+ * Connections use host routing (via product-sdk) when inside a container,
+ * falling back to direct RPC.
+ *
+ * @example
+ * ```ts
+ * const api = await getChainAPI("paseo")
+ * await api.assetHub.query.System.Account.getValue(addr)
+ * await api.bulletin.query.TransactionStorage.ByteFee.getValue()
+ * const contract = api.contracts.getContract(descriptor, address)
+ * ```
  */
-export function getTypedApi<D extends ChainDefinition>(descriptor: D): TypedApi<D> {
-    const genesis = extractGenesis(descriptor);
-    const cache = getClientCache();
+export async function getChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>> {
+    const existing = envCache.get(env);
+    if (existing) return existing as Promise<ChainAPI<E>>;
 
-    const entry = cache.get(genesis);
-    if (!entry?.client) {
-        throw new Error(
-            `Chain not connected (genesis: ${genesis}). ` +
-                `Call getChains() first to establish connections.`,
-        );
-    }
+    const promise = initChainAPI<E>(env);
+    envCache.set(env, promise as Promise<ChainAPI<Environment>>);
+    return promise;
+}
 
-    // Return cached api if available for this descriptor
-    if (entry.api.has(descriptor)) {
-        return entry.api.get(descriptor) as TypedApi<D>;
-    }
+async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>> {
+    const envRpcs = rpcs[env];
+    const clientCache = getClientCache();
 
-    // Create and cache for this descriptor
-    const api = entry.client.getTypedApi(descriptor);
-    entry.api.set(descriptor, api);
-    return api;
+    // Create providers (handles host routing + smoldot fallback)
+    const [ahProvider, bProvider, iProvider] = await Promise.all([
+        createProvider(envRpcs.assetHub.genesis, { rpcs: envRpcs.assetHub.rpcs as unknown as string[] }),
+        createProvider(envRpcs.bulletin.genesis, { rpcs: envRpcs.bulletin.rpcs as unknown as string[] }),
+        createProvider(envRpcs.individuality.genesis, { rpcs: envRpcs.individuality.rpcs as unknown as string[] }),
+    ]);
+
+    // Create clients
+    const ahClient = createClient(ahProvider);
+    const bClient = createClient(bProvider);
+    const iClient = createClient(iProvider);
+
+    // Populate HMR cache so utility functions (isConnected, destroy, etc.) work
+    const populateCache = (genesis: string, client: PolkadotClient) => {
+        if (!clientCache.has(genesis)) {
+            clientCache.set(genesis, {
+                client,
+                api: new Map(),
+                contractSdk: null,
+                initPromise: null,
+            } satisfies ChainEntry);
+        }
+    };
+    populateCache(envRpcs.assetHub.genesis, ahClient);
+    populateCache(envRpcs.bulletin.genesis, bClient);
+    populateCache(envRpcs.individuality.genesis, iClient);
+
+    // Contract SDK on asset hub (where contracts are deployed)
+    const { createInkSdk } = await import("@polkadot-api/sdk-ink");
+    const contracts = createInkSdk(ahClient, { atBest: true });
+
+    // Cache the contract SDK in HMR cache too
+    const ahEntry = clientCache.get(envRpcs.assetHub.genesis);
+    if (ahEntry) ahEntry.contractSdk = contracts;
+
+    // Build typed APIs — types flow from descriptors via ReturnType
+    const factory = chainFactories[env];
+    const apis = factory(ahClient, bClient, iClient);
+
+    return {
+        ...apis,
+        contracts,
+        destroy() {
+            for (const { genesis } of Object.values(envRpcs)) {
+                const entry = clientCache.get(genesis);
+                if (entry) {
+                    try { entry.client.destroy(); } catch { /* already destroyed */ }
+                    clientCache.delete(genesis);
+                }
+            }
+            envCache.delete(env);
+        },
+    } as ChainAPI<E>;
+}
+
+/** Destroy all environments. */
+export function destroyAll(): void {
+    clearClientCache();
+    envCache.clear();
 }
 
 /**
  * Get the raw PolkadotClient for a connected chain.
+ * The chain must have been initialized via getChainAPI() first.
  */
 export function getClient(descriptor: ChainDefinition): PolkadotClient {
-    const genesis = extractGenesis(descriptor);
+    const genesis = descriptor.genesis;
+    if (!genesis) throw new Error("Descriptor has no genesis hash.");
     const entry = getClientCache().get(genesis);
     if (!entry?.client) {
         throw new Error(
             `Chain not connected (genesis: ${genesis}). ` +
-                `Call getChains() first to establish connections.`,
+                `Call getChainAPI() first to establish connections.`,
         );
     }
     return entry.client;
-}
-
-/**
- * Get a contract SDK instance for a connected chain.
- * Dynamically imports @polkadot-api/sdk-ink — zero cost if never called.
- * Cached per chain.
- */
-export async function getContractSdk(descriptor: ChainDefinition): Promise<unknown> {
-    const genesis = extractGenesis(descriptor);
-    const cache = getClientCache();
-    const entry = cache.get(genesis);
-
-    if (entry?.contractSdk) return entry.contractSdk;
-
-    const client = getClient(descriptor);
-    const { createInkSdk } = await import("@polkadot-api/sdk-ink");
-    const sdk = createInkSdk(client, { atBest: true });
-
-    const cached = cache.get(genesis)!;
-    cached.contractSdk = sdk;
-    return sdk;
 }
 
 /**
@@ -85,21 +186,4 @@ export function isConnected(descriptor: ChainDefinition): boolean {
     const genesis = descriptor.genesis;
     if (!genesis) return false;
     return getClientCache().has(genesis);
-}
-
-/**
- * Destroy the client for a single chain.
- */
-export function destroy(descriptor: ChainDefinition): void {
-    const genesis = extractGenesis(descriptor);
-    const cache = getClientCache();
-    const entry = cache.get(genesis);
-    if (entry) {
-        try {
-            entry.client.destroy();
-        } catch {
-            // client may already be destroyed
-        }
-        cache.delete(genesis);
-    }
 }
