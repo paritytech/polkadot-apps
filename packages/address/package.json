@@ -19,7 +19,7 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
-        "@polkadot-api/substrate-bindings": "^0.17.0",
+        "@polkadot-api/substrate-bindings": "catalog:",
         "polkadot-api": "catalog:"
     },
     "devDependencies": {

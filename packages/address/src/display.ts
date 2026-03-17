@@ -36,66 +36,70 @@ export function addressesEqual(a: string, b: string): boolean {
 }
 
 if (import.meta.vitest) {
-    const { test, expect } = import.meta.vitest;
+    const { describe, test, expect } = import.meta.vitest;
 
-    test("truncateAddress with defaults", () => {
-        const addr = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
-        expect(truncateAddress(addr)).toBe("5Grwva...utQY");
+    describe("truncateAddress", () => {
+        test("truncates with defaults", () => {
+            const addr = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+            expect(truncateAddress(addr)).toBe("5Grwva...utQY");
+        });
+
+        test("truncates with custom lengths", () => {
+            const addr = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+            expect(truncateAddress(addr, 4, 3)).toBe("5Grw...tQY");
+        });
+
+        test("returns short addresses unchanged", () => {
+            expect(truncateAddress("5Grw")).toBe("5Grw");
+            expect(truncateAddress("")).toBe("");
+        });
+
+        test("works with H160", () => {
+            const addr = "0x9621dde636de098b43efb0fa9b61facfe328f99d";
+            expect(truncateAddress(addr, 6, 4)).toBe("0x9621...f99d");
+        });
     });
 
-    test("truncateAddress with custom lengths", () => {
-        const addr = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
-        expect(truncateAddress(addr, 4, 3)).toBe("5Grw...tQY");
-    });
+    describe("addressesEqual", () => {
+        test("exact match", () => {
+            const addr = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+            expect(addressesEqual(addr, addr)).toBe(true);
+        });
 
-    test("truncateAddress returns short addresses unchanged", () => {
-        expect(truncateAddress("5Grw")).toBe("5Grw");
-        expect(truncateAddress("")).toBe("");
-    });
+        test("H160 case-insensitive", () => {
+            expect(
+                addressesEqual(
+                    "0x9621DDE636DE098B43EFB0FA9B61FACFE328F99D",
+                    "0x9621dde636de098b43efb0fa9b61facfe328f99d",
+                ),
+            ).toBe(true);
+        });
 
-    test("truncateAddress works with H160", () => {
-        const addr = "0x9621dde636de098b43efb0fa9b61facfe328f99d";
-        expect(truncateAddress(addr, 6, 4)).toBe("0x9621...f99d");
-    });
+        test("returns false for different addresses", () => {
+            expect(
+                addressesEqual(
+                    "0x9621dde636de098b43efb0fa9b61facfe328f99d",
+                    "0x0000000000000000000000000000000000000000",
+                ),
+            ).toBe(false);
+        });
 
-    test("addressesEqual exact match", () => {
-        const addr = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
-        expect(addressesEqual(addr, addr)).toBe(true);
-    });
+        test("returns false for different SS58 addresses", () => {
+            expect(
+                addressesEqual(
+                    "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+                    "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+                ),
+            ).toBe(false);
+        });
 
-    test("addressesEqual H160 case-insensitive", () => {
-        expect(
-            addressesEqual(
-                "0x9621DDE636DE098B43EFB0FA9B61FACFE328F99D",
-                "0x9621dde636de098b43efb0fa9b61facfe328f99d",
-            ),
-        ).toBe(true);
-    });
-
-    test("addressesEqual returns false for different addresses", () => {
-        expect(
-            addressesEqual(
-                "0x9621dde636de098b43efb0fa9b61facfe328f99d",
-                "0x0000000000000000000000000000000000000000",
-            ),
-        ).toBe(false);
-    });
-
-    test("addressesEqual returns false for different SS58 addresses", () => {
-        expect(
-            addressesEqual(
-                "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-                "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
-            ),
-        ).toBe(false);
-    });
-
-    test("addressesEqual returns false for mixed types (SS58 vs H160)", () => {
-        expect(
-            addressesEqual(
-                "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-                "0x9621dde636de098b43efb0fa9b61facfe328f99d",
-            ),
-        ).toBe(false);
+        test("returns false for mixed types (SS58 vs H160)", () => {
+            expect(
+                addressesEqual(
+                    "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+                    "0x9621dde636de098b43efb0fa9b61facfe328f99d",
+                ),
+            ).toBe(false);
+        });
     });
 }

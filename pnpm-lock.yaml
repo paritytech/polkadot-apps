@@ -12,6 +12,9 @@ catalogs:
     '@noble/hashes':
       specifier: ^2.0.1
       version: 2.0.1
+    '@polkadot-api/substrate-bindings':
+      specifier: ^0.17.0
+      version: 0.17.0
     dexie:
       specifier: ^4.0.11
       version: 4.3.0
@@ -57,7 +60,7 @@ importers:
   packages/address:
     dependencies:
       '@polkadot-api/substrate-bindings':
-        specifier: ^0.17.0
+        specifier: 'catalog:'
         version: 0.17.0
       polkadot-api:
         specifier: 'catalog:'

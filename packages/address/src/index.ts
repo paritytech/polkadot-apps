@@ -3,6 +3,8 @@ export {
     ss58Decode,
     ss58Encode,
     normalizeSs58,
+    toGenericSs58,
+    toPolkadotSs58,
     accountIdFromBytes,
     accountIdBytes,
 } from "./ss58.js";

@@ -3,14 +3,11 @@ import { AccountId, Keccak256 } from "@polkadot-api/substrate-bindings";
 const EVM_DERIVED_MARKER = 0xee;
 const H160_BYTE_LEN = 20;
 const ACCOUNTID_BYTE_LEN = 32;
-const PADDING_LEN = ACCOUNTID_BYTE_LEN - H160_BYTE_LEN;
 
 function bytesToHex(bytes: Uint8Array): string {
-    let hex = "";
-    for (let i = 0; i < bytes.length; i++) {
-        hex += bytes[i].toString(16).padStart(2, "0");
-    }
-    return hex;
+    return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
 }
 
 function hexToBytes(hex: string): Uint8Array {
@@ -98,7 +95,7 @@ export function isValidH160(address: string): boolean {
 }
 
 if (import.meta.vitest) {
-    const { test, expect } = import.meta.vitest;
+    const { describe, test, expect } = import.meta.vitest;
 
     const ALICE_PUBKEY = new Uint8Array([
         0xd4, 0x35, 0x93, 0xc7, 0x15, 0xfd, 0xd3, 0x1c, 0x61, 0x14, 0x1a, 0xbd, 0x04, 0xa9, 0x9f,
@@ -108,83 +105,92 @@ if (import.meta.vitest) {
     const ALICE_SS58 = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
     const ALICE_EVM = "0x9621dde636de098b43efb0fa9b61facfe328f99d";
 
-    test("deriveH160 derives EVM address from native sr25519 key (keccak path)", () => {
-        const result = deriveH160(ALICE_PUBKEY);
-        expect(result.toLowerCase()).toBe(ALICE_EVM);
+    describe("deriveH160", () => {
+        test("derives EVM address from native sr25519 key (keccak path)", () => {
+            const result = deriveH160(ALICE_PUBKEY);
+            expect(result.toLowerCase()).toBe(ALICE_EVM);
+        });
+
+        test("recovers H160 from EVM-derived account (0xEE padding)", () => {
+            const evmAddr = "0x1234567890abcdef1234567890abcdef12345678";
+            const padded = new Uint8Array(32);
+            padded.set(hexToBytes(evmAddr.slice(2)), 0);
+            for (let i = 20; i < 32; i++) {
+                padded[i] = 0xee;
+            }
+            const result = deriveH160(padded);
+            expect(result.toLowerCase()).toBe(evmAddr.toLowerCase());
+        });
+
+        test("throws on wrong-length input", () => {
+            expect(() => deriveH160(new Uint8Array(20))).toThrow("Expected 32-byte");
+            expect(() => deriveH160(new Uint8Array(0))).toThrow("Expected 32-byte");
+        });
     });
 
-    test("deriveH160 recovers H160 from EVM-derived account (0xEE padding)", () => {
-        const evmAddr = "0x1234567890abcdef1234567890abcdef12345678";
-        const padded = new Uint8Array(32);
-        padded.set(hexToBytes(evmAddr.slice(2)), 0);
-        for (let i = 20; i < 32; i++) {
-            padded[i] = 0xee;
-        }
-        const result = deriveH160(padded);
-        expect(result.toLowerCase()).toBe(evmAddr.toLowerCase());
+    describe("ss58ToH160", () => {
+        test("converts SS58 to H160", () => {
+            const result = ss58ToH160(ALICE_SS58);
+            expect(result.toLowerCase()).toBe(ALICE_EVM);
+        });
     });
 
-    test("deriveH160 throws on wrong-length input", () => {
-        expect(() => deriveH160(new Uint8Array(20))).toThrow("Expected 32-byte");
-        expect(() => deriveH160(new Uint8Array(0))).toThrow("Expected 32-byte");
+    describe("h160ToSs58", () => {
+        test("round-trips with toH160 for EVM-derived addresses", () => {
+            const original = "0x9621dde636de098b43efb0fa9b61facfe328f99d";
+            const ss58 = h160ToSs58(original);
+            const recovered = toH160(ss58);
+            expect(recovered.toLowerCase()).toBe(original.toLowerCase());
+        });
+
+        test("throws on wrong-length input", () => {
+            expect(() => h160ToSs58("0x1234")).toThrow("Invalid H160");
+            expect(() => h160ToSs58("not-an-address")).toThrow("Invalid H160");
+        });
+
+        test("throws on invalid hex characters", () => {
+            expect(() => h160ToSs58("0xZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ")).toThrow(
+                "Invalid H160",
+            );
+        });
+
+        test("accepts non-default prefix", () => {
+            const addr = "0x9621dde636de098b43efb0fa9b61facfe328f99d";
+            const polkadot = h160ToSs58(addr, 0);
+            const generic = h160ToSs58(addr, 42);
+            expect(polkadot).not.toBe(generic);
+            expect(toH160(polkadot)).toBe(addr);
+            expect(toH160(generic)).toBe(addr);
+        });
     });
 
-    test("ss58ToH160 converts SS58 to H160", () => {
-        const result = ss58ToH160(ALICE_SS58);
-        expect(result.toLowerCase()).toBe(ALICE_EVM);
+    describe("toH160", () => {
+        test("passes through H160 addresses preserving casing", () => {
+            const checksummed = "0x9621DDE636DE098B43EFB0FA9B61FACFE328F99D";
+            expect(toH160(checksummed)).toBe(checksummed);
+        });
+
+        test("converts SS58 to H160", () => {
+            const result = toH160(ALICE_SS58);
+            expect(result.toLowerCase()).toBe(ALICE_EVM);
+        });
+
+        test("throws for 0x-prefixed non-H160 strings", () => {
+            expect(() => toH160("0x1234")).toThrow();
+        });
     });
 
-    test("h160ToSs58 and toH160 round-trip for EVM-derived addresses", () => {
-        const original = "0x9621dde636de098b43efb0fa9b61facfe328f99d";
-        const ss58 = h160ToSs58(original);
-        const recovered = toH160(ss58);
-        expect(recovered.toLowerCase()).toBe(original.toLowerCase());
-    });
+    describe("isValidH160", () => {
+        test("accepts valid addresses", () => {
+            expect(isValidH160("0x9621dde636de098b43efb0fa9b61facfe328f99d")).toBe(true);
+            expect(isValidH160("0x0000000000000000000000000000000000000000")).toBe(true);
+        });
 
-    test("h160ToSs58 throws on wrong-length input", () => {
-        expect(() => h160ToSs58("0x1234")).toThrow("Invalid H160");
-        expect(() => h160ToSs58("not-an-address")).toThrow("Invalid H160");
-    });
-
-    test("h160ToSs58 throws on invalid hex characters", () => {
-        expect(() => h160ToSs58("0xZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ")).toThrow(
-            "Invalid H160",
-        );
-    });
-
-    test("h160ToSs58 with non-default prefix", () => {
-        const addr = "0x9621dde636de098b43efb0fa9b61facfe328f99d";
-        const polkadot = h160ToSs58(addr, 0);
-        const generic = h160ToSs58(addr, 42);
-        expect(polkadot).not.toBe(generic);
-        // Both should round-trip back to the same H160
-        expect(toH160(polkadot)).toBe(addr);
-        expect(toH160(generic)).toBe(addr);
-    });
-
-    test("toH160 passes through H160 addresses preserving casing", () => {
-        const checksummed = "0x9621DDE636DE098B43EFB0FA9B61FACFE328F99D";
-        expect(toH160(checksummed)).toBe(checksummed);
-    });
-
-    test("toH160 throws for 0x-prefixed non-H160 strings", () => {
-        expect(() => toH160("0x1234")).toThrow();
-    });
-
-    test("toH160 converts SS58 to H160", () => {
-        const result = toH160(ALICE_SS58);
-        expect(result.toLowerCase()).toBe(ALICE_EVM);
-    });
-
-    test("isValidH160 accepts valid addresses", () => {
-        expect(isValidH160("0x9621dde636de098b43efb0fa9b61facfe328f99d")).toBe(true);
-        expect(isValidH160("0x0000000000000000000000000000000000000000")).toBe(true);
-    });
-
-    test("isValidH160 rejects invalid inputs", () => {
-        expect(isValidH160("0x1234")).toBe(false);
-        expect(isValidH160("not-hex")).toBe(false);
-        expect(isValidH160("")).toBe(false);
-        expect(isValidH160("9621dde636de098b43efb0fa9b61facfe328f99d")).toBe(false);
+        test("rejects invalid inputs", () => {
+            expect(isValidH160("0x1234")).toBe(false);
+            expect(isValidH160("not-hex")).toBe(false);
+            expect(isValidH160("")).toBe(false);
+            expect(isValidH160("9621dde636de098b43efb0fa9b61facfe328f99d")).toBe(false);
+        });
     });
 }
