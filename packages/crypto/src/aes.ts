@@ -1,13 +1,9 @@
 const NONCE_LENGTH = 12;
 
 async function importKey(key: Uint8Array, usage: "encrypt" | "decrypt"): Promise<CryptoKey> {
-    return crypto.subtle.importKey(
-        "raw",
-        key as unknown as ArrayBuffer,
-        { name: "AES-GCM" },
-        false,
-        [usage],
-    );
+    return crypto.subtle.importKey("raw", key as Uint8Array<ArrayBuffer>, { name: "AES-GCM" }, false, [
+        usage,
+    ]);
 }
 
 export async function aesGcmEncrypt(
@@ -17,9 +13,9 @@ export async function aesGcmEncrypt(
     const nonce = crypto.getRandomValues(new Uint8Array(NONCE_LENGTH));
     const imported = await importKey(key, "encrypt");
     const ciphertext = await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: nonce as unknown as ArrayBuffer },
+        { name: "AES-GCM", iv: nonce },
         imported,
-        data as unknown as ArrayBuffer,
+        data as Uint8Array<ArrayBuffer>,
     );
     return { ciphertext: new Uint8Array(ciphertext), nonce };
 }
@@ -31,9 +27,9 @@ export async function aesGcmDecrypt(
 ): Promise<Uint8Array> {
     const imported = await importKey(key, "decrypt");
     const plaintext = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: nonce as unknown as ArrayBuffer },
+        { name: "AES-GCM", iv: nonce as Uint8Array<ArrayBuffer> },
         imported,
-        ciphertext as unknown as ArrayBuffer,
+        ciphertext as Uint8Array<ArrayBuffer>,
     );
     return new Uint8Array(plaintext);
 }
