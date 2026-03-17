@@ -1,5 +1,12 @@
 # @polkadot-apps/bulletin
 
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [77b7afb]
+  - @polkadot-apps/address@0.3.0
+
 ## 0.1.4
 
 ### Patch Changes
