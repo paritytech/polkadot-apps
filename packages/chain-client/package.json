@@ -8,6 +8,10 @@
         ".": {
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js"
+        },
+        "./testing": {
+            "types": "./dist/testing.d.ts",
+            "import": "./dist/testing.js"
         }
     },
     "files": ["dist"],
@@ -19,7 +23,6 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
-        "@polkadot-apps/address": "workspace:*",
         "polkadot-api": "catalog:"
     },
     "peerDependencies": {
@@ -29,6 +32,10 @@
         "@novasamatech/product-sdk": {
             "optional": true
         }
+    },
+    "optionalDependencies": {
+        "@polkadot-api/sdk-ink": "^0.6.2",
+        "@polkadot-api/known-chains": "*"
     },
     "devDependencies": {
         "typescript": "catalog:"
