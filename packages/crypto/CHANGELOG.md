@@ -1,5 +1,11 @@
 # @polkadot-apps/crypto
 
+## 0.2.0
+
+### Minor Changes
+
+- 62a0051: Implement crypto primitives: AES-256-GCM, HKDF-SHA256 deriveKey, NaCl sealed box, and encoding utilities
+
 ## 0.1.3
 
 ### Patch Changes
