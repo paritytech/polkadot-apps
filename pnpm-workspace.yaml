@@ -14,3 +14,5 @@ catalog:
     vitest: ^3.1.4
     "@types/node": ^24.10.1
     "@polkadot-api/substrate-bindings": ^0.17.0
+    "@polkadot-labs/hdkd": ^0.0.26
+    "@polkadot-labs/hdkd-helpers": ^0.0.27

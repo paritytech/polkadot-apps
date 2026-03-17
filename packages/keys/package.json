@@ -1,0 +1,31 @@
+{
+    "name": "@polkadot-apps/keys",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "files": ["dist"],
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "@polkadot-apps/address": "workspace:*",
+        "@polkadot-apps/crypto": "workspace:*",
+        "@polkadot-labs/hdkd": "catalog:",
+        "@polkadot-labs/hdkd-helpers": "catalog:",
+        "polkadot-api": "catalog:"
+    },
+    "devDependencies": {
+        "typescript": "catalog:"
+    }
+}
