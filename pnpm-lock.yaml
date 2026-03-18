@@ -196,6 +196,25 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  packages/tx:
+    dependencies:
+      '@polkadot-apps/logger':
+        specifier: workspace:*
+        version: link:../logger
+      '@polkadot-labs/hdkd':
+        specifier: 'catalog:'
+        version: 0.0.26
+      '@polkadot-labs/hdkd-helpers':
+        specifier: 'catalog:'
+        version: 0.0.27
+      polkadot-api:
+        specifier: 'catalog:'
+        version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
 packages:
 
   '@adraffy/ens-normalize@1.11.1':
