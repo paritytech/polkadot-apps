@@ -21,10 +21,10 @@ jobs:
             name: github-pages
             url: ${{ steps.deployment.outputs.page_url }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
 
             - uses: pnpm/action-setup@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                   node-version: "22"
 
@@ -32,7 +32,7 @@ jobs:
             - run: pnpm build
 
             - name: Generate docs
-              run: pnpm docs
+              run: pnpm run docs
 
             - uses: actions/configure-pages@v5
 
