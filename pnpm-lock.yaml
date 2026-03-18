@@ -118,6 +118,12 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  packages/logger:
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   packages/storage:
     dependencies:
       '@novasamatech/product-sdk':
