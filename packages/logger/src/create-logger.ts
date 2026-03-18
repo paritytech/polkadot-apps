@@ -1,5 +1,5 @@
-import { LEVEL_VALUES, getEffectiveLevel, state } from "./state.js";
-import type { LogEntry, LogLevel, Logger } from "./types.js";
+import { LEVEL_VALUES, getEffectiveLevel, state } from "./state";
+import type { LogEntry, LogLevel, Logger } from "./types";
 
 const CONSOLE_METHODS: Record<LogLevel, (...args: unknown[]) => void> = {
     error: console.error,
@@ -45,8 +45,8 @@ export function createLogger(namespace: string): Logger {
 
 if (import.meta.vitest) {
     const { test, expect, describe, beforeEach } = import.meta.vitest;
-    const { configure } = await import("./configure.js");
-    const { resetState } = await import("./state.js");
+    const { configure } = await import("./configure");
+    const { resetState } = await import("./state");
 
     beforeEach(() => resetState());
 
