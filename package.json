@@ -8,12 +8,14 @@
         "clean": "turbo clean",
         "test": "vitest run",
         "format": "biome format --write .",
-        "format:check": "biome format ."
+        "format:check": "biome format .",
+        "docs": "typedoc"
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
         "@changesets/cli": "^2.29.8",
         "turbo": "catalog:",
+        "typedoc": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:"
     }
