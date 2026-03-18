@@ -15,7 +15,7 @@
         "@biomejs/biome": "catalog:",
         "@changesets/cli": "^2.29.8",
         "turbo": "catalog:",
-        "typedoc": "^0.28.0",
+        "typedoc": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:"
     }

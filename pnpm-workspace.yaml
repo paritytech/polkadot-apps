@@ -14,3 +14,4 @@ catalog:
     vitest: ^3.1.4
     "@types/node": ^24.10.1
     "@polkadot-api/substrate-bindings": ^0.17.0
+    typedoc: ^0.28.0

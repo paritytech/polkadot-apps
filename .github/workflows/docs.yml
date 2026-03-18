@@ -29,6 +29,7 @@ jobs:
                   node-version: "22"
 
             - run: pnpm install
+            - run: pnpm build
 
             - name: Generate docs
               run: pnpm docs
