@@ -1,6 +1,6 @@
 {
-    "name": "@polkadot-apps/address",
-    "version": "0.3.0",
+    "name": "@polkadot-apps/keys",
+    "version": "0.1.0",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -20,7 +20,10 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
-        "@polkadot-api/substrate-bindings": "catalog:",
+        "@polkadot-apps/address": "workspace:*",
+        "@polkadot-apps/crypto": "workspace:*",
+        "@polkadot-labs/hdkd": "catalog:",
+        "@polkadot-labs/hdkd-helpers": "catalog:",
         "polkadot-api": "catalog:"
     },
     "devDependencies": {
