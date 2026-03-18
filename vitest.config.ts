@@ -1,9 +1,6 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-    resolve: {
-        conditions: ["source"],
-    },
     test: {
         globals: true,
         includeSource: ["packages/*/src/**/*.ts"],
@@ -11,10 +8,5 @@ export default defineConfig({
         exclude: ["**/node_modules/**", "**/dist/**"],
         reporters: "verbose",
         environment: "node",
-        server: {
-            deps: {
-                inline: [/@polkadot-apps\/.*/],
-            },
-        },
     },
 });
