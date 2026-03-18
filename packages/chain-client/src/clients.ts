@@ -273,7 +273,12 @@ if (import.meta.vitest) {
 
     test("destroyAll calls client.destroy() and clears caches", () => {
         let destroyed = false;
-        const trackableClient = { destroy: () => { destroyed = true; }, getTypedApi: () => ({}) } as unknown as PolkadotClient;
+        const trackableClient = {
+            destroy: () => {
+                destroyed = true;
+            },
+            getTypedApi: () => ({}),
+        } as unknown as PolkadotClient;
         seedCache("0xtest", trackableClient);
         envCache.set("paseo", Promise.resolve({} as ChainAPI<"paseo">));
         destroyAll();
