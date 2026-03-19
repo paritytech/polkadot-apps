@@ -13,6 +13,16 @@ import type { ChainEntry } from "./types.js";
 
 export type Environment = "polkadot" | "kusama" | "paseo";
 
+// Cache keys are env-scoped so chains with shared genesis hashes
+// (bulletin/individuality today) don't collide across environments.
+const cacheKey = (env: string, genesis: string) => `${env}:${genesis}`;
+
+function findEntryByGenesis(genesis: string): ChainEntry | undefined {
+    for (const [key, entry] of getClientCache()) {
+        if (key.endsWith(`:${genesis}`)) return entry;
+    }
+}
+
 // Typed factories per environment — types flow directly from descriptors
 function createPolkadotChains(ah: PolkadotClient, b: PolkadotClient, i: PolkadotClient) {
     return {
@@ -147,8 +157,9 @@ async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
 
     // Populate HMR cache so utility functions (isConnected, destroy, etc.) work
     const populateCache = (genesis: string, client: PolkadotClient) => {
-        if (!clientCache.has(genesis)) {
-            clientCache.set(genesis, {
+        const key = cacheKey(env, genesis);
+        if (!clientCache.has(key)) {
+            clientCache.set(key, {
                 client,
                 api: new Map(),
                 contractSdk: null,
@@ -165,7 +176,7 @@ async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
     const contracts = createInkSdk(ahClient, { atBest: true });
 
     // Cache the contract SDK in HMR cache too
-    const ahEntry = clientCache.get(envRpcs.assetHub.genesis);
+    const ahEntry = clientCache.get(cacheKey(env, envRpcs.assetHub.genesis));
     if (ahEntry) ahEntry.contractSdk = contracts;
 
     // Build typed APIs — types flow from descriptors via ReturnType
@@ -177,14 +188,15 @@ async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
         contracts,
         destroy() {
             for (const { genesis } of Object.values(envRpcs)) {
-                const entry = clientCache.get(genesis);
+                const key = cacheKey(env, genesis);
+                const entry = clientCache.get(key);
                 if (entry) {
                     try {
                         entry.client.destroy();
                     } catch {
                         /* already destroyed */
                     }
-                    clientCache.delete(genesis);
+                    clientCache.delete(key);
                 }
             }
             envCache.delete(env);
@@ -205,7 +217,7 @@ export function destroyAll(): void {
 export function getClient(descriptor: ChainDefinition): PolkadotClient {
     const genesis = descriptor.genesis;
     if (!genesis) throw new Error("Descriptor has no genesis hash.");
-    const entry = getClientCache().get(genesis);
+    const entry = findEntryByGenesis(genesis);
     if (!entry?.client) {
         throw new Error(
             `Chain not connected (genesis: ${genesis}). ` +
@@ -222,7 +234,7 @@ export function getClient(descriptor: ChainDefinition): PolkadotClient {
 export function isConnected(descriptor: ChainDefinition): boolean {
     const genesis = descriptor.genesis;
     if (!genesis) return false;
-    return getClientCache().has(genesis);
+    return findEntryByGenesis(genesis) !== undefined;
 }
 
 if (import.meta.vitest) {
@@ -231,8 +243,8 @@ if (import.meta.vitest) {
     const fakeDescriptor = { genesis: "0xtest" } as unknown as ChainDefinition;
     const fakeClient = { destroy: () => {}, getTypedApi: () => ({}) } as unknown as PolkadotClient;
 
-    function seedCache(genesis: string, client: PolkadotClient) {
-        getClientCache().set(genesis, {
+    function seedCache(genesis: string, client: PolkadotClient, env: Environment = "paseo") {
+        getClientCache().set(cacheKey(env, genesis), {
             client,
             api: new Map(),
             contractSdk: null,
@@ -326,6 +338,29 @@ if (import.meta.vitest) {
         expect(paseo_asset_hub.genesis).toBeTruthy();
         expect(bulletin.genesis).toBeTruthy();
         expect(individuality.genesis).toBeTruthy();
+    });
+
+    test("two envs cached independently, destroy one leaves other intact", () => {
+        const sharedGenesis = "0xshared";
+        const clientA = { destroy: () => {} } as PolkadotClient;
+        const clientB = { destroy: () => {} } as PolkadotClient;
+        const descriptorShared = { genesis: sharedGenesis } as ChainDefinition;
+
+        seedCache(sharedGenesis, clientA, "polkadot");
+        seedCache(sharedGenesis, clientB, "kusama");
+
+        // Both envs visible via genesis lookup
+        expect(isConnected(descriptorShared)).toBe(true);
+
+        // Destroy polkadot's entry only
+        const cache = getClientCache();
+        const polkadotKey = cacheKey("polkadot", sharedGenesis);
+        cache.get(polkadotKey)?.client.destroy();
+        cache.delete(polkadotKey);
+
+        // Kusama's entry still alive
+        expect(isConnected(descriptorShared)).toBe(true);
+        expect(getClient(descriptorShared)).toBe(clientB);
     });
 
     test("rpcs defined for all environments", () => {
