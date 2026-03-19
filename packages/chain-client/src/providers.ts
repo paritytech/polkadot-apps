@@ -40,7 +40,7 @@ async function createFallbackProvider(meta: ChainMeta): Promise<JsonRpcProvider 
             throw new Error("rpc mode requires at least one endpoint in rpcs.");
         }
         const { getWsProvider } = await import("polkadot-api/ws-provider/web");
-        return getWsProvider(meta.rpcs);
+        return getWsProvider([...meta.rpcs]);
     }
 
     if (mode === "lightclient") {

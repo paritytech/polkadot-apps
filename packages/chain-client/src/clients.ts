@@ -139,15 +139,9 @@ async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
 
     // Create providers (handles host routing + smoldot fallback)
     const [ahProvider, bProvider, iProvider] = await Promise.all([
-        createProvider(envRpcs.assetHub.genesis, {
-            rpcs: envRpcs.assetHub.rpcs as unknown as string[],
-        }),
-        createProvider(envRpcs.bulletin.genesis, {
-            rpcs: envRpcs.bulletin.rpcs as unknown as string[],
-        }),
-        createProvider(envRpcs.individuality.genesis, {
-            rpcs: envRpcs.individuality.rpcs as unknown as string[],
-        }),
+        createProvider(envRpcs.assetHub.genesis, { rpcs: envRpcs.assetHub.rpcs }),
+        createProvider(envRpcs.bulletin.genesis, { rpcs: envRpcs.bulletin.rpcs }),
+        createProvider(envRpcs.individuality.genesis, { rpcs: envRpcs.individuality.rpcs }),
     ]);
 
     // Create clients
@@ -240,7 +234,7 @@ export function isConnected(descriptor: ChainDefinition): boolean {
 if (import.meta.vitest) {
     const { test, expect, beforeEach } = import.meta.vitest;
 
-    const fakeDescriptor = { genesis: "0xtest" } as unknown as ChainDefinition;
+    const fakeDescriptor = { genesis: "0xtest" } as ChainDefinition;
     const fakeClient = { destroy: () => {}, getTypedApi: () => ({}) } as unknown as PolkadotClient;
 
     function seedCache(genesis: string, client: PolkadotClient, env: Environment = "paseo") {
@@ -307,8 +301,8 @@ if (import.meta.vitest) {
     });
 
     test("getChainAPI returns different results for different environments", async () => {
-        const paseoResult = { env: "paseo" } as unknown as ChainAPI<"paseo">;
-        const polkadotResult = { env: "polkadot" } as unknown as ChainAPI<"polkadot">;
+        const paseoResult = {} as ChainAPI<"paseo">;
+        const polkadotResult = {} as ChainAPI<"polkadot">;
         envCache.set("paseo", Promise.resolve(paseoResult));
         envCache.set("polkadot", Promise.resolve(polkadotResult));
         const a = await getChainAPI("paseo");
