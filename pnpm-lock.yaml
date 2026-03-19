@@ -12,6 +12,9 @@ catalogs:
     '@noble/hashes':
       specifier: ^2.0.1
       version: 2.0.1
+    '@polkadot-api/sdk-ink':
+      specifier: ^0.6.2
+      version: 0.6.2
     '@polkadot-api/substrate-bindings':
       specifier: ^0.17.0
       version: 0.17.0
@@ -106,6 +109,9 @@ importers:
       '@novasamatech/product-sdk':
         specifier: '>=0.1.0'
         version: 0.6.5(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+      '@polkadot-api/sdk-ink':
+        specifier: 'catalog:'
+        version: 0.6.2(@polkadot-api/ink-contracts@0.4.6)(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))(rxjs@7.8.2)(typescript@5.9.3)
       '@polkadot-apps/descriptors':
         specifier: workspace:*
         version: link:../descriptors
@@ -116,13 +122,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
-    optionalDependencies:
-      '@polkadot-api/known-chains':
-        specifier: '*'
-        version: 0.9.18
-      '@polkadot-api/sdk-ink':
-        specifier: ^0.6.2
-        version: 0.6.2(@polkadot-api/ink-contracts@0.4.6)(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))(rxjs@7.8.2)(typescript@5.9.3)
 
   packages/crypto:
     dependencies:
@@ -2416,8 +2415,7 @@ packages:
 
 snapshots:
 
-  '@adraffy/ens-normalize@1.11.1':
-    optional: true
+  '@adraffy/ens-normalize@1.11.1': {}
 
   '@babel/code-frame@7.29.0':
     dependencies:
@@ -2767,8 +2765,7 @@ snapshots:
   '@esbuild/win32-x64@0.27.4':
     optional: true
 
-  '@ethereumjs/rlp@10.1.1':
-    optional: true
+  '@ethereumjs/rlp@10.1.1': {}
 
   '@gerrit0/mini-shiki@3.23.0':
     dependencies:
@@ -2815,13 +2812,11 @@ snapshots:
       globby: 11.1.0
       read-yaml-file: 1.1.0
 
-  '@noble/ciphers@1.3.0':
-    optional: true
+  '@noble/ciphers@1.3.0': {}
 
   '@noble/curves@1.9.1':
     dependencies:
       '@noble/hashes': 1.8.0
-    optional: true
 
   '@noble/curves@1.9.7':
     dependencies:
@@ -2927,7 +2922,6 @@ snapshots:
     dependencies:
       polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
       rxjs: 7.8.2
-    optional: true
 
   '@polkadot-api/descriptors@file:packages/descriptors/generated(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))':
     dependencies:
@@ -3035,7 +3029,6 @@ snapshots:
       - typescript
       - utf-8-validate
       - zod
-    optional: true
 
   '@polkadot-api/signer@0.2.13':
     dependencies:
@@ -3073,7 +3066,6 @@ snapshots:
       '@polkadot-api/utils': 0.2.0
       '@scure/base': 2.0.0
       scale-ts: 1.6.1
-    optional: true
 
   '@polkadot-api/substrate-bindings@0.17.0':
     dependencies:
@@ -3594,13 +3586,11 @@ snapshots:
       '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
-    optional: true
 
   '@scure/bip39@1.6.0':
     dependencies:
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
-    optional: true
 
   '@scure/sr25519@0.2.0':
     dependencies:
@@ -3747,7 +3737,6 @@ snapshots:
   abitype@1.2.3(typescript@5.9.3):
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   acorn@8.16.0: {}
 
@@ -3923,8 +3912,7 @@ snapshots:
     dependencies:
       '@types/estree': 1.0.8
 
-  eventemitter3@5.0.1:
-    optional: true
+  eventemitter3@5.0.1: {}
 
   eventemitter3@5.0.4: {}
 
@@ -4079,7 +4067,6 @@ snapshots:
   isows@1.0.7(ws@8.18.3):
     dependencies:
       ws: 8.18.3
-    optional: true
 
   joycon@3.1.1: {}
 
@@ -4258,7 +4245,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - zod
-    optional: true
 
   p-filter@2.1.0:
     dependencies:
@@ -4708,7 +4694,6 @@ snapshots:
       - bufferutil
       - utf-8-validate
       - zod
-    optional: true
 
   vite-node@3.2.4(@types/node@25.5.0)(yaml@2.8.2):
     dependencies:
@@ -4824,8 +4809,7 @@ snapshots:
       type-fest: 4.41.0
       write-json-file: 6.0.0
 
-  ws@8.18.3:
-    optional: true
+  ws@8.18.3: {}
 
   ws@8.19.0: {}
 

@@ -1,7 +1,6 @@
 import type { ChainEntry } from "./types.js";
 
 declare global {
-    // eslint-disable-next-line no-var
     var __chainClientCache: Map<string, ChainEntry> | undefined;
 }
 

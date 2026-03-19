@@ -4,28 +4,21 @@
  * Uses product-sdk's sandboxProvider as primary detection.
  * Falls back to manual signal checks when product-sdk is not installed.
  */
-export function isInsideContainer(): boolean {
+export async function isInsideContainer(): Promise<boolean> {
     if (typeof window === "undefined") return false;
 
-    // Try product-sdk first (most reliable)
     try {
-        // Dynamic require so it doesn't fail at import time when sdk is absent
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const sdk = require("@novasamatech/product-sdk") as {
-            sandboxProvider: { isCorrectEnvironment: () => boolean };
-        };
+        const sdk = await import("@novasamatech/product-sdk");
         return sdk.sandboxProvider.isCorrectEnvironment();
     } catch {
-        // product-sdk not installed — fall back to manual detection
+        return manualDetection();
     }
-
-    return manualDetection();
 }
 
 function manualDetection(): boolean {
     if (typeof window === "undefined") return false;
 
-    const win = window as unknown as Record<string, unknown>;
+    const win = window;
 
     // Iframe detection (polkadot.com browser)
     try {
@@ -47,7 +40,7 @@ function manualDetection(): boolean {
 if (import.meta.vitest) {
     const { test, expect } = import.meta.vitest;
 
-    test("returns false in Node environment (no window)", () => {
-        expect(isInsideContainer()).toBe(false);
+    test("returns false in Node environment (no window)", async () => {
+        expect(await isInsideContainer()).toBe(false);
     });
 }
