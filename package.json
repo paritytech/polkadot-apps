@@ -9,6 +9,7 @@
         "test": "vitest run",
         "format": "biome format --write .",
         "format:check": "biome format .",
+        "generate-descriptors": "bash packages/descriptors/scripts/generate.sh",
         "docs": "typedoc"
     },
     "devDependencies": {

@@ -1,9 +1,4 @@
-export const foo = "chain-client";
-
-if (import.meta.vitest) {
-    const { test, expect } = import.meta.vitest;
-
-    test("foo is chain-client", () => {
-        expect(foo).toBe("chain-client");
-    });
-}
+export { getChainAPI, destroyAll, getClient, isConnected } from "./clients.js";
+export type { Environment, ChainAPI } from "./clients.js";
+export { isInsideContainer } from "./container.js";
+export type { ChainMeta, ConnectionMode } from "./types.js";

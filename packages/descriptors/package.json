@@ -1,0 +1,35 @@
+{
+    "name": "@polkadot-apps/descriptors",
+    "version": "0.0.1",
+    "type": "module",
+    "main": "./generated/dist/index.mjs",
+    "types": "./generated/dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./generated/dist/index.d.ts",
+            "module": "./generated/dist/index.mjs",
+            "import": "./generated/dist/index.mjs",
+            "require": "./generated/dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "sideEffects": false,
+    "files": ["generated/dist"],
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "generate": "bash scripts/generate.sh",
+        "build": "test -d generated/dist || papi",
+        "clean": "rm -rf generated"
+    },
+    "peerDependencies": {
+        "polkadot-api": ">=1.23.0"
+    },
+    "devDependencies": {
+        "polkadot-api": "catalog:"
+    },
+    "dependencies": {
+        "@polkadot-api/descriptors": "file:generated"
+    }
+}
