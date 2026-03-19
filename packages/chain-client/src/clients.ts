@@ -7,6 +7,7 @@ import {
     bulletin,
     individuality,
 } from "@polkadot-apps/descriptors";
+import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { createProvider } from "./providers.js";
 import { getClientCache, clearClientCache } from "./hmr.js";
 import type { ChainEntry } from "./types.js";
@@ -52,8 +53,7 @@ const chainFactories = {
     paseo: createPaseoChains,
 } as const;
 
-type InkModule = typeof import("@polkadot-api/sdk-ink");
-type ContractSdk = ReturnType<InkModule["createInkSdk"]>;
+type ContractSdk = ReturnType<typeof createInkSdk>;
 
 /** Fully typed chain API for an environment, derived from descriptors. */
 export type ChainAPI<E extends Environment> = ReturnType<(typeof chainFactories)[E]> & {
@@ -166,7 +166,6 @@ async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
     populateCache(envRpcs.individuality.genesis, iClient);
 
     // Contract SDK on asset hub (where contracts are deployed)
-    const { createInkSdk } = await import("@polkadot-api/sdk-ink");
     const contracts = createInkSdk(ahClient, { atBest: true });
 
     // Cache the contract SDK in HMR cache too
