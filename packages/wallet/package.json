@@ -1,0 +1,39 @@
+{
+    "name": "@polkadot-apps/wallet",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./testing": {
+            "types": "./dist/testing.d.ts",
+            "import": "./dist/testing.js"
+        }
+    },
+    "files": ["dist"],
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "polkadot-api": "catalog:"
+    },
+    "peerDependencies": {
+        "@novasamatech/product-sdk": ">=0.1.0"
+    },
+    "peerDependenciesMeta": {
+        "@novasamatech/product-sdk": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "typescript": "catalog:"
+    }
+}
