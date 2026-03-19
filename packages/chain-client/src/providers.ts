@@ -1,6 +1,11 @@
 import type { JsonRpcProvider } from "polkadot-api/ws-provider/web";
-import type { Client } from "polkadot-api/smoldot";
+import type { Client, Chain } from "polkadot-api/smoldot";
 import type { ChainMeta } from "./types.js";
+
+declare global {
+    var __smoldotInstance: Client | undefined;
+    var __relayCache: Map<string, Chain> | undefined;
+}
 
 /**
  * Create a PAPI-compatible JSON-RPC provider for a chain.
@@ -51,21 +56,28 @@ async function createFallbackProvider(meta: ChainMeta): Promise<JsonRpcProvider 
     return null;
 }
 
-// Smoldot singleton — shared across chains
-let smoldotInstance: Client | null = null;
+function getSmoldot(): Client | undefined {
+    return globalThis.__smoldotInstance;
+}
+
+function setSmoldot(client: Client): void {
+    globalThis.__smoldotInstance = client;
+}
+
+function getRelayCache(): Map<string, Chain> {
+    globalThis.__relayCache ??= new Map();
+    return globalThis.__relayCache;
+}
 
 /** Terminate the smoldot worker if running. Called by destroyAll(). */
 export function resetSmoldot(): void {
-    if (smoldotInstance) {
-        smoldotInstance.terminate();
-        smoldotInstance = null;
+    const instance = getSmoldot();
+    if (instance) {
+        instance.terminate();
+        globalThis.__smoldotInstance = undefined;
     }
-    relayCache.clear();
+    getRelayCache().clear();
 }
-
-// Cache relay chains by spec URL/content to avoid duplicate addChain() calls
-// biome-ignore lint: internal cache, type derived from smoldot's addChain return
-const relayCache = new Map<string, any>();
 
 async function createSmoldotProvider(meta: ChainMeta): Promise<JsonRpcProvider | null> {
     if (!meta.relayChainSpec && !meta.paraChainSpec) {
@@ -75,20 +87,24 @@ async function createSmoldotProvider(meta: ChainMeta): Promise<JsonRpcProvider |
     const { start } = await import("polkadot-api/smoldot");
     const { getSmProvider } = await import("polkadot-api/sm-provider");
 
-    if (!smoldotInstance) {
-        smoldotInstance = start();
+    let smoldot = getSmoldot();
+    if (!smoldot) {
+        smoldot = start();
+        setSmoldot(smoldot);
     }
+
+    const cache = getRelayCache();
 
     if (meta.relayChainSpec && meta.paraChainSpec) {
         // Reuse relay chain if already added
-        let relay = relayCache.get(meta.relayChainSpec);
+        let relay = cache.get(meta.relayChainSpec);
         if (!relay) {
             const relaySpec = await fetchChainSpec(meta.relayChainSpec);
-            relay = await smoldotInstance.addChain({ chainSpec: relaySpec });
-            relayCache.set(meta.relayChainSpec, relay);
+            relay = await smoldot.addChain({ chainSpec: relaySpec });
+            cache.set(meta.relayChainSpec, relay);
         }
         const paraSpec = await fetchChainSpec(meta.paraChainSpec);
-        const para = await smoldotInstance.addChain({
+        const para = await smoldot.addChain({
             chainSpec: paraSpec,
             potentialRelayChains: [relay],
         });
@@ -97,7 +113,7 @@ async function createSmoldotProvider(meta: ChainMeta): Promise<JsonRpcProvider |
 
     // Standalone chain (relay chain itself or solo chain)
     const spec = meta.relayChainSpec ?? meta.paraChainSpec;
-    const chain = await smoldotInstance.addChain({
+    const chain = await smoldot.addChain({
         chainSpec: await fetchChainSpec(spec!),
     });
     return getSmProvider(chain);
