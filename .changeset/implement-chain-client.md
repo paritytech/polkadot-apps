@@ -1,15 +1,17 @@
 ---
 "@polkadot-apps/chain-client": minor
+"@polkadot-apps/descriptors": minor
 ---
 
-Implement @polkadot-apps/chain-client with descriptor-driven, zero-config chain connections.
+Add `@polkadot-apps/descriptors` with PAPI-generated typed chain descriptors for Polkadot, Kusama, and Paseo environments (asset hub, bulletin, individuality).
 
-Public API: getTypedApi, getClient, getContractSdk, isConnected, destroy, destroyAll, registerChain, isInsideContainer.
+Implement `@polkadot-apps/chain-client` with descriptor-driven, zero-config chain connections.
+
+Public API: getChainAPI, getClient, isConnected, destroyAll, isInsideContainer.
 
 Features:
+- Environment-based API (polkadot | kusama | paseo) returning fully typed chain access
 - Automatic container detection via @novasamatech/product-sdk with manual fallback
-- Built-in well-known chain registry (Polkadot, Kusama, Paseo + system chains)
-- Lazy singleton clients keyed by genesis hash with HMR survival
-- Smoldot light client support with relay+para chain spec loading
-- Contract SDK via dynamic import (zero cost if unused)
-- Testing subpath export (@polkadot-apps/chain-client/testing) with reset()
+- Env-scoped client caching with HMR survival via globalThis
+- Smoldot light client support with relay chain caching
+- Contract SDK (Ink) on asset hub
