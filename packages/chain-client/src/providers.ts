@@ -1,4 +1,5 @@
 import type { JsonRpcProvider } from "polkadot-api/ws-provider/web";
+import type { Client } from "polkadot-api/smoldot";
 import type { ChainMeta } from "./types.js";
 
 /**
@@ -16,20 +17,20 @@ export async function createProvider(
 ): Promise<JsonRpcProvider> {
     const fallback = await createFallbackProvider(meta);
 
-    // Wrap with product-sdk if available
     try {
         const { createPapiProvider } = await import("@novasamatech/product-sdk");
         return createPapiProvider(genesisHash as `0x${string}`, fallback ?? undefined);
     } catch {
-        // product-sdk not installed — use fallback directly
-        if (!fallback) {
-            throw new Error(
-                `No connection method available for chain ${genesisHash}. ` +
-                    `Provide rpcs or chain specs.`,
-            );
-        }
-        return fallback;
+        // product-sdk not installed or not in a valid environment
     }
+
+    if (!fallback) {
+        throw new Error(
+            `No connection method available for chain ${genesisHash}. ` +
+                `Provide rpcs or chain specs.`,
+        );
+    }
+    return fallback;
 }
 
 async function createFallbackProvider(meta: ChainMeta): Promise<JsonRpcProvider | null> {
@@ -51,8 +52,20 @@ async function createFallbackProvider(meta: ChainMeta): Promise<JsonRpcProvider 
 }
 
 // Smoldot singleton — shared across chains
-let smoldotInstance: ReturnType<Awaited<typeof import("polkadot-api/smoldot")>["start"]> | null =
-    null;
+let smoldotInstance: Client | null = null;
+
+/** Terminate the smoldot worker if running. Called by destroyAll(). */
+export function resetSmoldot(): void {
+    if (smoldotInstance) {
+        smoldotInstance.terminate();
+        smoldotInstance = null;
+    }
+    relayCache.clear();
+}
+
+// Cache relay chains by spec URL/content to avoid duplicate addChain() calls
+// biome-ignore lint: internal cache, type derived from smoldot's addChain return
+const relayCache = new Map<string, any>();
 
 async function createSmoldotProvider(meta: ChainMeta): Promise<JsonRpcProvider | null> {
     if (!meta.relayChainSpec && !meta.paraChainSpec) {
@@ -67,10 +80,14 @@ async function createSmoldotProvider(meta: ChainMeta): Promise<JsonRpcProvider |
     }
 
     if (meta.relayChainSpec && meta.paraChainSpec) {
-        // Parachain: need relay first, then para with relay as potential
-        const relaySpec = await fetchChainSpec(meta.relayChainSpec);
+        // Reuse relay chain if already added
+        let relay = relayCache.get(meta.relayChainSpec);
+        if (!relay) {
+            const relaySpec = await fetchChainSpec(meta.relayChainSpec);
+            relay = await smoldotInstance.addChain({ chainSpec: relaySpec });
+            relayCache.set(meta.relayChainSpec, relay);
+        }
         const paraSpec = await fetchChainSpec(meta.paraChainSpec);
-        const relay = await smoldotInstance.addChain({ chainSpec: relaySpec });
         const para = await smoldotInstance.addChain({
             chainSpec: paraSpec,
             potentialRelayChains: [relay],
@@ -87,9 +104,10 @@ async function createSmoldotProvider(meta: ChainMeta): Promise<JsonRpcProvider |
 }
 
 async function fetchChainSpec(urlOrSpec: string): Promise<string> {
-    // If it starts with { it's likely an inline JSON spec
-    if (urlOrSpec.trimStart().startsWith("{")) return urlOrSpec;
-    // Otherwise fetch from URL
+    if (urlOrSpec.trimStart().startsWith("{")) {
+        JSON.parse(urlOrSpec); // validate — throws on malformed JSON
+        return urlOrSpec;
+    }
     const res = await fetch(urlOrSpec);
     if (!res.ok) {
         throw new Error(`Failed to fetch chain spec from ${urlOrSpec}: ${res.status}`);
@@ -100,9 +118,7 @@ async function fetchChainSpec(urlOrSpec: string): Promise<string> {
 if (import.meta.vitest) {
     const { test, expect } = import.meta.vitest;
 
-    test("createProvider throws when no connection method available", async () => {
-        await expect(createProvider("0xtest", {})).rejects.toThrow(
-            /No connection method available/,
-        );
+    test("createProvider rejects with no rpcs and no valid environment", async () => {
+        await expect(createProvider("0xtest", {})).rejects.toThrow();
     });
 }

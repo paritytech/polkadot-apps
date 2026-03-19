@@ -8,7 +8,7 @@ import {
     individuality,
 } from "@polkadot-apps/descriptors";
 import { createInkSdk } from "@polkadot-api/sdk-ink";
-import { createProvider } from "./providers.js";
+import { createProvider, resetSmoldot } from "./providers.js";
 import { getClientCache, clearClientCache } from "./hmr.js";
 import type { ChainEntry } from "./types.js";
 
@@ -204,6 +204,7 @@ async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
 export function destroyAll(): void {
     clearClientCache();
     envCache.clear();
+    resetSmoldot();
 }
 
 /**
