@@ -1,4 +1,4 @@
-import { clearClientCache } from "./hmr.js";
+import { destroyAll } from "./clients.js";
 
 /**
  * Reset all chain-client state. For use in tests only.
@@ -11,5 +11,5 @@ import { clearClientCache } from "./hmr.js";
  * ```
  */
 export function reset(): void {
-    clearClientCache();
+    destroyAll();
 }

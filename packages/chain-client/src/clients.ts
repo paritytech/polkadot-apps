@@ -128,7 +128,10 @@ export async function getChainAPI<E extends Environment>(env: E): Promise<ChainA
     const existing = envCache.get(env);
     if (existing) return existing as Promise<ChainAPI<E>>;
 
-    const promise = initChainAPI<E>(env);
+    const promise = initChainAPI<E>(env).catch((err) => {
+        envCache.delete(env);
+        throw err;
+    });
     envCache.set(env, promise as Promise<ChainAPI<Environment>>);
     return promise;
 }
