@@ -3,5 +3,6 @@ dist/
 .turbo/
 .DS_Store
 
+coverage/
 reference-repos/
 docs/

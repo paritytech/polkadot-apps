@@ -35,6 +35,9 @@ jobs:
     test:
         name: Test
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: write
         steps:
             - uses: actions/checkout@v4
             - uses: pnpm/action-setup@v4
@@ -43,4 +46,11 @@ jobs:
                   node-version: "22"
             - run: pnpm install
             - run: pnpm build
-            - run: pnpm test
+            - name: Run tests with coverage
+              run: pnpm test:coverage
+            - name: Coverage report on PR
+              if: always() && github.event_name == 'pull_request'
+              uses: davelosert/vitest-coverage-report-action@v2
+              with:
+                  json-summary-path: ./coverage/coverage-summary.json
+                  json-final-path: ./coverage/coverage-final.json
