@@ -1,9 +1,8 @@
-import { resetRegistry } from "./registry.js";
-import { clearClientCache } from "./hmr.js";
+import { destroyAll } from "./clients.js";
 
 /**
  * Reset all chain-client state. For use in tests only.
- * Destroys all active clients and restores the registry to well-known defaults.
+ * Destroys all active clients and clears caches.
  *
  * Usage:
  * ```ts
@@ -12,6 +11,5 @@ import { clearClientCache } from "./hmr.js";
  * ```
  */
 export function reset(): void {
-    clearClientCache();
-    resetRegistry();
+    destroyAll();
 }

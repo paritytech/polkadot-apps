@@ -94,6 +94,9 @@ importers:
       '@novasamatech/product-sdk':
         specifier: '>=0.1.0'
         version: 0.6.5(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+      '@polkadot-apps/descriptors':
+        specifier: workspace:*
+        version: link:../descriptors
       polkadot-api:
         specifier: 'catalog:'
         version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)
@@ -122,11 +125,15 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
-  packages/logger:
+  packages/descriptors:
+    dependencies:
+      '@polkadot-api/descriptors':
+        specifier: file:generated
+        version: file:packages/descriptors/generated(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2))
     devDependencies:
-      typescript:
+      polkadot-api:
         specifier: 'catalog:'
-        version: 5.9.3
+        version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)
 
   packages/storage:
     dependencies:
@@ -673,6 +680,11 @@ packages:
     peerDependencies:
       polkadot-api: '>=1.22.0'
       rxjs: '>=7.8.1'
+
+  '@polkadot-api/descriptors@file:packages/descriptors/generated':
+    resolution: {directory: packages/descriptors/generated, type: directory}
+    peerDependencies:
+      polkadot-api: '>=1.21.0'
 
   '@polkadot-api/ink-contracts@0.4.6':
     resolution: {integrity: sha512-wpFPa8CnGnmq+cFYMzuTEDmtt3ElBM0UWgTz4RpmI9E7knZ1ctWBhO7amXxOWcILqIG6sqWIE95x0cfF1PRcQg==}
@@ -2780,6 +2792,10 @@ snapshots:
       polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)
       rxjs: 7.8.2
     optional: true
+
+  '@polkadot-api/descriptors@file:packages/descriptors/generated(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2))':
+    dependencies:
+      polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)
 
   '@polkadot-api/ink-contracts@0.4.6':
     dependencies:

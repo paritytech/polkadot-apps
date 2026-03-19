@@ -5,7 +5,7 @@ export type ConnectionMode = "rpc" | "lightclient";
 
 /** Connection metadata for a chain, keyed by genesis hash in the registry. */
 export interface ChainMeta {
-    rpcs?: string[];
+    rpcs?: readonly string[];
     relayChainSpec?: string;
     paraChainSpec?: string;
     mode?: ConnectionMode;

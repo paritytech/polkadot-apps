@@ -4,7 +4,6 @@ on:
     push:
         branches: [main]
     pull_request:
-        branches: [main]
 
 jobs:
     format:
@@ -41,4 +40,5 @@ jobs:
               with:
                   node-version: "22"
             - run: pnpm install
+            - run: pnpm build
             - run: pnpm test
