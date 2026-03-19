@@ -1,6 +1,6 @@
 {
     "name": "@polkadot-apps/descriptors",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "type": "module",
     "main": "./generated/dist/index.mjs",
     "types": "./generated/dist/index.d.ts",
