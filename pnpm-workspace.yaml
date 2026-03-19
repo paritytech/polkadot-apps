@@ -3,7 +3,7 @@ packages:
 
 catalog:
     polkadot-api: ^1.23.3
-    "@novasamatech/product-sdk": ^0.4.0
+    "@novasamatech/product-sdk": ^0.6.0
     dexie: ^4.0.11
     tweetnacl: ^1.0.3
     "@noble/hashes": ^2.0.1
