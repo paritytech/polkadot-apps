@@ -6,6 +6,10 @@
             "dependsOn": ["^build"],
             "outputs": ["dist/**"]
         },
+        "@polkadot-apps/descriptors#build": {
+            "dependsOn": ["^build"],
+            "outputs": ["generated/dist/**"]
+        },
         "dev": {
             "cache": false,
             "persistent": true

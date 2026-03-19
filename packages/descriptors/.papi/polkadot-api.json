@@ -22,12 +22,12 @@
         },
         "bulletin": {
             "wsUrl": "wss://paseo-bulletin-rpc.polkadot.io",
-            "metadata": ".papi/metadata/paseo_bulletin.scale",
+            "metadata": ".papi/metadata/bulletin.scale",
             "genesis": "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea",
             "codeHash": "0xb1d08a90f72ba20c542f968083aca0a387286affc586ba95fe43a657b639c716"
         },
         "individuality": {
-            "wsUrl": "wss://previewnet.substrate.dev/people",
+            "wsUrl": "wss://pop3-testnet.parity-lab.parity.io/people",
             "metadata": ".papi/metadata/individuality.scale",
             "genesis": "0xe583155e68c7b71e9d2443f846eaba0016d0c38aa807884923545a7003f5bef0",
             "codeHash": "0x99b35abc51f0ea903011f606d5564f4be93e2f81160f2c53bda3f02d026ba175"

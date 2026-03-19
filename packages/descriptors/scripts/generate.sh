@@ -17,7 +17,7 @@ echo "==> Adding bulletin (Paseo)..."
 npx papi add bulletin -w wss://paseo-bulletin-rpc.polkadot.io --skip-codegen
 
 echo "==> Adding individuality (Preview-net)..."
-npx papi add individuality -w wss://previewnet.substrate.dev/people --skip-codegen
+npx papi add individuality -w wss://pop3-testnet.parity-lab.parity.io/people --skip-codegen
 
 echo "==> Generating TypeScript descriptors..."
 npx papi

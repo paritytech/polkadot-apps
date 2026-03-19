@@ -74,7 +74,7 @@ const rpcs = {
         bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
         individuality: {
             genesis: individuality.genesis!,
-            rpcs: ["wss://previewnet.substrate.dev/people"],
+            rpcs: ["wss://pop3-testnet.parity-lab.parity.io/people"],
         },
     },
     kusama: {
@@ -88,7 +88,7 @@ const rpcs = {
         bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
         individuality: {
             genesis: individuality.genesis!,
-            rpcs: ["wss://previewnet.substrate.dev/people"],
+            rpcs: ["wss://pop3-testnet.parity-lab.parity.io/people"],
         },
     },
     paseo: {
@@ -102,7 +102,7 @@ const rpcs = {
         bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
         individuality: {
             genesis: individuality.genesis!,
-            rpcs: ["wss://previewnet.substrate.dev/people"],
+            rpcs: ["wss://pop3-testnet.parity-lab.parity.io/people"],
         },
     },
 } as const;
