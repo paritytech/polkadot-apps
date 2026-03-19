@@ -9,12 +9,14 @@
         "test": "vitest run",
         "format": "biome format --write .",
         "format:check": "biome format .",
-        "generate-descriptors": "bash packages/descriptors/scripts/generate.sh"
+        "generate-descriptors": "bash packages/descriptors/scripts/generate.sh",
+        "docs": "typedoc"
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
         "@changesets/cli": "^2.29.8",
         "turbo": "catalog:",
+        "typedoc": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:"
     }
