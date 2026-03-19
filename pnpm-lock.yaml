@@ -122,7 +122,7 @@ importers:
         version: 0.9.18
       '@polkadot-api/sdk-ink':
         specifier: ^0.6.2
-        version: 0.6.2(@polkadot-api/ink-contracts@0.4.6)(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2))(rxjs@7.8.2)(typescript@5.9.3)
+        version: 0.6.2(@polkadot-api/ink-contracts@0.4.6)(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))(rxjs@7.8.2)(typescript@5.9.3)
 
   packages/crypto:
     dependencies:
@@ -141,11 +141,12 @@ importers:
     dependencies:
       '@polkadot-api/descriptors':
         specifier: file:generated
-        version: file:packages/descriptors/generated(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2))
+        version: file:packages/descriptors/generated(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))
     devDependencies:
       polkadot-api:
         specifier: 'catalog:'
-        version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)
+        version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
+
   packages/keys:
     dependencies:
       '@polkadot-apps/address':
@@ -637,6 +638,7 @@ packages:
     resolution: {integrity: sha512-jbnWTEwcpoY+gE0r+wxfDG9zgiu54DcTcwnc9sX3DsqKR4l5K7x2V8mQL3Et6hURa4DuT9g7z6ukwpBLFchszg==}
     engines: {node: '>=20'}
     hasBin: true
+
   '@gerrit0/mini-shiki@3.23.0':
     resolution: {integrity: sha512-bEMORlG0cqdjVyCEuU0cDQbORWX+kYCeo0kV1lbxF5bt4r7SID2l9bqsxJEM0zndaxpOUT7riCyIVEuqq/Ynxg==}
 
@@ -2767,6 +2769,7 @@ snapshots:
 
   '@ethereumjs/rlp@10.1.1':
     optional: true
+
   '@gerrit0/mini-shiki@3.23.0':
     dependencies:
       '@shikijs/engine-oniguruma': 3.23.0
@@ -2920,15 +2923,15 @@ snapshots:
       '@polkadot-api/substrate-bindings': 0.17.0
       '@polkadot-api/utils': 0.2.0
 
-  '@polkadot-api/common-sdk-utils@0.2.0(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2))(rxjs@7.8.2)':
+  '@polkadot-api/common-sdk-utils@0.2.0(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))(rxjs@7.8.2)':
     dependencies:
-      polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)
+      polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
       rxjs: 7.8.2
     optional: true
 
-  '@polkadot-api/descriptors@file:packages/descriptors/generated(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2))':
+  '@polkadot-api/descriptors@file:packages/descriptors/generated(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))':
     dependencies:
-      polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)
+      polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
 
   '@polkadot-api/ink-contracts@0.4.6':
     dependencies:
@@ -3017,14 +3020,14 @@ snapshots:
     dependencies:
       '@polkadot-api/json-rpc-provider': 0.0.4
 
-  '@polkadot-api/sdk-ink@0.6.2(@polkadot-api/ink-contracts@0.4.6)(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2))(rxjs@7.8.2)(typescript@5.9.3)':
+  '@polkadot-api/sdk-ink@0.6.2(@polkadot-api/ink-contracts@0.4.6)(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))(rxjs@7.8.2)(typescript@5.9.3)':
     dependencies:
       '@ethereumjs/rlp': 10.1.1
-      '@polkadot-api/common-sdk-utils': 0.2.0(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2))(rxjs@7.8.2)
+      '@polkadot-api/common-sdk-utils': 0.2.0(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))(rxjs@7.8.2)
       '@polkadot-api/ink-contracts': 0.4.6
       '@polkadot-api/substrate-bindings': 0.16.6
       abitype: 1.2.3(typescript@5.9.3)
-      polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)
+      polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
       rxjs: 7.8.2
       viem: 2.47.4(typescript@5.9.3)
     transitivePeerDependencies:
