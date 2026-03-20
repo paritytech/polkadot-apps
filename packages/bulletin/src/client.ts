@@ -90,7 +90,6 @@ export class BulletinClient {
     gatewayUrl(cid: string): string {
         return gatewayUrl(cid, this.gateway);
     }
-
 }
 
 if (import.meta.vitest) {

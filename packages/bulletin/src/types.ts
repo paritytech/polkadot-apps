@@ -59,4 +59,3 @@ export interface FetchOptions {
     /** Timeout in ms. Default: 30_000. */
     timeoutMs?: number;
 }
-
