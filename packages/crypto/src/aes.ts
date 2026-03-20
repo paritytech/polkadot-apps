@@ -1,115 +1,202 @@
-const NONCE_LENGTH = 12;
+import { gcm } from "@noble/ciphers/aes.js";
+import { randomBytes } from "@noble/hashes/utils.js";
 
+const NONCE_LENGTH = 12;
 const AES_KEY_LENGTH = 32;
 
-async function importKey(key: Uint8Array, usage: "encrypt" | "decrypt"): Promise<CryptoKey> {
+function validateKey(key: Uint8Array): void {
     if (key.length !== AES_KEY_LENGTH) {
         throw new Error(`AES-256-GCM requires a 32-byte key, got ${key.length}`);
     }
-    return crypto.subtle.importKey(
-        "raw",
-        key as Uint8Array<ArrayBuffer>,
-        { name: "AES-GCM" },
-        false,
-        [usage],
-    );
 }
 
 /**
  * Encrypt binary data with AES-256-GCM.
- * Generates a random 12-byte nonce.
+ *
+ * Generates a random 12-byte nonce and returns it alongside the ciphertext.
+ * The ciphertext includes the 16-byte authentication tag appended by GCM.
+ *
+ * @param data - Binary data to encrypt.
+ * @param key - 32-byte AES-256 key.
+ * @returns Object containing the `ciphertext` and the random `nonce` used.
+ * @throws If `key` is not exactly 32 bytes.
+ *
+ * @example
+ * ```ts
+ * import { aesGcmEncrypt, aesGcmDecrypt } from "@polkadot-apps/crypto";
+ * import { randomBytes } from "@polkadot-apps/crypto";
+ *
+ * const key = randomBytes(32);
+ * const { ciphertext, nonce } = aesGcmEncrypt(data, key);
+ * const plaintext = aesGcmDecrypt(ciphertext, key, nonce);
+ * ```
  */
-export async function aesGcmEncrypt(
+export function aesGcmEncrypt(
     data: Uint8Array,
     key: Uint8Array,
-): Promise<{ ciphertext: Uint8Array; nonce: Uint8Array }> {
-    const nonce = crypto.getRandomValues(new Uint8Array(NONCE_LENGTH));
-    const imported = await importKey(key, "encrypt");
-    const ciphertext = await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: nonce },
-        imported,
-        data as Uint8Array<ArrayBuffer>,
-    );
-    return { ciphertext: new Uint8Array(ciphertext), nonce };
+): { ciphertext: Uint8Array; nonce: Uint8Array } {
+    validateKey(key);
+    const nonce = randomBytes(NONCE_LENGTH);
+    const aes = gcm(key, nonce);
+    const ciphertext = aes.encrypt(data);
+    return { ciphertext, nonce };
 }
 
 /**
  * Decrypt binary data with AES-256-GCM.
+ *
+ * @param ciphertext - Data to decrypt (includes the 16-byte GCM auth tag).
+ * @param key - 32-byte AES-256 key (must match the encryption key).
+ * @param nonce - 12-byte nonce used during encryption.
+ * @returns The decrypted plaintext as a `Uint8Array`.
+ * @throws If `key` is not 32 bytes, or if decryption/authentication fails.
  */
-export async function aesGcmDecrypt(
+export function aesGcmDecrypt(
     ciphertext: Uint8Array,
     key: Uint8Array,
     nonce: Uint8Array,
-): Promise<Uint8Array> {
-    const imported = await importKey(key, "decrypt");
-    const plaintext = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: nonce as Uint8Array<ArrayBuffer> },
-        imported,
-        ciphertext as Uint8Array<ArrayBuffer>,
-    );
-    return new Uint8Array(plaintext);
+): Uint8Array {
+    validateKey(key);
+    const aes = gcm(key, nonce);
+    return aes.decrypt(ciphertext);
 }
 
 /**
- * Encrypt a string with AES-256-GCM.
- * Handles UTF-8 encoding.
+ * Encrypt a UTF-8 string with AES-256-GCM.
+ *
+ * Convenience wrapper that encodes the string to bytes before encrypting.
+ *
+ * @param plaintext - The string to encrypt.
+ * @param key - 32-byte AES-256 key.
+ * @returns Object containing the `ciphertext` and the random `nonce` used.
+ * @throws If `key` is not exactly 32 bytes.
  */
-export async function aesGcmEncryptText(
+export function aesGcmEncryptText(
     plaintext: string,
     key: Uint8Array,
-): Promise<{ ciphertext: Uint8Array; nonce: Uint8Array }> {
+): { ciphertext: Uint8Array; nonce: Uint8Array } {
     return aesGcmEncrypt(new TextEncoder().encode(plaintext), key);
 }
 
 /**
- * Decrypt to a string with AES-256-GCM.
- * Handles UTF-8 decoding.
+ * Decrypt AES-256-GCM ciphertext back to a UTF-8 string.
+ *
+ * @param ciphertext - Data to decrypt.
+ * @param key - 32-byte AES-256 key.
+ * @param nonce - 12-byte nonce used during encryption.
+ * @returns The decrypted plaintext string.
+ * @throws If decryption or authentication fails.
  */
-export async function aesGcmDecryptText(
+export function aesGcmDecryptText(
     ciphertext: Uint8Array,
     key: Uint8Array,
     nonce: Uint8Array,
-): Promise<string> {
-    const data = await aesGcmDecrypt(ciphertext, key, nonce);
+): string {
+    const data = aesGcmDecrypt(ciphertext, key, nonce);
     return new TextDecoder().decode(data);
+}
+
+/**
+ * Encrypt binary data with AES-256-GCM, returning a single packed buffer.
+ *
+ * Output format: `nonce(12) || ciphertext`. This is the convention used by
+ * the triangle-js-sdks session encryption and mark3t file encryption.
+ *
+ * @param data - Binary data to encrypt.
+ * @param key - 32-byte AES-256 key.
+ * @returns Single `Uint8Array` with nonce prepended to ciphertext.
+ * @throws If `key` is not exactly 32 bytes.
+ *
+ * @example
+ * ```ts
+ * const packed = aesGcmEncryptPacked(data, key);
+ * const plaintext = aesGcmDecryptPacked(packed, key);
+ * ```
+ */
+export function aesGcmEncryptPacked(data: Uint8Array, key: Uint8Array): Uint8Array {
+    const { ciphertext, nonce } = aesGcmEncrypt(data, key);
+    const result = new Uint8Array(NONCE_LENGTH + ciphertext.length);
+    result.set(nonce, 0);
+    result.set(ciphertext, NONCE_LENGTH);
+    return result;
+}
+
+/**
+ * Decrypt a packed AES-256-GCM buffer (nonce prepended to ciphertext).
+ *
+ * Input format: `nonce(12) || ciphertext`.
+ *
+ * @param packed - The packed buffer to decrypt.
+ * @param key - 32-byte AES-256 key.
+ * @returns The decrypted plaintext as a `Uint8Array`.
+ * @throws If `key` is not 32 bytes, the packed data is too short, or authentication fails.
+ */
+export function aesGcmDecryptPacked(packed: Uint8Array, key: Uint8Array): Uint8Array {
+    if (packed.length < NONCE_LENGTH + 16) {
+        throw new Error("Packed data too short");
+    }
+    const nonce = packed.subarray(0, NONCE_LENGTH);
+    const ciphertext = packed.subarray(NONCE_LENGTH);
+    return aesGcmDecrypt(ciphertext, key, nonce);
 }
 
 if (import.meta.vitest) {
     const { test, expect } = import.meta.vitest;
-    const { randomBytes } = await import("@noble/hashes/utils.js");
 
-    test("text round-trip", async () => {
+    test("text round-trip", () => {
         const key = randomBytes(32);
         const message = "hello world";
-        const { ciphertext, nonce } = await aesGcmEncryptText(message, key);
-        const decrypted = await aesGcmDecryptText(ciphertext, key, nonce);
+        const { ciphertext, nonce } = aesGcmEncryptText(message, key);
+        const decrypted = aesGcmDecryptText(ciphertext, key, nonce);
         expect(decrypted).toBe(message);
     });
 
-    test("binary round-trip", async () => {
+    test("binary round-trip", () => {
         const key = randomBytes(32);
         const data = randomBytes(64);
-        const { ciphertext, nonce } = await aesGcmEncrypt(data, key);
-        const decrypted = await aesGcmDecrypt(ciphertext, key, nonce);
+        const { ciphertext, nonce } = aesGcmEncrypt(data, key);
+        const decrypted = aesGcmDecrypt(ciphertext, key, nonce);
         expect(decrypted).toEqual(data);
     });
 
-    test("wrong key fails", async () => {
+    test("wrong key fails", () => {
         const key = randomBytes(32);
         const wrongKey = randomBytes(32);
-        const { ciphertext, nonce } = await aesGcmEncryptText("secret", key);
-        await expect(aesGcmDecryptText(ciphertext, wrongKey, nonce)).rejects.toThrow();
+        const { ciphertext, nonce } = aesGcmEncryptText("secret", key);
+        expect(() => aesGcmDecryptText(ciphertext, wrongKey, nonce)).toThrow();
     });
 
-    test("rejects non-32-byte key", async () => {
-        await expect(aesGcmEncryptText("test", randomBytes(16))).rejects.toThrow("32-byte key");
-        await expect(aesGcmEncryptText("test", randomBytes(64))).rejects.toThrow("32-byte key");
+    test("rejects non-32-byte key", () => {
+        expect(() => aesGcmEncryptText("test", randomBytes(16))).toThrow("32-byte key");
+        expect(() => aesGcmEncryptText("test", randomBytes(64))).toThrow("32-byte key");
     });
 
-    test("unique nonces per encryption", async () => {
+    test("unique nonces per encryption", () => {
         const key = randomBytes(32);
-        const a = await aesGcmEncryptText("test", key);
-        const b = await aesGcmEncryptText("test", key);
+        const a = aesGcmEncryptText("test", key);
+        const b = aesGcmEncryptText("test", key);
         expect(a.nonce).not.toEqual(b.nonce);
+    });
+
+    test("packed binary round-trip", () => {
+        const key = randomBytes(32);
+        const data = randomBytes(100);
+        const packed = aesGcmEncryptPacked(data, key);
+        const decrypted = aesGcmDecryptPacked(packed, key);
+        expect(decrypted).toEqual(data);
+    });
+
+    test("packed output length is nonce + ciphertext", () => {
+        const key = randomBytes(32);
+        const data = randomBytes(50);
+        const packed = aesGcmEncryptPacked(data, key);
+        // GCM adds a 16-byte auth tag
+        expect(packed.length).toBe(12 + 50 + 16);
+    });
+
+    test("packed rejects truncated data", () => {
+        expect(() => aesGcmDecryptPacked(new Uint8Array(10), randomBytes(32))).toThrow(
+            "Packed data too short",
+        );
     });
 }

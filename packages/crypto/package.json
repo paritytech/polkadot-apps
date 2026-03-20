@@ -20,6 +20,7 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
+        "@noble/ciphers": "catalog:",
         "@noble/hashes": "catalog:",
         "tweetnacl": "catalog:"
     },
