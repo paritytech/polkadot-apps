@@ -371,4 +371,28 @@ if (import.meta.vitest) {
             expect(envRpcs.individuality.genesis).toBeTruthy();
         }
     });
+
+    test("chain factories return typed APIs", () => {
+        const mockApi = { query: {} };
+        const mockClient = { getTypedApi: () => mockApi } as unknown as PolkadotClient;
+
+        const polkadotChains = createPolkadotChains(mockClient, mockClient, mockClient);
+        expect(polkadotChains.assetHub).toBe(mockApi);
+        expect(polkadotChains.bulletin).toBe(mockApi);
+        expect(polkadotChains.individuality).toBe(mockApi);
+
+        const kusamaChains = createKusamaChains(mockClient, mockClient, mockClient);
+        expect(kusamaChains.assetHub).toBe(mockApi);
+        expect(kusamaChains.bulletin).toBe(mockApi);
+        expect(kusamaChains.individuality).toBe(mockApi);
+
+        const paseoChains = createPaseoChains(mockClient, mockClient, mockClient);
+        expect(paseoChains.assetHub).toBe(mockApi);
+        expect(paseoChains.bulletin).toBe(mockApi);
+        expect(paseoChains.individuality).toBe(mockApi);
+    });
+
+    test("findEntryByGenesis returns undefined for missing genesis", () => {
+        expect(findEntryByGenesis("0xnonexistent")).toBeUndefined();
+    });
 }

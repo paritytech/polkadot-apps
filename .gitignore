@@ -3,6 +3,7 @@ dist/
 .turbo/
 .DS_Store
 
+coverage/
 .pnpm-store/
 reference-repos/
 docs/

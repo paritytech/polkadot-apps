@@ -52,3 +52,53 @@ export function resetState(): void {
     state.namespaces = undefined;
     state.handler = undefined;
 }
+
+if (import.meta.vitest) {
+    const { test, expect } = import.meta.vitest;
+
+    test("LEVEL_VALUES has correct ordering", () => {
+        expect(LEVEL_VALUES.error).toBeLessThan(LEVEL_VALUES.warn);
+        expect(LEVEL_VALUES.warn).toBeLessThan(LEVEL_VALUES.info);
+        expect(LEVEL_VALUES.info).toBeLessThan(LEVEL_VALUES.debug);
+    });
+
+    test("getEffectiveLevel returns default when namespace not in set", () => {
+        state.namespaces = new Set(["auth"]);
+        state.level = "debug";
+        // "network" is not in the set, so should return default (warn = 1)
+        expect(getEffectiveLevel("network")).toBe(LEVEL_VALUES.warn);
+        // "auth" is in the set, so should return configured level
+        expect(getEffectiveLevel("auth")).toBe(LEVEL_VALUES.debug);
+        resetState();
+    });
+
+    test("getEffectiveLevel returns configured level when no namespace filter", () => {
+        state.level = "info";
+        state.namespaces = undefined;
+        expect(getEffectiveLevel("anything")).toBe(LEVEL_VALUES.info);
+        resetState();
+    });
+
+    test("resetState restores defaults", () => {
+        state.level = "debug";
+        state.namespaces = new Set(["test"]);
+        state.handler = () => {};
+        resetState();
+        expect(state.level).toBe("warn");
+        expect(state.namespaces).toBeUndefined();
+        expect(state.handler).toBeUndefined();
+    });
+
+    test("readEnv returns undefined for missing keys", () => {
+        expect(readEnv("POLKADOT_APPS_NONEXISTENT_KEY_12345")).toBeUndefined();
+    });
+
+    test("getInitialLevel returns default for invalid env value", () => {
+        // getInitialLevel already ran at module load; test the logic indirectly
+        expect(getInitialLevel()).toBe("warn");
+    });
+
+    test("getInitialNamespaces returns undefined when env not set", () => {
+        expect(getInitialNamespaces()).toBeUndefined();
+    });
+}
