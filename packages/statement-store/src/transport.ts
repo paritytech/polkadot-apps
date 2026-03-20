@@ -286,21 +286,42 @@ function asStringArray(value: unknown): string[] {
 /**
  * Create a statement store transport.
  *
- * When `endpoint` is provided, creates a standalone WebSocket connection.
- * Otherwise, uses the chain-client's bulletin chain client.
+ * Strategy (Host API first):
+ * 1. Try chain-client's bulletin chain connection — this uses product-sdk's
+ *    `createPapiProvider` which routes through the Host API when inside a container,
+ *    falling back to direct RPC outside.
+ * 2. If chain-client is unavailable (not initialized, not installed), fall back
+ *    to a direct WebSocket connection using the provided `endpoint`.
+ * 3. If neither works, throw {@link StatementConnectionError}.
  *
- * @param config - Configuration with either an `endpoint` or relying on chain-client.
+ * @param config - Configuration with an optional fallback `endpoint`.
  * @returns A configured {@link StatementTransport}.
  * @throws {StatementConnectionError} If no connection method is available.
  */
 export async function createTransport(config: {
     endpoint?: string;
 }): Promise<StatementTransport> {
+    // Always try chain-client first (routes through Host API in containers)
+    try {
+        return await createChainClientTransport();
+    } catch (chainClientError) {
+        log.debug("Chain-client transport unavailable, trying direct endpoint", {
+            error:
+                chainClientError instanceof Error
+                    ? chainClientError.message
+                    : String(chainClientError),
+        });
+    }
+
+    // Fall back to direct WebSocket if endpoint is provided
     if (config.endpoint) {
         return createDirectTransport(config.endpoint);
     }
 
-    return createChainClientTransport();
+    throw new StatementConnectionError(
+        "No connection method available. Either initialize chain-client " +
+            "(call getChainAPI() first) or provide an explicit endpoint.",
+    );
 }
 
 async function createDirectTransport(endpoint: string): Promise<RpcTransport> {
@@ -328,9 +349,7 @@ async function createChainClientTransport(): Promise<RpcTransport> {
         return new RpcTransport(client as unknown as RpcClient, false);
     } catch (error) {
         throw new StatementConnectionError(
-            `Failed to get bulletin client from chain-client. ` +
-                `Ensure getChainAPI() has been called first, or provide an explicit endpoint. ` +
-                `${error instanceof Error ? error.message : String(error)}`,
+            `Chain-client bulletin not available: ${error instanceof Error ? error.message : String(error)}`,
             { cause: error instanceof Error ? error : undefined },
         );
     }

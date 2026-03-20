@@ -126,10 +126,11 @@ export interface StatementStoreConfig {
     appName: string;
 
     /**
-     * Direct WebSocket endpoint for the statement store node.
+     * Fallback WebSocket endpoint for the statement store node.
      *
-     * When provided, the client connects directly to this endpoint
-     * instead of using the chain-client's bulletin chain.
+     * The client always tries the chain-client's bulletin chain first
+     * (which uses Host API routing when inside a container). This endpoint
+     * is only used if chain-client is unavailable (not initialized or not installed).
      *
      * @example "wss://paseo-bulletin-rpc.polkadot.io"
      */
