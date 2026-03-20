@@ -108,10 +108,7 @@ function extractRevertReason(value: unknown): string | undefined {
  * applyWeightBuffer(dryRun.weight_required, { percent: 50 });
  * ```
  */
-export function applyWeightBuffer(
-    weight: Weight,
-    options?: { percent?: number },
-): Weight {
+export function applyWeightBuffer(weight: Weight, options?: { percent?: number }): Weight {
     const percent = options?.percent ?? 25;
     const multiplier = 100n + BigInt(percent);
     return {
@@ -125,7 +122,9 @@ if (import.meta.vitest) {
 
     describe("extractTransaction", () => {
         test("returns tx from successful dry-run with send()", () => {
-            const mockTx = { signSubmitAndWatch: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }) };
+            const mockTx = {
+                signSubmitAndWatch: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }),
+            };
             const result = {
                 success: true,
                 value: { response: "ok", send: () => mockTx },

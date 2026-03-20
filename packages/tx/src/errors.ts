@@ -192,7 +192,9 @@ function extractErrorFromValue(value: unknown): string | undefined {
         // ReviveApi Data — contract revert hex data
         if (v.type === "Data") {
             const hex =
-                v.value != null && typeof v.value === "object" && typeof (v.value as { asHex?: unknown }).asHex === "function"
+                v.value != null &&
+                typeof v.value === "object" &&
+                typeof (v.value as { asHex?: unknown }).asHex === "function"
                     ? String((v.value as { asHex: () => string }).asHex())
                     : typeof v.value === "string"
                       ? v.value
@@ -312,7 +314,11 @@ if (import.meta.vitest) {
 
     describe("TxDryRunError", () => {
         test("with revert reason", () => {
-            const err = new TxDryRunError({ success: false }, "Module.Error", "InsufficientBalance");
+            const err = new TxDryRunError(
+                { success: false },
+                "Module.Error",
+                "InsufficientBalance",
+            );
             expect(err).toBeInstanceOf(TxError);
             expect(err.name).toBe("TxDryRunError");
             expect(err.formatted).toBe("Module.Error");
@@ -340,7 +346,10 @@ if (import.meta.vitest) {
 
         test("extracts revert reason", () => {
             expect(
-                formatDryRunError({ success: false, value: { revertReason: "InsufficientBalance" } }),
+                formatDryRunError({
+                    success: false,
+                    value: { revertReason: "InsufficientBalance" },
+                }),
             ).toBe("InsufficientBalance");
         });
 
@@ -369,7 +378,10 @@ if (import.meta.vitest) {
             expect(
                 formatDryRunError({
                     success: false,
-                    value: { type: "Message", value: "Insufficient balance for gas * price + value" },
+                    value: {
+                        type: "Message",
+                        value: "Insufficient balance for gas * price + value",
+                    },
                 }),
             ).toBe("Insufficient balance for gas * price + value");
         });
@@ -391,15 +403,15 @@ if (import.meta.vitest) {
         });
 
         test("handles ReviveApi Data with no extractable hex", () => {
-            expect(
-                formatDryRunError({ success: false, value: { type: "Data", value: 42 } }),
-            ).toBe("contract reverted");
+            expect(formatDryRunError({ success: false, value: { type: "Data", value: 42 } })).toBe(
+                "contract reverted",
+            );
         });
 
         test("returns non-Module/Message type directly", () => {
-            expect(
-                formatDryRunError({ success: false, value: { type: "BadOrigin" } }),
-            ).toBe("BadOrigin");
+            expect(formatDryRunError({ success: false, value: { type: "BadOrigin" } })).toBe(
+                "BadOrigin",
+            );
         });
 
         test("extracts from nested raw field (patched SDK)", () => {
@@ -421,15 +433,15 @@ if (import.meta.vitest) {
         });
 
         test("falls back to error.type", () => {
-            expect(
-                formatDryRunError({ success: false, error: { type: "ContractTrapped" } }),
-            ).toBe("ContractTrapped");
+            expect(formatDryRunError({ success: false, error: { type: "ContractTrapped" } })).toBe(
+                "ContractTrapped",
+            );
         });
 
         test("falls back to error.name", () => {
-            expect(
-                formatDryRunError({ success: false, error: { name: "ExecutionFailed" } }),
-            ).toBe("ExecutionFailed");
+            expect(formatDryRunError({ success: false, error: { name: "ExecutionFailed" } })).toBe(
+                "ExecutionFailed",
+            );
         });
 
         test("returns unknown error when nothing is extractable", () => {
@@ -437,7 +449,9 @@ if (import.meta.vitest) {
         });
 
         test("returns unknown error for empty value and error", () => {
-            expect(formatDryRunError({ success: false, value: {}, error: {} })).toBe("unknown error");
+            expect(formatDryRunError({ success: false, value: {}, error: {} })).toBe(
+                "unknown error",
+            );
         });
 
         test("returns unknown error for null value", () => {
@@ -449,7 +463,11 @@ if (import.meta.vitest) {
             expect(
                 formatDryRunError({
                     success: false,
-                    value: { revertReason: "OwnableUnauthorizedAccount", type: "Module", value: {} },
+                    value: {
+                        revertReason: "OwnableUnauthorizedAccount",
+                        type: "Module",
+                        value: {},
+                    },
                 }),
             ).toBe("OwnableUnauthorizedAccount");
         });
