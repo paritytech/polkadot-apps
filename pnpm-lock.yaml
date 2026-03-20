@@ -159,11 +159,10 @@ importers:
         version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
 
   packages/host:
-    dependencies:
-      '@novasamatech/product-sdk':
-        specifier: '>=0.1.0'
-        version: 0.6.5(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
     devDependencies:
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.5(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

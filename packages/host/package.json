@@ -29,6 +29,7 @@
         }
     },
     "devDependencies": {
+        "@novasamatech/product-sdk": "catalog:",
         "typescript": "catalog:"
     }
 }
