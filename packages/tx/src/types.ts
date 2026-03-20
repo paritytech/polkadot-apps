@@ -42,6 +42,19 @@ export interface RetryOptions {
     maxDelayMs?: number;
 }
 
+/**
+ * Substrate weight representing computational and storage resources.
+ *
+ * Matches the shape returned by `ReviveApi.call` and `ReviveApi.eth_transact`
+ * dry-run results in the `weight_required` field.
+ */
+export interface Weight {
+    /** Reference time component in picoseconds. */
+    ref_time: bigint;
+    /** Proof size component in bytes. */
+    proof_size: bigint;
+}
+
 /** Standard Substrate dev account names. */
 export type DevAccountName = "Alice" | "Bob" | "Charlie" | "Dave" | "Eve" | "Ferdie";
 

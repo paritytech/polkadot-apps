@@ -198,12 +198,12 @@ importers:
 
   packages/tx:
     dependencies:
+      '@polkadot-apps/keys':
+        specifier: workspace:*
+        version: link:../keys
       '@polkadot-apps/logger':
         specifier: workspace:*
         version: link:../logger
-      '@polkadot-labs/hdkd':
-        specifier: 'catalog:'
-        version: 0.0.26
       '@polkadot-labs/hdkd-helpers':
         specifier: 'catalog:'
         version: 0.0.27

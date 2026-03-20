@@ -20,8 +20,8 @@
     },
     "dependencies": {
         "polkadot-api": "catalog:",
-        "@polkadot-labs/hdkd": "catalog:",
         "@polkadot-labs/hdkd-helpers": "catalog:",
+        "@polkadot-apps/keys": "workspace:*",
         "@polkadot-apps/logger": "workspace:*"
     },
     "devDependencies": {

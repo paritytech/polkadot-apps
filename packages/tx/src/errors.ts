@@ -82,6 +82,137 @@ export function formatDispatchError(result: { ok: boolean; dispatchError?: unkno
 }
 
 /**
+ * A dry-run simulation failed before the transaction was submitted on-chain.
+ *
+ * Thrown by {@link extractTransaction} when the dry-run result indicates failure.
+ * Carries structured error information so callers can distinguish revert reasons
+ * from dispatch errors programmatically.
+ *
+ * @example
+ * ```ts
+ * try {
+ *   const tx = extractTransaction(await contract.query("mint", { origin, data }));
+ * } catch (e) {
+ *   if (e instanceof TxDryRunError) {
+ *     console.log(e.revertReason); // "InsufficientBalance" (if contract provided one)
+ *     console.log(e.formatted);    // "Revive.StorageDepositNotEnoughFunds"
+ *   }
+ * }
+ * ```
+ */
+export class TxDryRunError extends TxError {
+    /** The raw dry-run result for programmatic inspection. */
+    readonly raw: unknown;
+    /** Human-readable error string derived from the dry-run result. */
+    readonly formatted: string;
+    /** Solidity revert reason, if the contract provided one. */
+    readonly revertReason?: string;
+
+    constructor(raw: unknown, formatted: string, revertReason?: string) {
+        super(revertReason ? `Dry run failed: ${revertReason}` : `Dry run failed: ${formatted}`);
+        this.name = "TxDryRunError";
+        this.raw = raw;
+        this.formatted = formatted;
+        this.revertReason = revertReason;
+    }
+}
+
+/**
+ * Extract a human-readable error from a failed dry-run result.
+ *
+ * Handles every error shape found across the Polkadot contract ecosystem:
+ *
+ * 1. **Revert reason** (Ink SDK patched results / EVM contracts):
+ *    `{ value: { revertReason: "InsufficientBalance" } }`
+ *
+ * 2. **Nested dispatch errors** (raw Ink SDK / pallet errors):
+ *    `{ value: { type: "Module", value: { type: "Revive", value: { type: "StorageDepositNotEnoughFunds" } } } }`
+ *    Delegates to {@link formatDispatchError} for the Module.Pallet.Error chain.
+ *
+ * 3. **ReviveApi runtime messages** (`eth_transact` / `ReviveApi.call`):
+ *    `{ value: { type: "Message", value: "Insufficient balance for gas * price + value" } }`
+ *
+ * 4. **ReviveApi contract revert data**:
+ *    `{ value: { type: "Data", value: "0x08c379a0..." } }`
+ *
+ * 5. **Wrapped raw errors** (patched SDK wrappers):
+ *    `{ value: { raw: { type: "Message", value: "..." } } }`
+ *
+ * 6. **Generic error field**:
+ *    `{ error: { type: "ContractTrapped" } }` or `{ error: { name: "..." } }`
+ *
+ * @param result - A dry-run result with at least `success`, and optionally `value` / `error`.
+ * @returns A human-readable error string, or `""` if the result succeeded.
+ */
+export function formatDryRunError(result: {
+    success?: boolean;
+    value?: unknown;
+    error?: unknown;
+}): string {
+    if (result.success) return "";
+
+    const formatted = extractErrorFromValue(result.value);
+    if (formatted) return formatted;
+
+    // Generic error field (Ink SDK)
+    if (result.error != null && typeof result.error === "object") {
+        const err = result.error as Record<string, unknown>;
+        if (typeof err.type === "string") return err.type;
+        if (typeof err.name === "string") return err.name;
+    }
+
+    return "unknown error";
+}
+
+/**
+ * Try to extract an error string from the `value` field of a dry-run result.
+ * Returns `undefined` if no known error shape is found.
+ */
+function extractErrorFromValue(value: unknown): string | undefined {
+    if (value == null || typeof value !== "object") return undefined;
+    const v = value as Record<string, unknown>;
+
+    // Explicit revert reason — most specific, from Ink SDK / EVM wrappers
+    if (typeof v.revertReason === "string" && v.revertReason) {
+        return v.revertReason;
+    }
+
+    if (typeof v.type === "string") {
+        // Nested Module.Pallet.Error — reuse dispatch error formatting
+        if (v.type === "Module") {
+            const asDispatch = formatDispatchError({ ok: false, dispatchError: value });
+            if (asDispatch !== "unknown error") return asDispatch;
+        }
+
+        // ReviveApi Message — runtime error string
+        if (v.type === "Message" && typeof v.value === "string") {
+            return v.value;
+        }
+
+        // ReviveApi Data — contract revert hex data
+        if (v.type === "Data") {
+            const hex =
+                v.value != null && typeof v.value === "object" && typeof (v.value as { asHex?: unknown }).asHex === "function"
+                    ? String((v.value as { asHex: () => string }).asHex())
+                    : typeof v.value === "string"
+                      ? v.value
+                      : undefined;
+            return hex ? `contract reverted with data: ${hex}` : "contract reverted";
+        }
+
+        // Any other typed error (e.g., "BadOrigin", "ContractTrapped")
+        return v.type;
+    }
+
+    // Wrapped raw value — patched SDK nests the original error under `raw`
+    if ("raw" in v && v.raw != null && typeof v.raw === "object") {
+        return extractErrorFromValue(v.raw);
+    }
+
+    return undefined;
+}
+
+/**
  * Check if an error looks like a user-rejected signing request.
  *
  * Different wallets use different error messages when the user rejects signing:
@@ -176,6 +307,151 @@ if (import.meta.vitest) {
 
         test("returns unknown error when dispatchError has no type", () => {
             expect(formatDispatchError({ ok: false, dispatchError: {} })).toBe("unknown error");
+        });
+    });
+
+    describe("TxDryRunError", () => {
+        test("with revert reason", () => {
+            const err = new TxDryRunError({ success: false }, "Module.Error", "InsufficientBalance");
+            expect(err).toBeInstanceOf(TxError);
+            expect(err.name).toBe("TxDryRunError");
+            expect(err.formatted).toBe("Module.Error");
+            expect(err.revertReason).toBe("InsufficientBalance");
+            expect(err.message).toContain("InsufficientBalance");
+        });
+
+        test("without revert reason uses formatted", () => {
+            const err = new TxDryRunError({ success: false }, "BadOrigin");
+            expect(err.message).toContain("BadOrigin");
+            expect(err.revertReason).toBeUndefined();
+        });
+
+        test("preserves raw result for inspection", () => {
+            const raw = { success: false, value: { type: "Module" } };
+            const err = new TxDryRunError(raw, "Module");
+            expect(err.raw).toBe(raw);
+        });
+    });
+
+    describe("formatDryRunError", () => {
+        test("returns empty string for successful result", () => {
+            expect(formatDryRunError({ success: true })).toBe("");
+        });
+
+        test("extracts revert reason", () => {
+            expect(
+                formatDryRunError({ success: false, value: { revertReason: "InsufficientBalance" } }),
+            ).toBe("InsufficientBalance");
+        });
+
+        test("walks Module.Pallet.Error chain", () => {
+            expect(
+                formatDryRunError({
+                    success: false,
+                    value: {
+                        type: "Module",
+                        value: { type: "Revive", value: { type: "StorageDepositNotEnoughFunds" } },
+                    },
+                }),
+            ).toBe("Revive.StorageDepositNotEnoughFunds");
+        });
+
+        test("returns pallet name when inner error has no type", () => {
+            expect(
+                formatDryRunError({
+                    success: false,
+                    value: { type: "Module", value: { type: "Balances", value: {} } },
+                }),
+            ).toBe("Balances");
+        });
+
+        test("extracts ReviveApi Message string", () => {
+            expect(
+                formatDryRunError({
+                    success: false,
+                    value: { type: "Message", value: "Insufficient balance for gas * price + value" },
+                }),
+            ).toBe("Insufficient balance for gas * price + value");
+        });
+
+        test("handles ReviveApi Data with string hex", () => {
+            expect(
+                formatDryRunError({
+                    success: false,
+                    value: { type: "Data", value: "0x08c379a0" },
+                }),
+            ).toBe("contract reverted with data: 0x08c379a0");
+        });
+
+        test("handles ReviveApi Data with Binary-like object", () => {
+            const binary = { asHex: () => "0xdeadbeef" };
+            expect(
+                formatDryRunError({ success: false, value: { type: "Data", value: binary } }),
+            ).toBe("contract reverted with data: 0xdeadbeef");
+        });
+
+        test("handles ReviveApi Data with no extractable hex", () => {
+            expect(
+                formatDryRunError({ success: false, value: { type: "Data", value: 42 } }),
+            ).toBe("contract reverted");
+        });
+
+        test("returns non-Module/Message type directly", () => {
+            expect(
+                formatDryRunError({ success: false, value: { type: "BadOrigin" } }),
+            ).toBe("BadOrigin");
+        });
+
+        test("extracts from nested raw field (patched SDK)", () => {
+            expect(
+                formatDryRunError({
+                    success: false,
+                    value: { raw: { type: "Message", value: "out of gas" } },
+                }),
+            ).toBe("out of gas");
+        });
+
+        test("extracts revertReason from nested raw", () => {
+            expect(
+                formatDryRunError({
+                    success: false,
+                    value: { raw: { revertReason: "Unauthorized" } },
+                }),
+            ).toBe("Unauthorized");
+        });
+
+        test("falls back to error.type", () => {
+            expect(
+                formatDryRunError({ success: false, error: { type: "ContractTrapped" } }),
+            ).toBe("ContractTrapped");
+        });
+
+        test("falls back to error.name", () => {
+            expect(
+                formatDryRunError({ success: false, error: { name: "ExecutionFailed" } }),
+            ).toBe("ExecutionFailed");
+        });
+
+        test("returns unknown error when nothing is extractable", () => {
+            expect(formatDryRunError({ success: false })).toBe("unknown error");
+        });
+
+        test("returns unknown error for empty value and error", () => {
+            expect(formatDryRunError({ success: false, value: {}, error: {} })).toBe("unknown error");
+        });
+
+        test("returns unknown error for null value", () => {
+            expect(formatDryRunError({ success: false, value: null })).toBe("unknown error");
+        });
+
+        test("prefers revertReason over Module error", () => {
+            // When both are present, revertReason is more specific
+            expect(
+                formatDryRunError({
+                    success: false,
+                    value: { revertReason: "OwnableUnauthorizedAccount", type: "Module", value: {} },
+                }),
+            ).toBe("OwnableUnauthorizedAccount");
         });
     });
 

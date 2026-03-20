@@ -45,9 +45,6 @@ function buildTxResult(
  * Submit a transaction and watch its lifecycle through signing, broadcasting,
  * block inclusion, and (optionally) finalization.
  *
- * Consolidates the Observable-based patterns from hackm3, mark3t, tick3t, and
- * task-rabbit into a single Promise-based API with status callbacks.
- *
  * @param tx - A transaction object with `signSubmitAndWatch`. Works with raw PAPI
  *   transactions and Ink SDK `AsyncTransaction` wrappers (resolved automatically).
  * @param signer - The signer to use. Can come from a wallet extension, Host API

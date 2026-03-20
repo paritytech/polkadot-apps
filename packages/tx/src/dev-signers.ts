@@ -1,7 +1,6 @@
-import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
-import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy } from "@polkadot-labs/hdkd-helpers";
+import { DEV_PHRASE } from "@polkadot-labs/hdkd-helpers";
+import { seedToAccount } from "@polkadot-apps/keys";
 import type { PolkadotSigner } from "polkadot-api";
-import { getPolkadotSigner } from "polkadot-api/signer";
 
 import type { DevAccountName } from "./types.js";
 
@@ -26,11 +25,7 @@ import type { DevAccountName } from "./types.js";
  * ```
  */
 export function createDevSigner(name: DevAccountName): PolkadotSigner {
-    const entropy = mnemonicToEntropy(DEV_PHRASE);
-    const miniSecret = entropyToMiniSecret(entropy);
-    const derive = sr25519CreateDerive(miniSecret);
-    const keyPair = derive(`//${name}`);
-    return getPolkadotSigner(keyPair.publicKey, "Sr25519", keyPair.sign);
+    return seedToAccount(DEV_PHRASE, `//${name}`).signer;
 }
 
 /**
@@ -43,10 +38,7 @@ export function createDevSigner(name: DevAccountName): PolkadotSigner {
  * @returns 32-byte Sr25519 public key.
  */
 export function getDevPublicKey(name: DevAccountName): Uint8Array {
-    const entropy = mnemonicToEntropy(DEV_PHRASE);
-    const miniSecret = entropyToMiniSecret(entropy);
-    const derive = sr25519CreateDerive(miniSecret);
-    return derive(`//${name}`).publicKey;
+    return seedToAccount(DEV_PHRASE, `//${name}`).publicKey;
 }
 
 if (import.meta.vitest) {
