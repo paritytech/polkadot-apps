@@ -459,6 +459,7 @@ function formatError(error: unknown): string {
     return String(error);
 }
 
+/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe, vi, beforeEach } = import.meta.vitest;
 

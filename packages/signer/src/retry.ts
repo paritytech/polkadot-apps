@@ -61,6 +61,7 @@ export async function withRetry<T, E>(
     return lastResult!;
 }
 
+/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe, vi, beforeEach, afterEach } = import.meta.vitest;
     const { ok, err } = await import("./types.js");

@@ -91,7 +91,16 @@ export class ExtensionProvider implements SignerProvider {
             );
         }
 
-        const available = api.getInjectedExtensions();
+        let available: string[];
+        try {
+            available = api.getInjectedExtensions();
+        } catch {
+            // getInjectedExtensions accesses window.injectedWeb3 and throws in non-browser envs
+            log.warn("cannot access browser extensions (no window)");
+            return err(
+                extensionNotFound(this.extensionName ?? "*", "Browser environment not available"),
+            );
+        }
         log.debug("detected extensions", { available });
 
         if (available.length === 0) {
@@ -181,6 +190,7 @@ function mapInjectedAccounts(accounts: InjectedPolkadotAccount[]): SignerAccount
     }));
 }
 
+/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe, vi } = import.meta.vitest;
 
@@ -439,6 +449,19 @@ if (import.meta.vitest) {
             expect(receivedAccounts[0]).toHaveLength(2);
             expect(receivedAccounts[0][0].address).toBe("5NewAddr1");
             expect(receivedAccounts[0][1].address).toBe("5NewAddr2");
+        });
+
+        test("connect without api override uses defaultApi (returns no extensions in Node)", async () => {
+            // This exercises the defaultApi() dynamic import path.
+            // In Node, polkadot-api/pjs-signer loads successfully but
+            // getInjectedExtensions() returns [] since there's no window.injectedWeb3.
+            const provider = new ExtensionProvider({ injectionWait: 0 });
+            const result = await provider.connect();
+
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error.type).toBe("EXTENSION_NOT_FOUND");
+            }
         });
     });
 }

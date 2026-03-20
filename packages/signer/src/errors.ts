@@ -102,6 +102,7 @@ export function isExtensionError(
     return e.type === "EXTENSION_NOT_FOUND" || e.type === "EXTENSION_REJECTED";
 }
 
+/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe } = import.meta.vitest;
 

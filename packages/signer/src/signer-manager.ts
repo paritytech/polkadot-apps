@@ -717,6 +717,7 @@ export class SignerManager {
     }
 }
 
+/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe, vi, beforeEach, afterEach } = import.meta.vitest;
     const { hostUnavailable, extensionNotFound } = await import("./errors.js");
@@ -1136,6 +1137,183 @@ if (import.meta.vitest) {
             if (!result.ok) {
                 expect(result.error.type).toBe("HOST_UNAVAILABLE");
             }
+            manager.destroy();
+        });
+
+        // ── Container auto-detect tests ──────────────────────────
+
+        test("auto-detect inside container: host succeeds", async () => {
+            // Mock isInsideContainer to return true
+            const containerModule = await import("./container.js");
+            const spy = vi.spyOn(containerModule, "isInsideContainer").mockReturnValue(true);
+
+            const mockAccounts: SignerAccount[] = [
+                {
+                    address: "5HostAddr",
+                    h160Address: "0x0000000000000000000000000000000000000001",
+                    publicKey: new Uint8Array(32).fill(0x11),
+                    name: "Host Account",
+                    source: "host",
+                    getSigner: () =>
+                        ({
+                            publicKey: new Uint8Array(32).fill(0x11),
+                        }) as unknown as import("polkadot-api").PolkadotSigner,
+                },
+            ];
+
+            const manager = new SignerManager({
+                createProvider: (type) =>
+                    ({
+                        type,
+                        connect: async () => ok(mockAccounts),
+                        disconnect: () => {},
+                        onStatusChange: () => () => {},
+                        onAccountsChange: () => () => {},
+                    }) as unknown as SignerProvider,
+                persistence: null,
+            });
+
+            const result = await manager.connect();
+            expect(result.ok).toBe(true);
+            expect(manager.getState().activeProvider).toBe("host");
+
+            spy.mockRestore();
+            manager.destroy();
+        });
+
+        test("auto-detect inside container: host fails, Spektr injection + extension succeeds", async () => {
+            const containerModule = await import("./container.js");
+            const spy = vi.spyOn(containerModule, "isInsideContainer").mockReturnValue(true);
+
+            // Mock HostProvider.injectSpektr to succeed
+            const spektrSpy = vi.spyOn(HostProvider, "injectSpektr").mockResolvedValue(true);
+
+            const callOrder: string[] = [];
+            const mockExtAccounts: SignerAccount[] = [
+                {
+                    address: "5Ext",
+                    h160Address: "0x0000000000000000000000000000000000000002",
+                    publicKey: new Uint8Array(32).fill(0x22),
+                    name: "Ext",
+                    source: "extension",
+                    getSigner: () =>
+                        ({
+                            publicKey: new Uint8Array(32).fill(0x22),
+                        }) as unknown as import("polkadot-api").PolkadotSigner,
+                },
+            ];
+
+            const manager = new SignerManager({
+                createProvider: (type) => {
+                    callOrder.push(type);
+                    if (type === "host") {
+                        return {
+                            type: "host",
+                            connect: async () => err(hostUnavailable()),
+                            disconnect: () => {},
+                            onStatusChange: () => () => {},
+                            onAccountsChange: () => () => {},
+                        } as unknown as SignerProvider;
+                    }
+                    return {
+                        type: "extension",
+                        connect: async () => ok(mockExtAccounts),
+                        disconnect: () => {},
+                        onStatusChange: () => () => {},
+                        onAccountsChange: () => () => {},
+                    } as unknown as SignerProvider;
+                },
+                persistence: null,
+            });
+
+            const result = await manager.connect();
+            // Host tried first, then extension after Spektr injection
+            expect(callOrder).toEqual(["host", "extension"]);
+            expect(result.ok).toBe(true);
+            expect(manager.getState().activeProvider).toBe("extension");
+
+            spy.mockRestore();
+            spektrSpy.mockRestore();
+            manager.destroy();
+        });
+
+        test("auto-detect inside container: all paths fail returns host error", async () => {
+            const containerModule = await import("./container.js");
+            const spy = vi.spyOn(containerModule, "isInsideContainer").mockReturnValue(true);
+            const spektrSpy = vi.spyOn(HostProvider, "injectSpektr").mockResolvedValue(false);
+
+            const manager = new SignerManager({
+                createProvider: (type) =>
+                    ({
+                        type,
+                        connect: async () => err(hostUnavailable()),
+                        disconnect: () => {},
+                        onStatusChange: () => () => {},
+                        onAccountsChange: () => () => {},
+                    }) as unknown as SignerProvider,
+                persistence: null,
+            });
+
+            const result = await manager.connect();
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error.type).toBe("HOST_UNAVAILABLE");
+            }
+
+            spy.mockRestore();
+            spektrSpy.mockRestore();
+            manager.destroy();
+        });
+
+        // ── Reconnect tests ─────────────────────────────────────
+
+        test("reconnect on provider disconnect", async () => {
+            let statusCallback: ((status: ConnectionStatus) => void) | undefined;
+            let connectCallCount = 0;
+
+            const manager = new SignerManager({
+                createProvider: () => {
+                    connectCallCount++;
+                    return {
+                        type: "dev" as const,
+                        connect: async () =>
+                            ok([
+                                {
+                                    address: "5Test",
+                                    h160Address: "0x0000000000000000000000000000000000000000",
+                                    publicKey: new Uint8Array(32),
+                                    name: "Test",
+                                    source: "dev" as const,
+                                    getSigner: () =>
+                                        ({
+                                            publicKey: new Uint8Array(32),
+                                        }) as unknown as import("polkadot-api").PolkadotSigner,
+                                },
+                            ]),
+                        disconnect: () => {},
+                        onStatusChange: (cb: (s: ConnectionStatus) => void) => {
+                            statusCallback = cb;
+                            return () => {};
+                        },
+                        onAccountsChange: () => () => {},
+                    } as unknown as SignerProvider;
+                },
+                persistence: null,
+            });
+
+            await manager.connect("dev");
+            expect(manager.getState().status).toBe("connected");
+            expect(connectCallCount).toBe(1);
+
+            // Simulate provider disconnect — triggers reconnect
+            statusCallback!("disconnected");
+
+            // Allow reconnect retry to complete
+            await vi.advanceTimersByTimeAsync(2000);
+
+            // Should have attempted reconnect (at least one more connect call)
+            expect(connectCallCount).toBeGreaterThan(1);
+
             manager.destroy();
         });
 

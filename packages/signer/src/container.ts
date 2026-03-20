@@ -43,6 +43,7 @@ export function isInsideContainer(): boolean {
     return false;
 }
 
+/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe, beforeEach, afterEach } = import.meta.vitest;
 

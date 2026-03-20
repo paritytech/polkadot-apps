@@ -103,6 +103,7 @@ export interface SignerManagerOptions {
     persistence?: AccountPersistence | null;
 }
 
+/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe } = import.meta.vitest;
 

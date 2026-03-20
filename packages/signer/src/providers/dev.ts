@@ -102,6 +102,7 @@ export class DevProvider implements SignerProvider {
     }
 }
 
+/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe } = import.meta.vitest;
 
