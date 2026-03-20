@@ -7,41 +7,42 @@ import type { SessionKeyInfo } from "./types.js";
 /**
  * Manages an sr25519 account derived from a BIP39 mnemonic.
  *
- * Persists to the provided KvStore when available. Without a store,
- * operates statelessly (create still works, but nothing is persisted).
- *
- * @param options.name - Identifies this session key. Defaults to `"default"`.
- *   Use different names to manage multiple independent session keys.
  * @param options.store - KvStore instance (from `@polkadot-apps/storage`).
  *   Create with `createKvStore({ prefix: "session-key" })` for namespaced persistence.
+ * @param options.name - Identifies this session key. Defaults to `"default"`.
+ *   Use different names to manage multiple independent session keys.
+ *
+ * @example
+ * ```ts
+ * const store = await createKvStore({ prefix: "session-key" });
+ * const skm = new SessionKeyManager({ store });
+ * const key = await skm.getOrCreate();
+ * ```
  */
 export class SessionKeyManager {
     private readonly name: string;
-    private readonly store: KvStore | null;
+    private readonly store: KvStore;
 
-    constructor(options?: { name?: string; store?: KvStore }) {
-        this.name = options?.name ?? "default";
-        this.store = options?.store ?? null;
+    constructor(options: { store: KvStore; name?: string }) {
+        this.name = options.name ?? "default";
+        this.store = options.store;
     }
 
     /**
      * Create a new session key from a fresh mnemonic.
-     * Persists the mnemonic if a store is available.
+     * Persists the mnemonic to the store.
      */
     async create(): Promise<SessionKeyInfo> {
         const mnemonic = generateMnemonic();
-        if (this.store) {
-            await this.store.set(this.name, mnemonic);
-        }
+        await this.store.set(this.name, mnemonic);
         return { mnemonic, account: seedToAccount(mnemonic) };
     }
 
     /**
      * Load an existing session key from the store.
-     * Returns null if no mnemonic is stored or no store is available.
+     * Returns null if no mnemonic is stored.
      */
     async get(): Promise<SessionKeyInfo | null> {
-        if (!this.store) return null;
         const mnemonic = await this.store.get(this.name);
         if (!mnemonic) return null;
         return { mnemonic, account: seedToAccount(mnemonic) };
@@ -67,9 +68,7 @@ export class SessionKeyManager {
      * Clear the stored mnemonic from the store.
      */
     async clear(): Promise<void> {
-        if (this.store) {
-            await this.store.remove(this.name);
-        }
+        await this.store.remove(this.name);
     }
 }
 
@@ -101,7 +100,8 @@ if (import.meta.vitest) {
 
     describe("SessionKeyManager", () => {
         test("fromMnemonic produces deterministic results", () => {
-            const skm = new SessionKeyManager();
+            const store = mockKvStore();
+            const skm = new SessionKeyManager({ store });
             const a = skm.fromMnemonic(TEST_MNEMONIC);
             const b = skm.fromMnemonic(TEST_MNEMONIC);
             expect(a.mnemonic).toBe(TEST_MNEMONIC);
@@ -109,25 +109,13 @@ if (import.meta.vitest) {
             expect(a.account.h160Address).toBe(b.account.h160Address);
         });
 
-        test("get returns null when no store provided", async () => {
-            const skm = new SessionKeyManager();
-            expect(await skm.get()).toBeNull();
-        });
-
-        test("create without store returns key but does not persist", async () => {
-            const skm = new SessionKeyManager();
-            const info = await skm.create();
-            expect(info.mnemonic).toBeTruthy();
-            expect(info.account.ss58Address).toMatch(/^[1-9A-HJ-NP-Za-km-z]+$/);
-            expect(await skm.get()).toBeNull();
-        });
-
         test("fromMnemonic throws on invalid mnemonic", () => {
-            const skm = new SessionKeyManager();
+            const store = mockKvStore();
+            const skm = new SessionKeyManager({ store });
             expect(() => skm.fromMnemonic("invalid words here")).toThrow("Invalid mnemonic phrase");
         });
 
-        test("create and get with store", async () => {
+        test("create and get round-trip", async () => {
             const store = mockKvStore();
             const skm = new SessionKeyManager({ store });
             const info = await skm.create();
@@ -137,6 +125,12 @@ if (import.meta.vitest) {
 
             const loaded = await skm.get();
             expect(loaded?.mnemonic).toBe(info.mnemonic);
+        });
+
+        test("get returns null when no key stored", async () => {
+            const store = mockKvStore();
+            const skm = new SessionKeyManager({ store });
+            expect(await skm.get()).toBeNull();
         });
 
         test("getOrCreate creates then returns cached", async () => {
