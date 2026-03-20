@@ -38,9 +38,42 @@ function manualDetection(): boolean {
 }
 
 if (import.meta.vitest) {
-    const { test, expect } = import.meta.vitest;
+    const { test, expect, vi } = import.meta.vitest;
 
     test("returns false in Node environment (no window)", async () => {
         expect(await isInsideContainer()).toBe(false);
+    });
+
+    test("manualDetection returns true for __HOST_WEBVIEW_MARK__", async () => {
+        const fakeWindow = {
+            top: null,
+            __HOST_WEBVIEW_MARK__: true,
+        };
+        vi.stubGlobal("window", fakeWindow);
+        // product-sdk import will fail, falling through to manualDetection
+        const result = await isInsideContainer();
+        expect(result).toBe(true);
+        vi.unstubAllGlobals();
+    });
+
+    test("manualDetection returns true for __HOST_API_PORT__", async () => {
+        const fakeWindow = {
+            top: null,
+            __HOST_API_PORT__: 12345,
+        };
+        vi.stubGlobal("window", fakeWindow);
+        const result = await isInsideContainer();
+        expect(result).toBe(true);
+        vi.unstubAllGlobals();
+    });
+
+    test("manualDetection returns false when no signals present", async () => {
+        const fakeWindow = { top: null };
+        // Make window === window.top to skip iframe detection
+        Object.defineProperty(fakeWindow, "top", { get: () => fakeWindow });
+        vi.stubGlobal("window", fakeWindow);
+        const result = await isInsideContainer();
+        expect(result).toBe(false);
+        vi.unstubAllGlobals();
     });
 }
