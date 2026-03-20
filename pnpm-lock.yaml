@@ -189,6 +189,31 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  packages/statement-store:
+    dependencies:
+      '@noble/hashes':
+        specifier: 'catalog:'
+        version: 2.0.1
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.5(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+      '@polkadot-apps/chain-client':
+        specifier: workspace:*
+        version: link:../chain-client
+      '@polkadot-apps/descriptors':
+        specifier: workspace:*
+        version: link:../descriptors
+      '@polkadot-apps/logger':
+        specifier: workspace:*
+        version: link:../logger
+      polkadot-api:
+        specifier: 'catalog:'
+        version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   packages/storage:
     dependencies:
       '@novasamatech/product-sdk':
