@@ -99,9 +99,15 @@ importers:
       '@noble/hashes':
         specifier: 'catalog:'
         version: 2.0.1
-      '@polkadot-apps/address':
+      '@polkadot-apps/chain-client':
         specifier: workspace:*
-        version: link:../address
+        version: link:../chain-client
+      '@polkadot-apps/descriptors':
+        specifier: workspace:*
+        version: link:../descriptors
+      '@polkadot-apps/tx':
+        specifier: workspace:*
+        version: link:../tx
       multiformats:
         specifier: 'catalog:'
         version: 13.4.2
