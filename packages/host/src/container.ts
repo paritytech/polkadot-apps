@@ -1,3 +1,5 @@
+import type { HostLocalStorage } from "./types.js";
+
 /**
  * Detect if running inside a Host container (Polkadot Browser / Polkadot Desktop).
  *
@@ -15,10 +17,25 @@ export async function isInsideContainer(): Promise<boolean> {
     }
 }
 
+/**
+ * Get the Host API localStorage instance when running inside a container.
+ * Returns null outside a container or when product-sdk is unavailable.
+ */
+export async function getHostLocalStorage(): Promise<HostLocalStorage | null> {
+    if (!(await isInsideContainer())) return null;
+
+    try {
+        const sdk = await import("@novasamatech/product-sdk");
+        return sdk.hostLocalStorage;
+    } catch {
+        return null;
+    }
+}
+
 function manualDetection(): boolean {
     if (typeof window === "undefined") return false;
 
-    const win = window;
+    const win = window as unknown as Record<string, unknown>;
 
     // Iframe detection (polkadot.com browser)
     try {
@@ -50,7 +67,6 @@ if (import.meta.vitest) {
             __HOST_WEBVIEW_MARK__: true,
         };
         vi.stubGlobal("window", fakeWindow);
-        // product-sdk import will fail, falling through to manualDetection
         const result = await isInsideContainer();
         expect(result).toBe(true);
         vi.unstubAllGlobals();
@@ -69,11 +85,14 @@ if (import.meta.vitest) {
 
     test("manualDetection returns false when no signals present", async () => {
         const fakeWindow = { top: null };
-        // Make window === window.top to skip iframe detection
         Object.defineProperty(fakeWindow, "top", { get: () => fakeWindow });
         vi.stubGlobal("window", fakeWindow);
         const result = await isInsideContainer();
         expect(result).toBe(false);
         vi.unstubAllGlobals();
+    });
+
+    test("getHostLocalStorage returns null outside container", async () => {
+        expect(await getHostLocalStorage()).toBeNull();
     });
 }

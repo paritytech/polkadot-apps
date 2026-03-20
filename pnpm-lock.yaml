@@ -124,6 +124,9 @@ importers:
       '@polkadot-apps/descriptors':
         specifier: workspace:*
         version: link:../descriptors
+      '@polkadot-apps/host':
+        specifier: workspace:*
+        version: link:../host
       polkadot-api:
         specifier: 'catalog:'
         version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
@@ -155,6 +158,16 @@ importers:
         specifier: 'catalog:'
         version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
 
+  packages/host:
+    dependencies:
+      '@novasamatech/product-sdk':
+        specifier: '>=0.1.0'
+        version: 0.6.5(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   packages/keys:
     dependencies:
       '@polkadot-apps/address':
@@ -163,6 +176,9 @@ importers:
       '@polkadot-apps/crypto':
         specifier: workspace:*
         version: link:../crypto
+      '@polkadot-apps/storage':
+        specifier: workspace:*
+        version: link:../storage
       '@polkadot-labs/hdkd':
         specifier: 'catalog:'
         version: 0.0.26
@@ -185,9 +201,12 @@ importers:
 
   packages/storage:
     dependencies:
-      '@novasamatech/product-sdk':
-        specifier: '>=0.1.0'
-        version: 0.6.5(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+      '@polkadot-apps/host':
+        specifier: workspace:*
+        version: link:../host
+      '@polkadot-apps/logger':
+        specifier: workspace:*
+        version: link:../logger
       dexie:
         specifier: 'catalog:'
         version: 4.3.0

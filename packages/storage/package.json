@@ -20,15 +20,9 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
+        "@polkadot-apps/host": "workspace:*",
+        "@polkadot-apps/logger": "workspace:*",
         "dexie": "catalog:"
-    },
-    "peerDependencies": {
-        "@novasamatech/product-sdk": ">=0.1.0"
-    },
-    "peerDependenciesMeta": {
-        "@novasamatech/product-sdk": {
-            "optional": true
-        }
     },
     "devDependencies": {
         "typescript": "catalog:"
