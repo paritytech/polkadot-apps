@@ -16,8 +16,8 @@ catalogs:
       specifier: ^2.0.1
       version: 2.0.1
     '@novasamatech/product-sdk':
-      specifier: ^0.6.0
-      version: 0.6.5
+      specifier: ^0.6.6
+      version: 0.6.6
     '@polkadot-api/sdk-ink':
       specifier: ^0.6.2
       version: 0.6.2
@@ -126,7 +126,7 @@ importers:
     dependencies:
       '@novasamatech/product-sdk':
         specifier: 'catalog:'
-        version: 0.6.5(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+        version: 0.6.6(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
       '@polkadot-api/sdk-ink':
         specifier: 'catalog:'
         version: 0.6.2(@polkadot-api/ink-contracts@0.4.6)(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))(rxjs@7.8.2)(typescript@5.9.3)
@@ -161,6 +161,10 @@ importers:
         version: 5.9.3
 
   packages/descriptors:
+    dependencies:
+      '@polkadot-api/descriptors':
+        specifier: file:generated
+        version: file:packages/descriptors/generated(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))
     devDependencies:
       polkadot-api:
         specifier: 'catalog:'
@@ -170,7 +174,7 @@ importers:
     devDependencies:
       '@novasamatech/product-sdk':
         specifier: 'catalog:'
-        version: 0.6.5(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+        version: 0.6.6(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -201,6 +205,31 @@ importers:
         version: 5.9.3
 
   packages/logger:
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  packages/signer:
+    dependencies:
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.6(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+      '@polkadot-apps/address':
+        specifier: workspace:*
+        version: link:../address
+      '@polkadot-apps/logger':
+        specifier: workspace:*
+        version: link:../logger
+      '@polkadot-labs/hdkd':
+        specifier: 'catalog:'
+        version: 0.0.26
+      '@polkadot-labs/hdkd-helpers':
+        specifier: 'catalog:'
+        version: 0.0.27
+      polkadot-api:
+        specifier: 'catalog:'
+        version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
     devDependencies:
       typescript:
         specifier: 'catalog:'
@@ -855,14 +884,14 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@novasamatech/host-api@0.6.5':
-    resolution: {integrity: sha512-BLYgTRvlXWVr5O5EO39GaNODmFLiCQH0oZKps4goI08PXO7ahUMAAIIcumBkzsQVme3xwJgTk48vya0rrjkwdQ==}
+  '@novasamatech/host-api@0.6.6':
+    resolution: {integrity: sha512-E4K3b+fgpXMEHUnD0R3el9Az0Kfz4v6bnUg8x7U0o8J1h0xe1sEW8AKC78lhsnWv1uKPwNZDt5ZADIOjf+rHpg==}
 
-  '@novasamatech/product-sdk@0.6.5':
-    resolution: {integrity: sha512-n782b5I9lFpMAMaDYBAJZDAvG9gGoyNNVoH+eJCXIEZgB5c80J8Qee1SaLWxRW6E//+vo/IrA7+PgQbJdkbskA==}
+  '@novasamatech/product-sdk@0.6.6':
+    resolution: {integrity: sha512-EY69PlpOnB5itlfeE1go3iYb89QL2OhrGy3G2ONWfuiljrh9gKTOztVfD5ozozf/50ZnXSnRasqHMN0zvdHtbg==}
 
-  '@novasamatech/scale@0.6.5':
-    resolution: {integrity: sha512-UZP8v7aCl+YUYW+MuZTXSU9v/QvkR+UoBmKMsidAGOdyV+cwh+d/Id0ErL6mFxXMVoPgJC+ikNusY/YnBE5fUg==}
+  '@novasamatech/scale@0.6.6':
+    resolution: {integrity: sha512-lQWtp4nLyXhfghlJFkWi1T3JvEyjARJPbmHVFra15C+hqjNHXl7MlRK0Mq3WnCTbV7W0QV/if+Oxy/70a53FhQ==}
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -880,6 +909,11 @@ packages:
     peerDependencies:
       polkadot-api: '>=1.22.0'
       rxjs: '>=7.8.1'
+
+  '@polkadot-api/descriptors@file:packages/descriptors/generated':
+    resolution: {directory: packages/descriptors/generated, type: directory}
+    peerDependencies:
+      polkadot-api: '>=1.21.0'
 
   '@polkadot-api/ink-contracts@0.4.6':
     resolution: {integrity: sha512-wpFPa8CnGnmq+cFYMzuTEDmtt3ElBM0UWgTz4RpmI9E7knZ1ctWBhO7amXxOWcILqIG6sqWIE95x0cfF1PRcQg==}
@@ -1512,8 +1546,8 @@ packages:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
 
-  baseline-browser-mapping@2.10.9:
-    resolution: {integrity: sha512-OZd0e2mU11ClX8+IdXe3r0dbqMEznRiT4TfbhYIbcRPZkqJ7Qwer8ij3GZAmLsRKa+II9V1v5czCkvmHH3XZBg==}
+  baseline-browser-mapping@2.10.12:
+    resolution: {integrity: sha512-qyq26DxfY4awP2gIRXhhLWfwzwI+N5Nxk6iQi8EFizIaWIjqicQTE4sLnZZVdeKPRcVNoJOkkpfzoIYuvCKaIQ==}
     engines: {node: '>=6.0.0'}
     hasBin: true
 
@@ -1550,8 +1584,8 @@ packages:
     resolution: {integrity: sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ==}
     engines: {node: '>=8'}
 
-  caniuse-lite@1.0.30001780:
-    resolution: {integrity: sha512-llngX0E7nQci5BPJDqoZSbuZ5Bcs9F5db7EtgfwBerX9XGtkkiO4NwfDDIRzHTTwcYC8vC7bmeUEPGrKlR/TkQ==}
+  caniuse-lite@1.0.30001782:
+    resolution: {integrity: sha512-dZcaJLJeDMh4rELYFw1tvSn1bhZWYFOt468FcbHHxx/Z/dFidd1I6ciyFdi3iwfQCyOjqo9upF6lGQYtMiJWxw==}
 
   chai@5.3.3:
     resolution: {integrity: sha512-4zNhdJD/iOjSH0A05ea+Ke6MU5mmpQcbQsSOkgdaUMJ9zTlDTD/GYlwohmIE2u0gaxHYiVHEn1Fw9mZ/ktJWgw==}
@@ -1648,8 +1682,8 @@ packages:
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
-  electron-to-chromium@1.5.321:
-    resolution: {integrity: sha512-L2C7Q279W2D/J4PLZLk7sebOILDSWos7bMsMNN06rK482umHUrh/3lM8G7IlHFOYip2oAg5nha1rCMxr/rs6ZQ==}
+  electron-to-chromium@1.5.328:
+    resolution: {integrity: sha512-QNQ5l45DzYytThO21403XN3FvK0hOkWDG8viNf6jqS42msJ8I4tGDSpBCgvDRRPnkffafiwAym2X2eHeGD2V0w==}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -2052,8 +2086,8 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
-  nanoid@5.1.6:
-    resolution: {integrity: sha512-c7+7RQ+dMB5dPwwCp4ee1/iV/q2P6aK1mTZcfr1BTuVlyW9hJYiMPybJCcnBlQtuSmTIWNeazm/zqNoZSSElBg==}
+  nanoid@5.1.7:
+    resolution: {integrity: sha512-ua3NDgISf6jdwezAheMOk4mbE1LXjm1DfMUDMuJf4AqxLFK3ccGpgWizwa5YV7Yz9EpXwEaWoRXSb/BnV0t5dQ==}
     engines: {node: ^18 || >=20}
     hasBin: true
 
@@ -2587,8 +2621,8 @@ packages:
   validate-npm-package-license@3.0.4:
     resolution: {integrity: sha512-DpKm2Ui/xN7/HQKCtpZxoRWBhZ9Z0kqtygG8XCgNQ8ZlDnxuQmWhj566j8fN4Cu3/JmbhsDo7fcAJq4s9h27Ew==}
 
-  viem@2.47.4:
-    resolution: {integrity: sha512-h0Wp/SYmJO/HB4B/em1OZ3W1LaKrmr7jzaN7talSlZpo0LCn0V6rZ5g923j6sf4VUSrqp/gUuWuHFc7UcoIp8A==}
+  viem@2.47.5:
+    resolution: {integrity: sha512-nVrJEQ8GL4JoVIrMBF3wwpTUZun0cpojfnOZ+96GtDWhqxZkVdy6vOEgu+jwfXqfTA/+wrR+YsN9TBQmhDUk0g==}
     peerDependencies:
       typescript: '>=5.0.4'
     peerDependenciesMeta:
@@ -3283,18 +3317,18 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
-  '@novasamatech/host-api@0.6.5':
+  '@novasamatech/host-api@0.6.6':
     dependencies:
-      '@novasamatech/scale': 0.6.5
+      '@novasamatech/scale': 0.6.6
       '@polkadot-api/utils': 0.2.0
       nanoevents: 9.1.0
-      nanoid: 5.1.6
+      nanoid: 5.1.7
       neverthrow: 8.2.0
       scale-ts: 1.6.1
 
-  '@novasamatech/product-sdk@0.6.5(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)':
+  '@novasamatech/product-sdk@0.6.6(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)':
     dependencies:
-      '@novasamatech/host-api': 0.6.5
+      '@novasamatech/host-api': 0.6.6
       '@polkadot-api/json-rpc-provider': 0.0.4
       '@polkadot-api/json-rpc-provider-proxy': 0.2.8
       '@polkadot-api/substrate-bindings': 0.17.0
@@ -3306,7 +3340,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@novasamatech/scale@0.6.5':
+  '@novasamatech/scale@0.6.6':
     dependencies:
       '@polkadot-api/utils': 0.2.0
       scale-ts: 1.6.1
@@ -3366,6 +3400,10 @@ snapshots:
     dependencies:
       polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
       rxjs: 7.8.2
+
+  '@polkadot-api/descriptors@file:packages/descriptors/generated(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))':
+    dependencies:
+      polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
 
   '@polkadot-api/ink-contracts@0.4.6':
     dependencies:
@@ -3463,7 +3501,7 @@ snapshots:
       abitype: 1.2.3(typescript@5.9.3)
       polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
       rxjs: 7.8.2
-      viem: 2.47.4(typescript@5.9.3)
+      viem: 2.47.5(typescript@5.9.3)
     transitivePeerDependencies:
       - bufferutil
       - typescript
@@ -4224,7 +4262,7 @@ snapshots:
 
   balanced-match@4.0.4: {}
 
-  baseline-browser-mapping@2.10.9: {}
+  baseline-browser-mapping@2.10.12: {}
 
   better-path-resolve@1.0.0:
     dependencies:
@@ -4246,9 +4284,9 @@ snapshots:
 
   browserslist@4.28.1:
     dependencies:
-      baseline-browser-mapping: 2.10.9
-      caniuse-lite: 1.0.30001780
-      electron-to-chromium: 1.5.321
+      baseline-browser-mapping: 2.10.12
+      caniuse-lite: 1.0.30001782
+      electron-to-chromium: 1.5.328
       node-releases: 2.0.36
       update-browserslist-db: 1.2.3(browserslist@4.28.1)
 
@@ -4259,7 +4297,7 @@ snapshots:
 
   cac@6.7.14: {}
 
-  caniuse-lite@1.0.30001780: {}
+  caniuse-lite@1.0.30001782: {}
 
   chai@5.3.3:
     dependencies:
@@ -4329,7 +4367,7 @@ snapshots:
 
   eastasianwidth@0.2.0: {}
 
-  electron-to-chromium@1.5.321: {}
+  electron-to-chromium@1.5.328: {}
 
   emoji-regex@8.0.0: {}
 
@@ -4754,7 +4792,7 @@ snapshots:
 
   nanoid@3.3.11: {}
 
-  nanoid@5.1.6: {}
+  nanoid@5.1.7: {}
 
   neverthrow@8.2.0:
     optionalDependencies:
@@ -5298,7 +5336,7 @@ snapshots:
       spdx-correct: 3.2.0
       spdx-expression-parse: 3.0.1
 
-  viem@2.47.4(typescript@5.9.3):
+  viem@2.47.5(typescript@5.9.3):
     dependencies:
       '@noble/curves': 1.9.1
       '@noble/hashes': 1.8.0
