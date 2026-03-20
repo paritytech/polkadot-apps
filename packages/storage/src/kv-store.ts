@@ -70,7 +70,9 @@ function createHostBackend(
     return {
         async get(key) {
             try {
-                return await hostStorage.readString(applyPrefix(key));
+                const value = await hostStorage.readString(applyPrefix(key));
+                // product-sdk decodes missing keys as "" — normalize to null
+                return value || null;
             } catch (e) {
                 log.warn("Host readString failed", { key, error: e });
                 return null;
@@ -95,7 +97,8 @@ function createHostBackend(
 
         async getJSON<T>(key: string): Promise<T | null> {
             try {
-                return (await hostStorage.readJSON(applyPrefix(key))) as T;
+                const value = await hostStorage.readJSON(applyPrefix(key));
+                return (value ?? null) as T | null;
             } catch (e) {
                 log.warn("Host readJSON failed", { key, error: e });
                 return null;
@@ -135,7 +138,7 @@ export async function createKvStore(options?: KvStoreOptions): Promise<KvStore> 
 }
 
 if (import.meta.vitest) {
-    const { test, expect, describe, beforeEach, afterEach } = import.meta.vitest;
+    const { test, expect, describe, beforeEach, afterEach, vi } = import.meta.vitest;
     const { configure } = await import("@polkadot-apps/logger");
 
     // Silence logger during tests
@@ -306,6 +309,46 @@ if (import.meta.vitest) {
             await kv.set("key", "val");
             expect(host.data.get("app:key")).toBe("val");
         });
+
+        test("get returns null for missing key (empty string from host)", async () => {
+            const host = mockHostStorage();
+            const kv = createHostBackend(host, (k) => k);
+            // host.readString returns "" for missing keys, should normalize to null
+            expect(await kv.get("missing")).toBeNull();
+        });
+
+        test("getJSON returns null for missing key (undefined from host)", async () => {
+            const host = mockHostStorage();
+            const kv = createHostBackend(host, (k) => k);
+            expect(await kv.getJSON("missing")).toBeNull();
+        });
+
+        test("set silently catches host write errors", async () => {
+            const host = mockHostStorage();
+            host.writeString = async () => {
+                throw new Error("quota");
+            };
+            const kv = createHostBackend(host, (k) => k);
+            await kv.set("key", "val"); // should not throw
+        });
+
+        test("setJSON silently catches host write errors", async () => {
+            const host = mockHostStorage();
+            host.writeJSON = async () => {
+                throw new Error("quota");
+            };
+            const kv = createHostBackend(host, (k) => k);
+            await kv.setJSON("key", { a: 1 }); // should not throw
+        });
+
+        test("remove silently catches host clear errors", async () => {
+            const host = mockHostStorage();
+            host.clear = async () => {
+                throw new Error("fail");
+            };
+            const kv = createHostBackend(host, (k) => k);
+            await kv.remove("key"); // should not throw
+        });
     });
 
     describe("SSR (no localStorage)", () => {
@@ -340,6 +383,35 @@ if (import.meta.vitest) {
                 await kv.set("x", "1");
                 expect(store["app:x"]).toBe("1");
             } finally {
+                cleanup();
+            }
+        });
+
+        test("auto-detects host storage when inside container", async () => {
+            const host = mockHostStorage();
+            const hostMod = await import("@polkadot-apps/host");
+            vi.spyOn(hostMod, "isInsideContainer").mockResolvedValue(true);
+            vi.spyOn(hostMod, "getHostLocalStorage").mockResolvedValue(host);
+            try {
+                const kv = await createKvStore({ prefix: "auto" });
+                await kv.set("k", "v");
+                expect(host.data.get("auto:k")).toBe("v");
+            } finally {
+                vi.restoreAllMocks();
+            }
+        });
+
+        test("falls back to localStorage when inside container but host storage unavailable", async () => {
+            const { store, cleanup } = shimLocalStorage();
+            const hostMod = await import("@polkadot-apps/host");
+            vi.spyOn(hostMod, "isInsideContainer").mockResolvedValue(true);
+            vi.spyOn(hostMod, "getHostLocalStorage").mockResolvedValue(null);
+            try {
+                const kv = await createKvStore({ prefix: "fb" });
+                await kv.set("x", "1");
+                expect(store["fb:x"]).toBe("1");
+            } finally {
+                vi.restoreAllMocks();
                 cleanup();
             }
         });

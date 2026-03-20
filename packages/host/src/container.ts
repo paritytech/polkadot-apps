@@ -92,6 +92,27 @@ if (import.meta.vitest) {
         vi.unstubAllGlobals();
     });
 
+    test("manualDetection returns true for cross-origin iframe", async () => {
+        const fakeWindow = {};
+        Object.defineProperty(fakeWindow, "top", {
+            get: () => {
+                throw new DOMException("cross-origin");
+            },
+        });
+        vi.stubGlobal("window", fakeWindow);
+        const result = await isInsideContainer();
+        expect(result).toBe(true);
+        vi.unstubAllGlobals();
+    });
+
+    test("manualDetection returns true when window !== window.top (iframe)", async () => {
+        const fakeWindow = { top: {} }; // top is a different object
+        vi.stubGlobal("window", fakeWindow);
+        const result = await isInsideContainer();
+        expect(result).toBe(true);
+        vi.unstubAllGlobals();
+    });
+
     test("getHostLocalStorage returns null outside container", async () => {
         expect(await getHostLocalStorage()).toBeNull();
     });
