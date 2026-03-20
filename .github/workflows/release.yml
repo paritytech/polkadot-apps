@@ -52,7 +52,7 @@ jobs:
             # Build all publishable packages
             - name: Build packages
               if: steps.changesets.outputs.found == 'true'
-              run: pnpm -r --filter "@polkadot-apps/address" --filter "@polkadot-apps/crypto" --filter "@polkadot-apps/bulletin" --filter "@polkadot-apps/chain-client" --filter "@polkadot-apps/storage" build
+              run: pnpm build
 
             # Commit version bumps
             - name: Commit version changes

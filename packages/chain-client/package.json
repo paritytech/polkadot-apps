@@ -1,6 +1,6 @@
 {
     "name": "@polkadot-apps/chain-client",
-    "version": "0.1.5",
+    "version": "0.2.0",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -20,11 +20,12 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
-        "@polkadot-apps/address": "workspace:*",
+        "@polkadot-apps/descriptors": "workspace:*",
+        "@polkadot-api/sdk-ink": "catalog:",
         "polkadot-api": "catalog:"
     },
     "peerDependencies": {
-        "@novasamatech/product-sdk": ">=0.1.0"
+        "@novasamatech/product-sdk": "catalog:"
     },
     "peerDependenciesMeta": {
         "@novasamatech/product-sdk": {
