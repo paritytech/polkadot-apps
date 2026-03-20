@@ -19,7 +19,7 @@
         "turbo": "catalog:",
         "typedoc": "catalog:",
         "typescript": "catalog:",
-        "@vitest/coverage-v8": "catalog:",
+        "@vitest/coverage-istanbul": "catalog:",
         "vitest": "catalog:"
     }
 }

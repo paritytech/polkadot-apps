@@ -1,9 +1,11 @@
 import { defineConfig, type Plugin } from "vitest/config";
 
 /**
- * Vite plugin that excludes `if (import.meta.vitest)` blocks from v8 coverage.
- * Automatically injects `v8 ignore start` so test helpers inside in-source
- * test blocks don't pollute coverage metrics.
+ * Excludes in-source test blocks from coverage.
+ *
+ * Istanbul instruments code AFTER Vite transforms, so injecting
+ * `istanbul ignore next` here causes it to skip the entire
+ * `if (import.meta.vitest) { ... }` block and everything inside it.
  */
 function ignoreInSourceTestsCoverage(): Plugin {
     return {
@@ -11,8 +13,8 @@ function ignoreInSourceTestsCoverage(): Plugin {
         transform(code, id) {
             if (id.includes("packages/") && code.includes("import.meta.vitest")) {
                 return code.replace(
-                    /^(if \(import\.meta\.vitest\))/m,
-                    "/* v8 ignore start */\n$1",
+                    /if \(import\.meta\.vitest\)/,
+                    "/* istanbul ignore next */\nif (import.meta.vitest)",
                 );
             }
         },
@@ -29,7 +31,7 @@ export default defineConfig({
         reporters: "verbose",
         environment: "node",
         coverage: {
-            provider: "v8",
+            provider: "istanbul",
             reporter: ["text", "json-summary", "json"],
             reportsDirectory: "./coverage",
             include: ["packages/*/src/**/*.ts"],

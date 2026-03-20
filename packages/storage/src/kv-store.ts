@@ -235,6 +235,30 @@ if (import.meta.vitest) {
             const kv = createLocalStorageBackend((k) => k);
             expect(await kv.getJSON("nope")).toBeNull();
         });
+
+        test("get returns null when localStorage throws", async () => {
+            globalThis.localStorage.getItem = () => {
+                throw new Error("SecurityError");
+            };
+            const kv = createLocalStorageBackend((k) => k);
+            expect(await kv.get("key")).toBeNull();
+        });
+
+        test("set silently catches when localStorage throws", async () => {
+            globalThis.localStorage.setItem = () => {
+                throw new Error("QuotaExceededError");
+            };
+            const kv = createLocalStorageBackend((k) => k);
+            await expect(kv.set("key", "val")).resolves.toBeUndefined();
+        });
+
+        test("remove silently catches when localStorage throws", async () => {
+            globalThis.localStorage.removeItem = () => {
+                throw new Error("SecurityError");
+            };
+            const kv = createLocalStorageBackend((k) => k);
+            await expect(kv.remove("key")).resolves.toBeUndefined();
+        });
     });
 
     describe("prefix", () => {
@@ -329,7 +353,7 @@ if (import.meta.vitest) {
                 throw new Error("quota");
             };
             const kv = createHostBackend(host, (k) => k);
-            await kv.set("key", "val"); // should not throw
+            await expect(kv.set("key", "val")).resolves.toBeUndefined();
         });
 
         test("setJSON silently catches host write errors", async () => {
@@ -338,7 +362,7 @@ if (import.meta.vitest) {
                 throw new Error("quota");
             };
             const kv = createHostBackend(host, (k) => k);
-            await kv.setJSON("key", { a: 1 }); // should not throw
+            await expect(kv.setJSON("key", { a: 1 })).resolves.toBeUndefined();
         });
 
         test("remove silently catches host clear errors", async () => {
@@ -347,7 +371,7 @@ if (import.meta.vitest) {
                 throw new Error("fail");
             };
             const kv = createHostBackend(host, (k) => k);
-            await kv.remove("key"); // should not throw
+            await expect(kv.remove("key")).resolves.toBeUndefined();
         });
     });
 
@@ -359,7 +383,7 @@ if (import.meta.vitest) {
 
         test("set is a no-op", async () => {
             const kv = createLocalStorageBackend((k) => k);
-            await kv.set("key", "value"); // should not throw
+            await expect(kv.set("key", "value")).resolves.toBeUndefined();
         });
 
         test("getJSON returns null", async () => {
