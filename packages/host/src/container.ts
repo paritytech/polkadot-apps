@@ -116,4 +116,38 @@ if (import.meta.vitest) {
     test("getHostLocalStorage returns null outside container", async () => {
         expect(await getHostLocalStorage()).toBeNull();
     });
+
+    test("isInsideContainer returns true when product-sdk detects container", async () => {
+        const fakeWindow = { top: null };
+        Object.defineProperty(fakeWindow, "top", { get: () => fakeWindow });
+        vi.stubGlobal("window", fakeWindow);
+        vi.doMock("@novasamatech/product-sdk", () => ({
+            sandboxProvider: { isCorrectEnvironment: () => true },
+            hostLocalStorage: {},
+        }));
+        try {
+            expect(await isInsideContainer()).toBe(true);
+        } finally {
+            vi.doUnmock("@novasamatech/product-sdk");
+            vi.unstubAllGlobals();
+        }
+    });
+
+    test("getHostLocalStorage returns instance when inside container", async () => {
+        const fakeStorage = { readString: async () => "val" };
+        const fakeWindow = { top: null };
+        Object.defineProperty(fakeWindow, "top", { get: () => fakeWindow });
+        vi.stubGlobal("window", fakeWindow);
+        vi.doMock("@novasamatech/product-sdk", () => ({
+            sandboxProvider: { isCorrectEnvironment: () => true },
+            hostLocalStorage: fakeStorage,
+        }));
+        try {
+            const result = await getHostLocalStorage();
+            expect(result).toBe(fakeStorage);
+        } finally {
+            vi.doUnmock("@novasamatech/product-sdk");
+            vi.unstubAllGlobals();
+        }
+    });
 }
