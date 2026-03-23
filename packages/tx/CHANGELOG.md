@@ -1,5 +1,11 @@
 # @polkadot-apps/tx
 
+## 0.2.1
+
+### Patch Changes
+
+- @polkadot-apps/keys@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
