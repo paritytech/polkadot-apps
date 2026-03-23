@@ -35,5 +35,5 @@ export interface EncryptedPayload {
     /** The nonce/IV used during encryption. */
     nonce: Uint8Array;
     /** How the symmetric key was established (omit if key was pre-shared or derived directly via HKDF). */
-    kem?: KemAlgorithm;                                                                                         
+    kem?: KemAlgorithm;
 }
