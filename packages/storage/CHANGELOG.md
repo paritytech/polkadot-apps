@@ -1,5 +1,11 @@
 # @polkadot-apps/storage
 
+## 0.1.4
+
+### Patch Changes
+
+- 27019c9: fix: migrate npm publishing to npm_publish_automation dispatch workflow
+
 ## 0.1.3
 
 ### Patch Changes

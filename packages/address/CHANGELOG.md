@@ -1,5 +1,11 @@
 # @polkadot-apps/address
 
+## 0.3.1
+
+### Patch Changes
+
+- 27019c9: fix: migrate npm publishing to npm_publish_automation dispatch workflow
+
 ## 0.3.0
 
 ### Minor Changes
