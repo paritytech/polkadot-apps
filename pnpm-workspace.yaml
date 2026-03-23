@@ -6,6 +6,7 @@ catalog:
     "@novasamatech/product-sdk": ^0.6.0
     dexie: ^4.0.11
     tweetnacl: ^1.0.3
+    "@noble/ciphers": ^2.1.0
     "@noble/hashes": ^2.0.1
     multiformats: ^13.4.2
     typescript: ^5.9.3
