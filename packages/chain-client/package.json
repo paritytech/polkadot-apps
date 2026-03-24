@@ -21,6 +21,7 @@
     },
     "dependencies": {
         "@polkadot-apps/descriptors": "workspace:*",
+        "@polkadot-apps/host": "workspace:*",
         "@polkadot-api/sdk-ink": "catalog:",
         "polkadot-api": "catalog:"
     },

@@ -1,9 +1,4 @@
-export const foo = "storage";
-
-if (import.meta.vitest) {
-    const { test, expect } = import.meta.vitest;
-
-    test("foo is storage", () => {
-        expect(foo).toBe("storage");
-    });
-}
+export { createKvStore } from "./kv-store.js";
+export type { KvStore, KvStoreOptions } from "./types.js";
+export type { HostLocalStorage } from "@polkadot-apps/host";
+export { default as Dexie, type Table } from "dexie";

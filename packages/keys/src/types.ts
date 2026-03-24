@@ -27,13 +27,3 @@ export interface SessionKeyInfo {
     /** The derived account info */
     account: DerivedAccount;
 }
-
-/**
- * Storage adapter for SessionKeyManager.
- * `window.localStorage` already satisfies this interface.
- */
-export interface KeyStorage {
-    get(key: string): string | null | Promise<string | null>;
-    set(key: string, value: string): void | Promise<void>;
-    remove(key: string): void | Promise<void>;
-}
