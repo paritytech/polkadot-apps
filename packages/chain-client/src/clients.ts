@@ -61,6 +61,9 @@ export type ChainAPI<E extends Environment> = ReturnType<(typeof chainFactories)
     destroy: () => void;
 };
 
+/** Environments where all chains (asset hub, bulletin, individuality) are live. */
+const AVAILABLE_ENVIRONMENTS: Set<Environment> = new Set(["paseo"]);
+
 const rpcs = {
     polkadot: {
         assetHub: {
@@ -70,12 +73,8 @@ const rpcs = {
                 "wss://sys.ibp.network/asset-hub-polkadot",
             ],
         },
-        // Bulletin and individuality only exist on Paseo/Preview-net for now
-        bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
-        individuality: {
-            genesis: individuality.genesis!,
-            rpcs: ["wss://pop3-testnet.parity-lab.parity.io/people"],
-        },
+        bulletin: { genesis: bulletin.genesis!, rpcs: [] as string[] },
+        individuality: { genesis: individuality.genesis!, rpcs: [] as string[] },
     },
     kusama: {
         assetHub: {
@@ -85,11 +84,8 @@ const rpcs = {
                 "wss://sys.ibp.network/asset-hub-kusama",
             ],
         },
-        bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
-        individuality: {
-            genesis: individuality.genesis!,
-            rpcs: ["wss://pop3-testnet.parity-lab.parity.io/people"],
-        },
+        bulletin: { genesis: bulletin.genesis!, rpcs: [] as string[] },
+        individuality: { genesis: individuality.genesis!, rpcs: [] as string[] },
     },
     paseo: {
         assetHub: {
@@ -137,6 +133,9 @@ export async function getChainAPI<E extends Environment>(env: E): Promise<ChainA
 }
 
 async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>> {
+    if (!AVAILABLE_ENVIRONMENTS.has(env)) {
+        throw new Error(`Chain API for "${env}" is not yet available`);
+    }
     const envRpcs = rpcs[env];
     const clientCache = getClientCache();
 
@@ -364,12 +363,21 @@ if (import.meta.vitest) {
         for (const env of ["polkadot", "kusama", "paseo"] as const) {
             const envRpcs = rpcs[env];
             expect(envRpcs.assetHub.rpcs.length).toBeGreaterThan(0);
-            expect(envRpcs.bulletin.rpcs.length).toBeGreaterThan(0);
-            expect(envRpcs.individuality.rpcs.length).toBeGreaterThan(0);
             expect(envRpcs.assetHub.genesis).toBeTruthy();
             expect(envRpcs.bulletin.genesis).toBeTruthy();
             expect(envRpcs.individuality.genesis).toBeTruthy();
         }
+    });
+
+    test("paseo has RPCs for all chains", () => {
+        const envRpcs = rpcs.paseo;
+        expect(envRpcs.bulletin.rpcs.length).toBeGreaterThan(0);
+        expect(envRpcs.individuality.rpcs.length).toBeGreaterThan(0);
+    });
+
+    test("polkadot and kusama throw as not yet available", async () => {
+        await expect(getChainAPI("polkadot")).rejects.toThrow("not yet available");
+        await expect(getChainAPI("kusama")).rejects.toThrow("not yet available");
     });
 
     test("chain factories return typed APIs", () => {

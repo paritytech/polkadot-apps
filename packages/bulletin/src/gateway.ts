@@ -5,17 +5,20 @@ import type { Environment, FetchOptions } from "./types.js";
  * Currently all point to the Paseo bulletin gateway (only one live).
  * Will be updated as Polkadot/Kusama bulletin chains go live.
  */
-const GATEWAYS: Record<Environment, string> = {
-    polkadot: "https://paseo-ipfs.polkadot.io/ipfs/",
-    kusama: "https://paseo-ipfs.polkadot.io/ipfs/",
+/** Add entries here as bulletin gateways go live on each network. */
+const GATEWAYS: Partial<Record<Environment, string>> = {
     paseo: "https://paseo-ipfs.polkadot.io/ipfs/",
 };
 
 const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
 
-/** Get the IPFS gateway URL for an environment. */
+/** Get the IPFS gateway URL for an environment. Throws if the network is not yet available. */
 export function getGateway(env: Environment): string {
-    return GATEWAYS[env];
+    const gw = GATEWAYS[env];
+    if (!gw) {
+        throw new Error(`Bulletin gateway for "${env}" is not yet available`);
+    }
+    return gw;
 }
 
 /** Build the full gateway URL for a CID. */
@@ -72,12 +75,15 @@ if (import.meta.vitest) {
     });
 
     describe("getGateway", () => {
-        test("returns known URL for each environment", () => {
-            for (const env of ["polkadot", "kusama", "paseo"] as const) {
-                const gw = getGateway(env);
-                expect(gw).toMatch(/^https:\/\//);
-                expect(gw).toMatch(/\/ipfs\/$/);
-            }
+        test("returns known URL for paseo", () => {
+            const gw = getGateway("paseo");
+            expect(gw).toMatch(/^https:\/\//);
+            expect(gw).toMatch(/\/ipfs\/$/);
+        });
+
+        test("throws for environments without a live gateway", () => {
+            expect(() => getGateway("polkadot")).toThrow("not yet available");
+            expect(() => getGateway("kusama")).toThrow("not yet available");
         });
     });
 
