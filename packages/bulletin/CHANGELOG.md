@@ -1,5 +1,16 @@
 # @polkadot-apps/bulletin
 
+## 0.2.0
+
+### Minor Changes
+
+- 6c0e757: feat: implement Bulletin Chain SDK with CID computation, upload/batch upload, gateway fetch, and BulletinClient entry point; throw for unavailable Polkadot/Kusama networks instead of silently using Paseo testnet endpoints
+
+### Patch Changes
+
+- Updated dependencies [6c0e757]
+  - @polkadot-apps/chain-client@0.2.2
+
 ## 0.1.6
 
 ### Patch Changes
