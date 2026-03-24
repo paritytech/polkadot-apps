@@ -20,10 +20,12 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
-        "@polkadot-apps/address": "workspace:*",
-        "polkadot-api": "catalog:",
+        "@polkadot-apps/chain-client": "workspace:*",
+        "@polkadot-apps/descriptors": "workspace:*",
+        "@polkadot-apps/tx": "workspace:*",
         "@noble/hashes": "catalog:",
-        "multiformats": "catalog:"
+        "multiformats": "catalog:",
+        "polkadot-api": "catalog:"
     },
     "devDependencies": {
         "typescript": "catalog:"
