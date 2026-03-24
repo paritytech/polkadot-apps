@@ -1,10 +1,5 @@
 import type { Environment, FetchOptions } from "./types.js";
 
-/**
- * Known IPFS gateways per environment.
- * Currently all point to the Paseo bulletin gateway (only one live).
- * Will be updated as Polkadot/Kusama bulletin chains go live.
- */
 /** Add entries here as bulletin gateways go live on each network. */
 const GATEWAYS: Partial<Record<Environment, string>> = {
     paseo: "https://paseo-ipfs.polkadot.io/ipfs/",
@@ -26,13 +21,25 @@ export function gatewayUrl(cid: string, gateway: string): string {
     return `${gateway}${cid}`;
 }
 
-/** Check if a CID exists on the gateway (HEAD request). Returns false on any error. */
-export async function cidExists(cid: string, gateway: string): Promise<boolean> {
+/** Check if a CID exists on the gateway (HEAD request). Returns false on any error or timeout. */
+export async function cidExists(
+    cid: string,
+    gateway: string,
+    options?: FetchOptions,
+): Promise<boolean> {
+    const timeoutMs = options?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        const response = await fetch(gatewayUrl(cid, gateway), { method: "HEAD" });
+        const response = await fetch(gatewayUrl(cid, gateway), {
+            method: "HEAD",
+            signal: controller.signal,
+        });
         return response.ok;
     } catch {
         return false;
+    } finally {
+        clearTimeout(timer);
     }
 }
 
@@ -109,6 +116,21 @@ if (import.meta.vitest) {
         test("returns false on network error", async () => {
             vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network")));
             expect(await cidExists("bafyabc", "https://gw/ipfs/")).toBe(false);
+        });
+
+        test("returns false on timeout", async () => {
+            vi.stubGlobal(
+                "fetch",
+                vi.fn().mockImplementation(
+                    (_url: string, init: { signal: AbortSignal }) =>
+                        new Promise((_resolve, reject) => {
+                            init.signal.addEventListener("abort", () =>
+                                reject(new DOMException("aborted", "AbortError")),
+                            );
+                        }),
+                ),
+            );
+            expect(await cidExists("bafyabc", "https://gw/ipfs/", { timeoutMs: 10 })).toBe(false);
         });
     });
 
