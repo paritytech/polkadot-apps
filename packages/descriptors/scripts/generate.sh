@@ -22,4 +22,14 @@ npx papi add individuality -w wss://pop3-testnet.parity-lab.parity.io/people --s
 echo "==> Generating TypeScript descriptors..."
 npx papi
 
+echo "==> Stripping file:generated dep (breaks npm consumers)..."
+node -e '
+    const pkg = require("./package.json");
+    delete pkg.dependencies?.["@polkadot-api/descriptors"];
+    require("fs").writeFileSync(
+        "package.json",
+        JSON.stringify(pkg, null, 4) + "\n"
+    );
+'
+
 echo "==> Done!"
