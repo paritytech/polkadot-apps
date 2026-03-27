@@ -32,4 +32,7 @@ node -e '
     );
 '
 
+echo "==> Formatting..."
+pnpm format
+
 echo "==> Done!"
