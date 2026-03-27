@@ -161,10 +161,6 @@ importers:
         version: 5.9.3
 
   packages/descriptors:
-    dependencies:
-      '@polkadot-api/descriptors':
-        specifier: file:generated
-        version: file:packages/descriptors/generated(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))
     devDependencies:
       polkadot-api:
         specifier: 'catalog:'
@@ -862,11 +858,6 @@ packages:
     peerDependencies:
       polkadot-api: '>=1.22.0'
       rxjs: '>=7.8.1'
-
-  '@polkadot-api/descriptors@file:packages/descriptors/generated':
-    resolution: {directory: packages/descriptors/generated, type: directory}
-    peerDependencies:
-      polkadot-api: '>=1.21.0'
 
   '@polkadot-api/ink-contracts@0.4.6':
     resolution: {integrity: sha512-wpFPa8CnGnmq+cFYMzuTEDmtt3ElBM0UWgTz4RpmI9E7knZ1ctWBhO7amXxOWcILqIG6sqWIE95x0cfF1PRcQg==}
@@ -3353,10 +3344,6 @@ snapshots:
     dependencies:
       polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
       rxjs: 7.8.2
-
-  '@polkadot-api/descriptors@file:packages/descriptors/generated(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))':
-    dependencies:
-      polkadot-api: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
 
   '@polkadot-api/ink-contracts@0.4.6':
     dependencies:
