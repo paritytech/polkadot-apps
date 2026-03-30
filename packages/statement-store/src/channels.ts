@@ -505,5 +505,54 @@ if (import.meta.vitest) {
 
             expect(store.readAll().size).toBe(0);
         });
+
+        test("destroy is safe when subscription is already null", () => {
+            const mockClient = createMockClient();
+            const store = new ChannelStore<TestValue>(
+                mockClient as unknown as StatementStoreClient,
+            );
+            store.destroy();
+            // Second destroy — subscription is already null
+            expect(() => store.destroy()).not.toThrow();
+        });
+
+        test("handles values with undefined timestamps via ?? 0 fallback", async () => {
+            const mockClient = createMockClient();
+            const store = new ChannelStore<{ type: string; timestamp?: number }>(
+                mockClient as unknown as StatementStoreClient,
+            );
+
+            // Write without timestamp — write() will add one via Date.now()
+            await store.write("ch", { type: "first" });
+
+            // Simulate incoming with explicit undefined timestamp via network
+            const channelHash = (await import("./topics.js")).createChannel("ch");
+            mockClient._simulateStatement({
+                data: { type: "network", timestamp: undefined } as unknown as {
+                    type: string;
+                    timestamp?: number;
+                },
+                channel: channelHash,
+                raw: {} as import("./types.js").DecodedStatement,
+            });
+
+            // The undefined timestamp falls back to 0 via ?? 0
+            // and is less than the Date.now() timestamp, so it should be skipped
+            expect(store.read("ch")?.type).toBe("first");
+        });
+
+        test("onChange error with non-Error value is stringified", async () => {
+            const mockClient = createMockClient();
+            const store = new ChannelStore<TestValue>(
+                mockClient as unknown as StatementStoreClient,
+            );
+            store.onChange(() => {
+                throw "string error"; // eslint-disable-line no-throw-literal
+            });
+
+            // Should not throw — the string error is caught and logged
+            await store.write("ch", { type: "test", timestamp: 1 });
+            expect(store.read("ch")).toBeDefined();
+        });
     });
 }

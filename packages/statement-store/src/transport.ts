@@ -324,6 +324,7 @@ export async function createTransport(config: {
     );
 }
 
+/* @integration */
 async function createDirectTransport(endpoint: string): Promise<RpcTransport> {
     try {
         const { getWsProvider } = await import("polkadot-api/ws-provider/web");
@@ -340,6 +341,7 @@ async function createDirectTransport(endpoint: string): Promise<RpcTransport> {
     }
 }
 
+/* @integration */
 async function createChainClientTransport(): Promise<RpcTransport> {
     try {
         const { getClient } = await import("@polkadot-apps/chain-client");

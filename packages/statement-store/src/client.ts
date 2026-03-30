@@ -118,6 +118,7 @@ export class StatementStoreClient {
         return this.connectPromise;
     }
 
+    /* @integration */
     private async doConnect(signer: StatementSignerWithKey): Promise<void> {
         this.signer = signer;
         this.transport = await createTransport({ endpoint: this.config.endpoint });
@@ -338,6 +339,7 @@ export class StatementStoreClient {
     // Internal
     // ========================================================================
 
+    /* @integration */
     private startSubscription(): void {
         if (!this.transport) return;
 
@@ -354,6 +356,7 @@ export class StatementStoreClient {
         );
     }
 
+    /* @integration */
     private startPolling(): void {
         this.pollTimer = setInterval(() => {
             this.poll().catch((error) => {
@@ -371,6 +374,7 @@ export class StatementStoreClient {
         }
     }
 
+    /* @integration */
     private async poll(): Promise<void> {
         if (!this.transport) return;
 
