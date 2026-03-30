@@ -1,5 +1,12 @@
 # @polkadot-apps/storage
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [b813235]
+  - @polkadot-apps/logger@0.1.3
+
 ## 0.2.0
 
 ### Minor Changes

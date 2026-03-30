@@ -1,5 +1,11 @@
 # @polkadot-apps/logger
 
+## 0.1.3
+
+### Patch Changes
+
+- b813235: Fix npm consumer installs: remove broken `file:generated` dep from descriptors, add missing `.js` extensions to logger ESM imports.
+
 ## 0.1.2
 
 ### Patch Changes
