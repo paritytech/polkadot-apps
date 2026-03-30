@@ -133,4 +133,28 @@ if (import.meta.vitest) {
             delete process.env.POLKADOT_APPS_LOG;
         }
     });
+
+    test("configure with empty namespaces clears the filter", async () => {
+        const { configure } = await import("./configure.js");
+        state.namespaces = new Set(["test"]);
+        configure({ namespaces: [] });
+        expect(state.namespaces).toBeUndefined();
+        resetState();
+    });
+
+    test("configure with namespaces sets the filter", async () => {
+        const { configure } = await import("./configure.js");
+        configure({ namespaces: ["auth", "tx"] });
+        expect(state.namespaces).toBeDefined();
+        expect(state.namespaces!.has("auth")).toBe(true);
+        expect(state.namespaces!.has("tx")).toBe(true);
+        resetState();
+    });
+
+    test("readEnv catches localStorage errors gracefully", () => {
+        // In Node without localStorage, readEnv tries localStorage.getItem which throws
+        // The catch block returns undefined — this exercises the catch branch
+        const result = readEnv("NONEXISTENT_KEY_FOR_COVERAGE");
+        expect(result).toBeUndefined();
+    });
 }
