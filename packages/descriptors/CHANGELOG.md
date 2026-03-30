@@ -1,5 +1,11 @@
 # @polkadot-apps/descriptors
 
+## 0.1.4
+
+### Patch Changes
+
+- f2f6e15: Fix published package containing broken `file:generated` dependency by stripping it in CI before versioning.
+
 ## 0.1.3
 
 ### Patch Changes

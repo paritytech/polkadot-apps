@@ -1,5 +1,13 @@
 # @polkadot-apps/bulletin
 
+## 0.2.4
+
+### Patch Changes
+
+- Updated dependencies [f2f6e15]
+  - @polkadot-apps/descriptors@0.1.4
+  - @polkadot-apps/chain-client@0.3.3
+
 ## 0.2.3
 
 ### Patch Changes
