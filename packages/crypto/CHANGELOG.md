@@ -1,5 +1,11 @@
 # @polkadot-apps/crypto
 
+## 0.3.2
+
+### Patch Changes
+
+- 022913a: Initial npm publish for all previously unpublished packages
+
 ## 0.3.1
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @polkadot-apps/storage
 
+## 0.2.2
+
+### Patch Changes
+
+- 022913a: Initial npm publish for all previously unpublished packages
+- Updated dependencies [022913a]
+  - @polkadot-apps/host@0.2.1
+
 ## 0.2.1
 
 ### Patch Changes

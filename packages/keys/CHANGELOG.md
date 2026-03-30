@@ -1,5 +1,14 @@
 # @polkadot-apps/keys
 
+## 0.3.2
+
+### Patch Changes
+
+- 022913a: Initial npm publish for all previously unpublished packages
+- Updated dependencies [022913a]
+  - @polkadot-apps/crypto@0.3.2
+  - @polkadot-apps/storage@0.2.2
+
 ## 0.3.1
 
 ### Patch Changes

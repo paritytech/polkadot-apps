@@ -1,5 +1,11 @@
 # @polkadot-apps/host
 
+## 0.2.1
+
+### Patch Changes
+
+- 022913a: Initial npm publish for all previously unpublished packages
+
 ## 0.2.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @polkadot-apps/descriptors
 
+## 0.1.3
+
+### Patch Changes
+
+- 022913a: Initial npm publish for all previously unpublished packages
+
 ## 0.1.2
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @polkadot-apps/chain-client
 
+## 0.3.2
+
+### Patch Changes
+
+- 022913a: Initial npm publish for all previously unpublished packages
+- Updated dependencies [022913a]
+  - @polkadot-apps/host@0.2.1
+  - @polkadot-apps/descriptors@0.1.3
+
 ## 0.3.1
 
 ### Patch Changes
