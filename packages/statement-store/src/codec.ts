@@ -4,6 +4,11 @@ import { MAX_STATEMENT_SIZE } from "./types.js";
 
 // ============================================================================
 // Internal SCALE Helpers
+//
+// These are statement-format-specific SCALE primitives (~60 lines). While
+// @polkadot-api/substrate-bindings exists in the catalog, it doesn't expose
+// simple compact/u64 encode/decode in a convenient form for our use case.
+// If a second consumer needs these, extract to a shared @polkadot-apps/scale.
 // ============================================================================
 
 /**
@@ -247,8 +252,8 @@ export function encodeStatement(
 /**
  * Decode a SCALE-encoded statement from a hex string.
  *
- * Parses all known field tags (0, 2, 3, 4, 5, 6, 8) and silently skips unknown tags
- * when possible. Throws {@link StatementEncodingError} for structural corruption.
+ * Parses all known field tags (0, 2, 3, 4, 5, 6, 8).
+ * Throws {@link StatementEncodingError} on unknown tags or structural corruption.
  *
  * @param hex - A hex-encoded statement string (with or without "0x" prefix).
  * @returns The decoded statement fields.
@@ -329,6 +334,8 @@ export function decodeStatement(hex: string): DecodedStatement {
                 break;
             }
             default:
+                // We must throw here rather than skip — without knowing the
+                // field's wire size, we can't advance the offset safely.
                 throw new StatementEncodingError(`Unknown field tag: ${tag}`);
         }
     }

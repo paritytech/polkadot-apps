@@ -201,8 +201,8 @@ export class ChannelStore<T extends { timestamp?: number }> {
         if (existing) {
             const existingTs = existing.timestamp ?? 0;
             const newTs = value.timestamp ?? 0;
-            if (newTs < existingTs) {
-                return; // Older value, ignore
+            if (newTs <= existingTs) {
+                return; // Same or older value, skip (idempotent)
             }
         }
 
@@ -360,6 +360,23 @@ if (import.meta.vitest) {
             await store.write("ch", { type: "old", timestamp: 100 });
 
             expect(store.read("ch")?.type).toBe("new");
+        });
+
+        test("equal timestamp does not trigger update (idempotent)", async () => {
+            const mockClient = createMockClient();
+            const store = new ChannelStore<TestValue>(
+                mockClient as unknown as StatementStoreClient,
+            );
+            const onChange = vi.fn();
+            store.onChange(onChange);
+
+            await store.write("ch", { type: "first", timestamp: 100 });
+            expect(onChange).toHaveBeenCalledOnce();
+
+            await store.write("ch", { type: "second", timestamp: 100 });
+            // Equal timestamp = skip, onChange should NOT fire again
+            expect(onChange).toHaveBeenCalledOnce();
+            expect(store.read("ch")?.type).toBe("first");
         });
 
         test("onChange fires on update with previous value", async () => {

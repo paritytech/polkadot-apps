@@ -65,11 +65,10 @@ export function topicToHex(hash: Uint8Array): string {
  */
 export function topicsEqual(a: Uint8Array, b: Uint8Array): boolean {
     if (a.length !== b.length) return false;
-    let diff = 0;
     for (let i = 0; i < a.length; i++) {
-        diff |= a[i] ^ b[i];
+        if (a[i] !== b[i]) return false;
     }
-    return diff === 0;
+    return true;
 }
 
 /**

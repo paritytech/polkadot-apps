@@ -68,6 +68,7 @@ export class StatementStoreClient {
     private pollTimer: ReturnType<typeof setInterval> | null = null;
     private callbacks: Array<(statement: ReceivedStatement<unknown>) => void> = [];
     private connected = false;
+    private connectPromise: Promise<void> | null = null;
 
     /**
      * Track seen statements by channel hex to avoid re-delivering the same statement.
@@ -107,7 +108,17 @@ export class StatementStoreClient {
             log.warn("Already connected, ignoring duplicate connect()");
             return;
         }
+        // Deduplicate concurrent connect() calls — return the in-flight promise
+        if (this.connectPromise) {
+            return this.connectPromise;
+        }
+        this.connectPromise = this.doConnect(signer).finally(() => {
+            this.connectPromise = null;
+        });
+        return this.connectPromise;
+    }
 
+    private async doConnect(signer: StatementSignerWithKey): Promise<void> {
         this.signer = signer;
         this.transport = await createTransport({ endpoint: this.config.endpoint });
 
@@ -248,7 +259,11 @@ export class StatementStoreClient {
      * @param options - Optional secondary topic filter.
      * @returns Array of received statements.
      */
-    async query<T>(options?: { topic2?: string }): Promise<ReceivedStatement<T>[]> {
+    async query<T>(options?: {
+        topic2?: string;
+        /** Explicit decryption key for `statement_posted` filtering. If omitted, derived from topic2. */
+        decryptionKey?: Uint8Array;
+    }): Promise<ReceivedStatement<T>[]> {
         if (!this.transport) {
             throw new StatementConnectionError("Not connected. Call connect() first.");
         }
@@ -258,7 +273,12 @@ export class StatementStoreClient {
             topics.push(createTopic(options.topic2));
         }
 
-        const decryptionKey = options?.topic2 ? topicToHex(createTopic(options.topic2)) : undefined;
+        // Use explicit decryptionKey if provided, else derive from topic2
+        const decryptionKey = options?.decryptionKey
+            ? topicToHex(options.decryptionKey)
+            : options?.topic2
+              ? topicToHex(createTopic(options.topic2))
+              : undefined;
 
         const hexStatements = await this.transport.query(topics, decryptionKey);
         const results: ReceivedStatement<T>[] = [];
@@ -307,6 +327,7 @@ export class StatementStoreClient {
 
         this.signer = null;
         this.connected = false;
+        this.connectPromise = null;
         this.callbacks = [];
         this.seen.clear();
 
