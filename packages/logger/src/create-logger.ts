@@ -1,5 +1,5 @@
-import { LEVEL_VALUES, getEffectiveLevel, state } from "./state";
-import type { LogEntry, LogLevel, Logger } from "./types";
+import { LEVEL_VALUES, getEffectiveLevel, state } from "./state.js";
+import type { LogEntry, LogLevel, Logger } from "./types.js";
 
 const CONSOLE_METHODS: Record<LogLevel, (...args: unknown[]) => void> = {
     error: console.error,
