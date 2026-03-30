@@ -638,4 +638,159 @@ if (import.meta.vitest) {
             expect(extractSubmitStatus("badvalue")).toBe("rejected");
         });
     });
+
+    // Helper to create a mock _request that invokes callbacks immediately
+    type AnyRequestCallbacks = {
+        onSuccess: (
+            subscriptionId: unknown,
+            followSubscription: (
+                id: unknown,
+                handlers: { next: (event: unknown) => void; error: (e: Error) => void },
+            ) => void,
+        ) => void;
+        onError: (error: Error) => void;
+    };
+
+    describe("RpcTransport subscription delivery", () => {
+        test("delivers raw hex string events to onStatement", () => {
+            const mock = createMockClient();
+            const received: string[] = [];
+
+            mock.set_Request(((
+                _method: string,
+                _params: unknown[],
+                callbacks: AnyRequestCallbacks,
+            ) => {
+                callbacks.onSuccess("sub-id", (_id, handlers) => {
+                    handlers.next("0xdeadbeef");
+                    handlers.next("0xcafebabe");
+                });
+                return () => {};
+            }) as RpcClient["_request"]);
+
+            const transport = new RpcTransport(mock.client, false);
+            transport.subscribe(
+                "any",
+                (hex) => received.push(hex),
+                () => {},
+            );
+
+            expect(received).toEqual(["0xdeadbeef", "0xcafebabe"]);
+        });
+
+        test("delivers batched statement events to onStatement", () => {
+            const mock = createMockClient();
+            const received: string[] = [];
+
+            mock.set_Request(((_m: string, _p: unknown[], cb: AnyRequestCallbacks) => {
+                cb.onSuccess("sub-id", (_id, handlers) => {
+                    handlers.next({ statements: ["0xaa", "0xbb"], remaining: 0 });
+                });
+                return () => {};
+            }) as RpcClient["_request"]);
+
+            const transport = new RpcTransport(mock.client, false);
+            transport.subscribe(
+                "any",
+                (hex) => received.push(hex),
+                () => {},
+            );
+
+            expect(received).toEqual(["0xaa", "0xbb"]);
+        });
+
+        test("delivers data-wrapped events to onStatement", () => {
+            const mock = createMockClient();
+            const received: string[] = [];
+
+            mock.set_Request(((_m: string, _p: unknown[], cb: AnyRequestCallbacks) => {
+                cb.onSuccess("sub-id", (_id, handlers) => {
+                    handlers.next({ data: { statements: ["0xcc"] } });
+                });
+                return () => {};
+            }) as RpcClient["_request"]);
+
+            const transport = new RpcTransport(mock.client, false);
+            transport.subscribe(
+                "any",
+                (hex) => received.push(hex),
+                () => {},
+            );
+
+            expect(received).toEqual(["0xcc"]);
+        });
+
+        test("calls onError on subscription stream error", () => {
+            const mock = createMockClient();
+            const errors: Error[] = [];
+
+            mock.set_Request(((_m: string, _p: unknown[], cb: AnyRequestCallbacks) => {
+                cb.onSuccess("sub-id", (_id, handlers) => {
+                    handlers.error(new Error("stream died"));
+                });
+                return () => {};
+            }) as RpcClient["_request"]);
+
+            const transport = new RpcTransport(mock.client, false);
+            transport.subscribe(
+                "any",
+                () => {},
+                (e) => errors.push(e),
+            );
+
+            expect(errors.length).toBe(1);
+            expect(errors[0]).toBeInstanceOf(StatementSubscriptionError);
+        });
+
+        test("calls onError when onError callback fires", () => {
+            const mock = createMockClient();
+            const errors: Error[] = [];
+
+            mock.set_Request(((_m: string, _p: unknown[], cb: AnyRequestCallbacks) => {
+                cb.onError(new Error("method not found"));
+                return () => {};
+            }) as RpcClient["_request"]);
+
+            const transport = new RpcTransport(mock.client, false);
+            transport.subscribe(
+                "any",
+                () => {},
+                (e) => errors.push(e),
+            );
+
+            expect(errors.length).toBe(1);
+            expect(errors[0]).toBeInstanceOf(StatementSubscriptionError);
+        });
+
+        test("ignores unrecognized event formats silently", () => {
+            const mock = createMockClient();
+            const received: string[] = [];
+
+            mock.set_Request(((_m: string, _p: unknown[], cb: AnyRequestCallbacks) => {
+                cb.onSuccess("sub-id", (_id, handlers) => {
+                    handlers.next({ unrecognized: true });
+                    handlers.next(42);
+                    handlers.next("0xvalid");
+                });
+                return () => {};
+            }) as RpcClient["_request"]);
+
+            const transport = new RpcTransport(mock.client, false);
+            transport.subscribe(
+                "any",
+                (hex) => received.push(hex),
+                () => {},
+            );
+
+            // Only the raw string event should be delivered
+            expect(received).toEqual(["0xvalid"]);
+        });
+    });
+
+    describe("createTransport", () => {
+        test("throws StatementConnectionError when no method available", async () => {
+            // No endpoint and chain-client will fail (dynamic import)
+            await expect(createTransport({})).rejects.toThrow(StatementConnectionError);
+        });
+    });
 }

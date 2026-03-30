@@ -542,6 +542,45 @@ if (import.meta.vitest) {
             const bytes = new Uint8Array([4, 0, 0, 0]);
             expect(() => decodeStatement(toHex(bytes))).toThrow(StatementEncodingError);
         });
+
+        test("throws on truncated 32-byte fields", () => {
+            // tag 3 (decryptionKey) with only 16 bytes instead of 32
+            const bytes = new Uint8Array(18);
+            bytes[0] = 4; // compact(1)
+            bytes[1] = 3; // tag 3
+            // only 16 remaining bytes, need 32
+            expect(() => decodeStatement(toHex(bytes))).toThrow("Truncated");
+
+            // tag 4 (topic1)
+            const bytes2 = new Uint8Array(18);
+            bytes2[0] = 4;
+            bytes2[1] = 4;
+            expect(() => decodeStatement(toHex(bytes2))).toThrow("Truncated");
+
+            // tag 6 (channel)
+            const bytes3 = new Uint8Array(18);
+            bytes3[0] = 4;
+            bytes3[1] = 6;
+            expect(() => decodeStatement(toHex(bytes3))).toThrow("Truncated");
+        });
+
+        test("throws on truncated data payload", () => {
+            // tag 8 with compact length=100 but only 2 bytes of data
+            const bytes = new Uint8Array([4, 8, 144, 1, 0, 0]); // compact(1), tag 8, compact(100)=0x190
+            expect(() => decodeStatement(toHex(bytes))).toThrow("Truncated");
+        });
+
+        test("throws on unexpected end of input mid-fields", () => {
+            // Claim 3 fields but only provide 1
+            const encoded = encodeStatement(
+                { expirationTimestamp: 100, sequenceNumber: 1 },
+                fakeSigner,
+                fakeSignature,
+            );
+            // Truncate to cut off some fields
+            const truncated = encoded.slice(0, 20);
+            expect(() => decodeStatement(toHex(truncated))).toThrow(StatementEncodingError);
+        });
     });
 
     describe("createSignatureMaterial", () => {

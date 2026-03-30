@@ -690,5 +690,201 @@ if (import.meta.vitest) {
             expect(callback).toHaveBeenCalledOnce();
             expect(callback.mock.calls[0][0].data).toEqual({ v: 1 });
         });
+
+        test("subscribe with topic2 filter rejects statements without topic2", () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            const callback = vi.fn();
+            client.subscribe(callback, { topic2: "room-1" });
+
+            // Statement without topic2
+            const hex = makeTestStatementHex({ v: 1 }, { channel: mkTopic("ch") });
+
+            const handle = client as unknown as {
+                handleStatementReceived: (hex: string) => boolean;
+            };
+            handle.handleStatementReceived(hex);
+
+            expect(callback).not.toHaveBeenCalled();
+        });
+
+        // --- Tests using injected mock transport ---
+
+        function injectTransport(client: StatementStoreClient, transport: StatementTransport) {
+            const internal = client as unknown as {
+                transport: StatementTransport | null;
+                signer: StatementSignerWithKey | null;
+                connected: boolean;
+            };
+            internal.transport = transport;
+            internal.signer = {
+                publicKey: new Uint8Array(32).fill(0xaa),
+                sign: () => new Uint8Array(64).fill(0xbb),
+            };
+            internal.connected = true;
+        }
+
+        test("publish encodes, signs, and submits via transport", async () => {
+            const client = new StatementStoreClient({ appName: "test-app" });
+            const transport = createMockTransport();
+            injectTransport(client, transport);
+
+            const result = await client.publish(
+                { type: "presence", peerId: "abc" },
+                { channel: "ch1" },
+            );
+
+            expect(result).toBe(true);
+            expect(transport.submitCalls.length).toBe(1);
+            expect(transport.submitCalls[0]).toMatch(/^0x/);
+        });
+
+        test("publish returns false on rejection", async () => {
+            const client = new StatementStoreClient({ appName: "test-app" });
+            const transport = createMockTransport();
+            transport.submit = vi.fn(async () => "rejected" as const);
+            injectTransport(client, transport);
+
+            const result = await client.publish({ type: "test" });
+            expect(result).toBe(false);
+        });
+
+        test("publish returns false on transport error", async () => {
+            const client = new StatementStoreClient({ appName: "test-app" });
+            const transport = createMockTransport();
+            transport.submit = vi.fn(async () => {
+                throw new Error("network down");
+            });
+            injectTransport(client, transport);
+
+            const result = await client.publish({ type: "test" });
+            expect(result).toBe(false);
+        });
+
+        test("query returns parsed statements from transport", async () => {
+            const client = new StatementStoreClient({ appName: "test-app" });
+            const transport = createMockTransport();
+            const testHex = makeTestStatementHex({ type: "found" }, { channel: mkTopic("ch") });
+            transport.query = vi.fn(async () => [testHex]);
+            injectTransport(client, transport);
+
+            const results = await client.query<{ type: string }>();
+            expect(results.length).toBe(1);
+            expect(results[0].data.type).toBe("found");
+        });
+
+        test("query forwards decryptionKey to transport", async () => {
+            const client = new StatementStoreClient({ appName: "test-app" });
+            const transport = createMockTransport();
+            const querySpy = vi.fn(async () => [] as string[]);
+            transport.query = querySpy;
+            injectTransport(client, transport);
+
+            const dk = new Uint8Array(32).fill(0xff);
+            await client.query({ decryptionKey: dk });
+
+            const args = querySpy.mock.calls[0] as unknown[];
+            // Second arg is the hex-encoded decryptionKey
+            expect(args[1]).toMatch(/^0x/);
+            expect(args[1]).toContain("ff");
+        });
+
+        test("query derives decryptionKey from topic2 when not explicit", async () => {
+            const { topicToHex: thx, createTopic: ct } = await import("./topics.js");
+            const client = new StatementStoreClient({ appName: "test-app" });
+            const transport = createMockTransport();
+            const querySpy = vi.fn(async () => [] as string[]);
+            transport.query = querySpy;
+            injectTransport(client, transport);
+
+            await client.query({ topic2: "room-1" });
+
+            const args = querySpy.mock.calls[0] as unknown[];
+            expect(args[1]).toBe(thx(ct("room-1")));
+        });
+
+        test("pruneSeenMap removes expired entries", () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            const internal = client as unknown as {
+                seen: Map<string, bigint>;
+                pruneSeenMap: () => void;
+            };
+
+            // Entry with expiry far in the past (timestamp=100, seq=0)
+            internal.seen.set("expired", (100n << 32n) | 0n);
+            // Entry with expiry far in the future (timestamp=9999999999, seq=0)
+            internal.seen.set("valid", (9999999999n << 32n) | 0n);
+
+            internal.pruneSeenMap();
+
+            expect(internal.seen.has("expired")).toBe(false);
+            expect(internal.seen.has("valid")).toBe(true);
+        });
+
+        test("destroy stops polling and cleans up transport", () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            const transport = createMockTransport();
+            injectTransport(client, transport);
+
+            // Start a poll timer manually
+            const internal = client as unknown as {
+                pollTimer: ReturnType<typeof setInterval> | null;
+            };
+            internal.pollTimer = setInterval(() => {}, 10000);
+
+            client.destroy();
+
+            expect(client.isConnected()).toBe(false);
+            expect(transport.destroy).toHaveBeenCalledOnce();
+            expect(internal.pollTimer).toBeNull();
+        });
+
+        test("getPublicKeyHex returns hex when connected", () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            const transport = createMockTransport();
+            injectTransport(client, transport);
+
+            const hex = client.getPublicKeyHex();
+            expect(hex).toMatch(/^0x/);
+            expect(hex.length).toBe(66); // 0x + 64 hex chars
+        });
+
+        test("connect deduplicates concurrent calls", async () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            const internal = client as unknown as {
+                connectPromise: Promise<void> | null;
+                connected: boolean;
+            };
+
+            // Simulate an in-flight connect
+            let resolveConnect: () => void;
+            internal.connectPromise = new Promise((r) => {
+                resolveConnect = r;
+            });
+
+            // Second connect should return a promise (not start a new connection)
+            const signer = {
+                publicKey: new Uint8Array(32),
+                sign: () => new Uint8Array(64),
+            };
+            const promise = client.connect(signer);
+            // The promise is derived from connectPromise, so it's linked
+            expect(internal.connectPromise).not.toBeNull();
+
+            resolveConnect!();
+            await promise; // Should resolve without error
+        });
+
+        test("connect returns immediately if already connected", async () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            const internal = client as unknown as { connected: boolean };
+            internal.connected = true;
+
+            const signer = {
+                publicKey: new Uint8Array(32),
+                sign: () => new Uint8Array(64),
+            };
+            // Should not throw — just returns
+            await client.connect(signer);
+        });
     });
 }
