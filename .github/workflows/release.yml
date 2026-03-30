@@ -39,20 +39,25 @@ jobs:
             - if: steps.changesets.outputs.found == 'true'
               run: pnpm install
 
+            # pnpm install auto-links generated/package.json as a dep — strip it
+            - name: Strip descriptors file:generated dep
+              if: steps.changesets.outputs.found == 'true'
+              run: node -e 'const p=require("./packages/descriptors/package.json");delete p.dependencies;require("fs").writeFileSync("./packages/descriptors/package.json",JSON.stringify(p,null,4)+"\n")'
+
             # Version packages (consumes changesets, bumps versions)
             - name: Version packages
               if: steps.changesets.outputs.found == 'true'
               run: pnpm changeset version
 
-            # Format files modified by changeset version
-            - name: Format
-              if: steps.changesets.outputs.found == 'true'
-              run: pnpm format
-
             # Build all publishable packages
             - name: Build packages
               if: steps.changesets.outputs.found == 'true'
               run: pnpm build
+
+            # Format everything right before committing
+            - name: Format
+              if: steps.changesets.outputs.found == 'true'
+              run: pnpm format
 
             # Commit version bumps
             - name: Commit version changes
