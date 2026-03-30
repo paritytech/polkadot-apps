@@ -1,5 +1,5 @@
-import { state } from "./state";
-import type { LoggerConfig } from "./types";
+import { state } from "./state.js";
+import type { LoggerConfig } from "./types.js";
 
 export function configure(config: LoggerConfig): void {
     if (config.level !== undefined) {

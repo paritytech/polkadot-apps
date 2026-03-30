@@ -1,6 +1,6 @@
 {
-    "name": "@polkadot-apps/bulletin",
-    "version": "0.2.2",
+    "name": "@polkadot-apps/host",
+    "version": "0.2.0",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -19,15 +19,17 @@
         "build": "tsc -p tsconfig.json",
         "clean": "rm -rf dist"
     },
-    "dependencies": {
-        "@polkadot-apps/chain-client": "workspace:*",
-        "@polkadot-apps/descriptors": "workspace:*",
-        "@polkadot-apps/tx": "workspace:*",
-        "@noble/hashes": "catalog:",
-        "multiformats": "catalog:",
-        "polkadot-api": "catalog:"
+    "dependencies": {},
+    "peerDependencies": {
+        "@novasamatech/product-sdk": ">=0.1.0"
+    },
+    "peerDependenciesMeta": {
+        "@novasamatech/product-sdk": {
+            "optional": true
+        }
     },
     "devDependencies": {
+        "@novasamatech/product-sdk": "catalog:",
         "typescript": "catalog:"
     }
 }

@@ -64,14 +64,45 @@ jobs:
                   git diff --cached --quiet || git commit -m "chore: version packages"
                   git push
 
-            # Publish to npm
-            - name: Publish to npm
+            # Create git tags for versioned packages
+            - name: Create and push tags
               if: steps.changesets.outputs.found == 'true'
-              run: pnpm changeset publish
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_AUTOMATION_TOKEN }}
+              run: |
+                  for pkg in packages/*/package.json; do
+                    name=$(jq -r '.name' "$pkg")
+                    version=$(jq -r '.version' "$pkg")
+                    tag="${name}@${version}"
+                    if ! git tag -l "$tag" | grep -q .; then
+                      git tag "$tag"
+                    fi
+                  done
+                  git push --tags
 
-            # Push git tags created by changeset publish
-            - name: Push tags
+            # Pack all workspace packages for publishing
+            - name: Pack packages
               if: steps.changesets.outputs.found == 'true'
-              run: git push --tags
+              run: |
+                  mkdir -p artifacts
+                  for dir in packages/*/; do
+                    if [ -f "$dir/package.json" ]; then
+                      (cd "$dir" && pnpm pack --pack-destination ../../artifacts/)
+                    fi
+                  done
+
+            - name: Upload package artifacts
+              if: steps.changesets.outputs.found == 'true'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: packages
+                  path: artifacts/*.tgz
+
+            # Dispatch to npm_publish_automation for publishing
+            - name: Publish via npm_publish_automation
+              if: steps.changesets.outputs.found == 'true'
+              uses: octokit/request-action@v2.x
+              with:
+                  route: POST /repos/paritytech/npm_publish_automation/actions/workflows/publish.yml/dispatches
+                  ref: main
+                  inputs: '${{ format(''{{ "repo": "{0}", "run_id": "{1}" }}'', github.repository, github.run_id) }}'
+              env:
+                  GITHUB_TOKEN: ${{ secrets.NPM_PUBLISH_AUTOMATION_TOKEN }}

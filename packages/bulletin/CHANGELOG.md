@@ -1,5 +1,41 @@
 # @polkadot-apps/bulletin
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [b813235]
+  - @polkadot-apps/descriptors@0.1.2
+  - @polkadot-apps/chain-client@0.3.1
+  - @polkadot-apps/tx@0.2.4
+
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [88383d3]
+  - @polkadot-apps/chain-client@0.3.0
+  - @polkadot-apps/tx@0.2.3
+
+## 0.2.0
+
+### Minor Changes
+
+- 6c0e757: feat: implement Bulletin Chain SDK with CID computation, upload/batch upload, gateway fetch, and BulletinClient entry point; throw for unavailable Polkadot/Kusama networks instead of silently using Paseo testnet endpoints
+
+### Patch Changes
+
+- Updated dependencies [6c0e757]
+  - @polkadot-apps/chain-client@0.2.2
+
+## 0.1.6
+
+### Patch Changes
+
+- 27019c9: fix: migrate npm publishing to npm_publish_automation dispatch workflow
+- Updated dependencies [27019c9]
+  - @polkadot-apps/address@0.3.1
+
 ## 0.1.5
 
 ### Patch Changes

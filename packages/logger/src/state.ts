@@ -1,4 +1,4 @@
-import type { LogHandler, LogLevel } from "./types";
+import type { LogHandler, LogLevel } from "./types.js";
 
 export const LEVEL_VALUES: Record<LogLevel, number> = {
     error: 0,
@@ -100,5 +100,37 @@ if (import.meta.vitest) {
 
     test("getInitialNamespaces returns undefined when env not set", () => {
         expect(getInitialNamespaces()).toBeUndefined();
+    });
+
+    test("getInitialNamespaces parses comma-separated env var", () => {
+        process.env.POLKADOT_APPS_LOG_NS = "keys, storage, tx";
+        try {
+            const ns = getInitialNamespaces();
+            expect(ns).toBeDefined();
+            expect(ns!.has("keys")).toBe(true);
+            expect(ns!.has("storage")).toBe(true);
+            expect(ns!.has("tx")).toBe(true);
+            expect(ns!.size).toBe(3);
+        } finally {
+            delete process.env.POLKADOT_APPS_LOG_NS;
+        }
+    });
+
+    test("getInitialNamespaces returns undefined for empty string", () => {
+        process.env.POLKADOT_APPS_LOG_NS = "";
+        try {
+            expect(getInitialNamespaces()).toBeUndefined();
+        } finally {
+            delete process.env.POLKADOT_APPS_LOG_NS;
+        }
+    });
+
+    test("getInitialLevel reads from env var", () => {
+        process.env.POLKADOT_APPS_LOG = "debug";
+        try {
+            expect(getInitialLevel()).toBe("debug");
+        } finally {
+            delete process.env.POLKADOT_APPS_LOG;
+        }
     });
 }

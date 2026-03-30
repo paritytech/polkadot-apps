@@ -1,6 +1,6 @@
 {
     "name": "@polkadot-apps/chain-client",
-    "version": "0.2.0",
+    "version": "0.3.1",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -21,6 +21,7 @@
     },
     "dependencies": {
         "@polkadot-apps/descriptors": "workspace:*",
+        "@polkadot-apps/host": "workspace:*",
         "@polkadot-api/sdk-ink": "catalog:",
         "polkadot-api": "catalog:"
     },

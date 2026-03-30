@@ -1,5 +1,5 @@
-import { LEVEL_VALUES, getEffectiveLevel, state } from "./state";
-import type { LogEntry, LogLevel, Logger } from "./types";
+import { LEVEL_VALUES, getEffectiveLevel, state } from "./state.js";
+import type { LogEntry, LogLevel, Logger } from "./types.js";
 
 const CONSOLE_METHODS: Record<LogLevel, (...args: unknown[]) => void> = {
     error: console.error,
@@ -136,6 +136,35 @@ if (import.meta.vitest) {
             const log = createLogger("any-package");
             log.debug("visible");
             expect(entries).toHaveLength(1);
+        });
+
+        test("falls back to console when no handler configured", () => {
+            const calls: unknown[][] = [];
+            const origWarn = CONSOLE_METHODS.warn;
+            CONSOLE_METHODS.warn = (...args: unknown[]) => calls.push(args);
+            try {
+                // No handler after resetState — should hit the default console path
+                const log = createLogger("test");
+                log.warn("hello");
+                expect(calls).toHaveLength(1);
+                expect(calls[0]).toEqual(["[test]", "hello"]);
+            } finally {
+                CONSOLE_METHODS.warn = origWarn;
+            }
+        });
+
+        test("console fallback includes data when provided", () => {
+            const calls: unknown[][] = [];
+            const origError = CONSOLE_METHODS.error;
+            CONSOLE_METHODS.error = (...args: unknown[]) => calls.push(args);
+            try {
+                const log = createLogger("test");
+                log.error("msg", { key: "val" });
+                expect(calls).toHaveLength(1);
+                expect(calls[0]).toEqual(["[test]", "msg", { key: "val" }]);
+            } finally {
+                CONSOLE_METHODS.error = origError;
+            }
         });
     });
 }

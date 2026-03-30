@@ -1,5 +1,36 @@
 # @polkadot-apps/tx
 
+## 0.2.4
+
+### Patch Changes
+
+- Updated dependencies [b813235]
+  - @polkadot-apps/logger@0.1.3
+  - @polkadot-apps/keys@0.3.1
+
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [88383d3]
+  - @polkadot-apps/keys@0.3.0
+  - @polkadot-apps/logger@0.1.2
+
+## 0.2.2
+
+### Patch Changes
+
+- 27019c9: fix: migrate npm publishing to npm_publish_automation dispatch workflow
+- Updated dependencies [27019c9]
+  - @polkadot-apps/keys@0.2.2
+  - @polkadot-apps/logger@0.1.1
+
+## 0.2.1
+
+### Patch Changes
+
+- @polkadot-apps/keys@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes

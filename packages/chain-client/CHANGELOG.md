@@ -1,5 +1,37 @@
 # @polkadot-apps/chain-client
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [b813235]
+  - @polkadot-apps/descriptors@0.1.2
+
+## 0.3.0
+
+### Minor Changes
+
+- 88383d3: feat: add host package for container detection and Host API types, implement KvStore in storage with host/browser/memory backends, refactor SessionKeyManager to accept an injected store, and move container detection from chain-client to host
+
+### Patch Changes
+
+- Updated dependencies [88383d3]
+  - @polkadot-apps/host@0.2.0
+
+## 0.2.2
+
+### Patch Changes
+
+- 6c0e757: feat: implement Bulletin Chain SDK with CID computation, upload/batch upload, gateway fetch, and BulletinClient entry point; throw for unavailable Polkadot/Kusama networks instead of silently using Paseo testnet endpoints
+
+## 0.2.1
+
+### Patch Changes
+
+- 27019c9: fix: migrate npm publishing to npm_publish_automation dispatch workflow
+- Updated dependencies [27019c9]
+  - @polkadot-apps/descriptors@0.1.1
+
 ## 0.2.0
 
 ### Minor Changes
