@@ -132,6 +132,7 @@ export async function getChainAPI<E extends Environment>(env: E): Promise<ChainA
     return promise;
 }
 
+/* @integration */
 async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>> {
     if (!AVAILABLE_ENVIRONMENTS.has(env)) {
         throw new Error(`Chain API for "${env}" is not yet available`);
