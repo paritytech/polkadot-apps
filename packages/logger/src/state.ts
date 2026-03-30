@@ -1,4 +1,4 @@
-import type { LogHandler, LogLevel } from "./types";
+import type { LogHandler, LogLevel } from "./types.js";
 
 export const LEVEL_VALUES: Record<LogLevel, number> = {
     error: 0,
