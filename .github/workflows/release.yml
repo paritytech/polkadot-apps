@@ -49,15 +49,15 @@ jobs:
               if: steps.changesets.outputs.found == 'true'
               run: pnpm changeset version
 
-            # Format files modified by changeset version
-            - name: Format
-              if: steps.changesets.outputs.found == 'true'
-              run: pnpm format
-
             # Build all publishable packages
             - name: Build packages
               if: steps.changesets.outputs.found == 'true'
               run: pnpm build
+
+            # Format everything right before committing
+            - name: Format
+              if: steps.changesets.outputs.found == 'true'
+              run: pnpm format
 
             # Commit version bumps
             - name: Commit version changes
