@@ -1,8 +1,4 @@
-import { ed25519CreateDerive, sr25519CreateDerive } from "@polkadot-labs/hdkd";
-import { entropyToMiniSecret, mnemonicToEntropy } from "@polkadot-labs/hdkd-helpers";
-import { getPolkadotSigner } from "polkadot-api/signer";
-
-import { deriveH160, ss58Encode } from "@polkadot-apps/address";
+import { seedToAccount } from "@polkadot-apps/keys";
 import { createLogger } from "@polkadot-apps/logger";
 
 import type { SignerError } from "../errors.js";
@@ -58,26 +54,21 @@ export class DevProvider implements SignerProvider {
     async connect(): Promise<Result<SignerAccount[], SignerError>> {
         log.debug("creating dev accounts", { names: this.names, keyType: this.keyType });
 
-        const entropy = mnemonicToEntropy(this.mnemonic);
-        const miniSecret = entropyToMiniSecret(entropy);
-        const derive =
-            this.keyType === "ed25519"
-                ? ed25519CreateDerive(miniSecret)
-                : sr25519CreateDerive(miniSecret);
-        const signerKeyType = this.keyType === "ed25519" ? "Ed25519" : "Sr25519";
-
         const accounts: SignerAccount[] = this.names.map((name) => {
-            const keyPair = derive(`//${name}`);
-            const address = ss58Encode(keyPair.publicKey, this.ss58Prefix);
-            const signer = getPolkadotSigner(keyPair.publicKey, signerKeyType, keyPair.sign);
+            const derived = seedToAccount(
+                this.mnemonic,
+                `//${name}`,
+                this.ss58Prefix,
+                this.keyType,
+            );
 
             return {
-                address,
-                h160Address: deriveH160(keyPair.publicKey),
-                publicKey: keyPair.publicKey,
+                address: derived.ss58Address,
+                h160Address: derived.h160Address,
+                publicKey: derived.publicKey,
                 name,
                 source: "dev" as const,
-                getSigner: () => signer,
+                getSigner: () => derived.signer,
             };
         });
 
@@ -102,7 +93,6 @@ export class DevProvider implements SignerProvider {
     }
 }
 
-/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe } = import.meta.vitest;
 

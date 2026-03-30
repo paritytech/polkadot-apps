@@ -4,8 +4,7 @@ import { deriveH160 } from "@polkadot-apps/address";
 import { createLogger } from "@polkadot-apps/logger";
 import { sleep } from "../sleep.js";
 
-import { extensionNotFound, extensionRejected } from "../errors.js";
-import type { SignerError } from "../errors.js";
+import { ExtensionNotFoundError, ExtensionRejectedError, type SignerError } from "../errors.js";
 import type { ConnectionStatus, ProviderType, Result, SignerAccount } from "../types.js";
 import { err, ok } from "../types.js";
 import type { SignerProvider, Unsubscribe } from "./types.js";
@@ -35,6 +34,7 @@ export interface ExtensionProviderOptions {
     api?: ExtensionApi;
 }
 
+/* @integration */
 async function defaultApi(): Promise<ExtensionApi> {
     const { getInjectedExtensions, connectInjectedExtension } = await import(
         "polkadot-api/pjs-signer"
@@ -74,7 +74,7 @@ export class ExtensionProvider implements SignerProvider {
         await sleep(this.injectionWait, signal);
 
         if (signal?.aborted) {
-            return err(extensionNotFound(this.extensionName ?? "*", "Connection aborted"));
+            return err(new ExtensionNotFoundError(this.extensionName ?? "*", "Connection aborted"));
         }
 
         // Load the API (dynamic import or injected override)
@@ -84,7 +84,7 @@ export class ExtensionProvider implements SignerProvider {
         } catch (cause) {
             log.warn("polkadot-api/pjs-signer not available", { cause });
             return err(
-                extensionNotFound(
+                new ExtensionNotFoundError(
                     this.extensionName ?? "*",
                     "polkadot-api/pjs-signer not available",
                 ),
@@ -98,7 +98,10 @@ export class ExtensionProvider implements SignerProvider {
             // getInjectedExtensions accesses window.injectedWeb3 and throws in non-browser envs
             log.warn("cannot access browser extensions (no window)");
             return err(
-                extensionNotFound(this.extensionName ?? "*", "Browser environment not available"),
+                new ExtensionNotFoundError(
+                    this.extensionName ?? "*",
+                    "Browser environment not available",
+                ),
             );
         }
         log.debug("detected extensions", { available });
@@ -106,7 +109,10 @@ export class ExtensionProvider implements SignerProvider {
         if (available.length === 0) {
             log.warn("no browser extensions detected");
             return err(
-                extensionNotFound(this.extensionName ?? "*", "No browser extensions detected"),
+                new ExtensionNotFoundError(
+                    this.extensionName ?? "*",
+                    "No browser extensions detected",
+                ),
             );
         }
 
@@ -114,7 +120,7 @@ export class ExtensionProvider implements SignerProvider {
         const targetName = this.extensionName ?? available[0];
         if (!available.includes(targetName)) {
             log.warn("requested extension not found", { targetName, available });
-            return err(extensionNotFound(targetName));
+            return err(new ExtensionNotFoundError(targetName));
         }
 
         // Connect
@@ -124,7 +130,7 @@ export class ExtensionProvider implements SignerProvider {
         } catch (cause) {
             log.error("extension rejected connection", { targetName, cause });
             return err(
-                extensionRejected(
+                new ExtensionRejectedError(
                     targetName,
                     cause instanceof Error
                         ? cause.message
@@ -190,7 +196,6 @@ function mapInjectedAccounts(accounts: InjectedPolkadotAccount[]): SignerAccount
     }));
 }
 
-/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe, vi } = import.meta.vitest;
 
@@ -232,7 +237,7 @@ if (import.meta.vitest) {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("EXTENSION_NOT_FOUND");
+                expect(result.error).toBeInstanceOf(ExtensionNotFoundError);
             }
         });
 
@@ -247,8 +252,8 @@ if (import.meta.vitest) {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("EXTENSION_NOT_FOUND");
-                if (result.error.type === "EXTENSION_NOT_FOUND") {
+                expect(result.error).toBeInstanceOf(ExtensionNotFoundError);
+                if (result.error instanceof ExtensionNotFoundError) {
                     expect(result.error.extensionName).toBe("polkadot-js");
                 }
             }
@@ -268,7 +273,7 @@ if (import.meta.vitest) {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("EXTENSION_REJECTED");
+                expect(result.error).toBeInstanceOf(ExtensionRejectedError);
             }
         });
 
@@ -334,7 +339,7 @@ if (import.meta.vitest) {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("EXTENSION_NOT_FOUND");
+                expect(result.error).toBeInstanceOf(ExtensionNotFoundError);
             }
         });
 
@@ -460,7 +465,7 @@ if (import.meta.vitest) {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("EXTENSION_NOT_FOUND");
+                expect(result.error).toBeInstanceOf(ExtensionNotFoundError);
             }
         });
     });

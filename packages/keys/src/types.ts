@@ -2,7 +2,7 @@ import type { PolkadotSigner } from "polkadot-api";
 
 /** Derivation result for a Substrate/EVM account from seed material. */
 export interface DerivedAccount {
-    /** Sr25519 public key (32 bytes) */
+    /** Public key (32 bytes). Sr25519 or Ed25519 depending on key type. */
     publicKey: Uint8Array;
     /** SS58 address (generic prefix 42 by default) */
     ss58Address: string;

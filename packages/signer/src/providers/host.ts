@@ -1,8 +1,12 @@
 import { deriveH160, ss58Encode } from "@polkadot-apps/address";
 import { createLogger } from "@polkadot-apps/logger";
 
-import { hostRejected, hostUnavailable, noAccounts } from "../errors.js";
-import type { SignerError } from "../errors.js";
+import {
+    HostRejectedError,
+    HostUnavailableError,
+    NoAccountsError,
+    type SignerError,
+} from "../errors.js";
 import { withRetry } from "../retry.js";
 import type { ConnectionStatus, ProviderType, Result, SignerAccount } from "../types.js";
 import { err, ok } from "../types.js";
@@ -106,6 +110,7 @@ export interface ProductSdkModule {
     injectSpektrExtension?: () => Promise<boolean>;
 }
 
+/* @integration */
 async function defaultLoadSdk(): Promise<ProductSdkModule> {
     return (await import("@novasamatech/product-sdk")) as unknown as ProductSdkModule;
 }
@@ -176,7 +181,7 @@ export class HostProvider implements SignerProvider {
         return withRetry(
             async () => {
                 if (signal?.aborted) {
-                    return err(hostUnavailable("Connection aborted"));
+                    return err(new HostUnavailableError("Connection aborted"));
                 }
                 return this.tryConnect();
             },
@@ -229,7 +234,7 @@ export class HostProvider implements SignerProvider {
         derivationIndex = 0,
     ): Promise<Result<SignerAccount, SignerError>> {
         if (!this.accountsProvider) {
-            return err(hostUnavailable("Host provider is not connected"));
+            return err(new HostUnavailableError("Host provider is not connected"));
         }
 
         try {
@@ -267,7 +272,7 @@ export class HostProvider implements SignerProvider {
         } catch (cause) {
             log.error("failed to get product account", { cause });
             return err(
-                hostRejected(
+                new HostRejectedError(
                     cause instanceof Error ? cause.message : "Failed to get product account",
                 ),
             );
@@ -300,7 +305,7 @@ export class HostProvider implements SignerProvider {
         derivationIndex = 0,
     ): Promise<Result<ContextualAlias, SignerError>> {
         if (!this.accountsProvider) {
-            return err(hostUnavailable("Host provider is not connected"));
+            return err(new HostUnavailableError("Host provider is not connected"));
         }
 
         try {
@@ -317,7 +322,7 @@ export class HostProvider implements SignerProvider {
         } catch (cause) {
             log.error("failed to get product account alias", { cause });
             return err(
-                hostRejected(
+                new HostRejectedError(
                     cause instanceof Error ? cause.message : "Failed to get product account alias",
                 ),
             );
@@ -339,7 +344,7 @@ export class HostProvider implements SignerProvider {
         message: Uint8Array,
     ): Promise<Result<Uint8Array, SignerError>> {
         if (!this.accountsProvider) {
-            return err(hostUnavailable("Host provider is not connected"));
+            return err(new HostUnavailableError("Host provider is not connected"));
         }
 
         try {
@@ -358,7 +363,7 @@ export class HostProvider implements SignerProvider {
         } catch (cause) {
             log.error("failed to create Ring VRF proof", { cause });
             return err(
-                hostRejected(
+                new HostRejectedError(
                     cause instanceof Error ? cause.message : "Failed to create Ring VRF proof",
                 ),
             );
@@ -375,7 +380,7 @@ export class HostProvider implements SignerProvider {
         } catch (cause) {
             log.warn("product-sdk not available", { cause });
             return err(
-                hostUnavailable(
+                new HostUnavailableError(
                     cause instanceof Error
                         ? `product-sdk import failed: ${cause.message}`
                         : "product-sdk is not installed",
@@ -399,7 +404,7 @@ export class HostProvider implements SignerProvider {
         } catch (cause) {
             log.error("failed to get accounts from host", { cause });
             return err(
-                hostRejected(
+                new HostRejectedError(
                     cause instanceof Error ? cause.message : "Failed to get accounts from host",
                 ),
             );
@@ -407,7 +412,7 @@ export class HostProvider implements SignerProvider {
 
         if (rawAccounts.length === 0) {
             log.warn("host returned no accounts");
-            return err(noAccounts("host"));
+            return err(new NoAccountsError("host"));
         }
 
         // Step 4: Map to SignerAccount[]
@@ -459,7 +464,6 @@ function formatError(error: unknown): string {
     return String(error);
 }
 
-/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe, vi, beforeEach } = import.meta.vitest;
 
@@ -547,7 +551,7 @@ if (import.meta.vitest) {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_UNAVAILABLE");
+                expect(result.error).toBeInstanceOf(HostUnavailableError);
                 expect(result.error.message).toContain("Cannot find module");
             }
         });
@@ -562,7 +566,7 @@ if (import.meta.vitest) {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_REJECTED");
+                expect(result.error).toBeInstanceOf(HostRejectedError);
             }
         });
 
@@ -576,7 +580,7 @@ if (import.meta.vitest) {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("NO_ACCOUNTS");
+                expect(result.error).toBeInstanceOf(NoAccountsError);
             }
         });
 
@@ -647,7 +651,7 @@ if (import.meta.vitest) {
                 loadSdk: () => Promise.resolve(createMockSdk(mockProvider)),
             });
             const statuses: ConnectionStatus[] = [];
-            provider.onStatusChange((s) => statuses.push(s));
+            const unsub = provider.onStatusChange((s) => statuses.push(s));
             await provider.connect();
 
             statusCallback!("disconnected");
@@ -655,6 +659,11 @@ if (import.meta.vitest) {
 
             statusCallback!("connected");
             expect(statuses).toEqual(["disconnected", "connected"]);
+
+            // Unsubscribe and verify no more events
+            unsub();
+            statusCallback!("disconnected");
+            expect(statuses).toEqual(["disconnected", "connected"]); // no change
         });
 
         test("disconnect cleans up subscriptions", async () => {
@@ -711,7 +720,7 @@ if (import.meta.vitest) {
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_UNAVAILABLE");
+                expect(result.error).toBeInstanceOf(HostUnavailableError);
             }
         });
 
@@ -779,12 +788,48 @@ if (import.meta.vitest) {
             }
         });
 
+        test("getProductAccount result has working getSigner", async () => {
+            const rawAccounts: RawAccountTest[] = [
+                { publicKey: new Uint8Array(32).fill(0xaa), name: "AppAccount" },
+            ];
+            const mockProvider = createMockProvider({ accounts: rawAccounts });
+            const provider = new HostProvider({
+                maxRetries: 1,
+                loadSdk: () => Promise.resolve(createMockSdk(mockProvider)),
+            });
+            await provider.connect();
+
+            const result = await provider.getProductAccount("myapp.dot", 0);
+            if (result.ok) {
+                const signer = result.value.getSigner();
+                expect(mockProvider.getProductAccountSigner).toHaveBeenCalled();
+                expect(signer.publicKey).toEqual(new Uint8Array(32).fill(0xbb));
+            }
+        });
+
+        test("getProductAccount result getSigner throws after disconnect", async () => {
+            const rawAccounts: RawAccountTest[] = [{ publicKey: new Uint8Array(32).fill(0xaa) }];
+            const mockProvider = createMockProvider({ accounts: rawAccounts });
+            const provider = new HostProvider({
+                maxRetries: 1,
+                loadSdk: () => Promise.resolve(createMockSdk(mockProvider)),
+            });
+            await provider.connect();
+
+            const result = await provider.getProductAccount("myapp.dot", 0);
+            provider.disconnect();
+
+            if (result.ok) {
+                expect(() => result.value.getSigner()).toThrow("disconnected");
+            }
+        });
+
         test("getProductAccount returns error when not connected", async () => {
             const provider = new HostProvider({ maxRetries: 1 });
             const result = await provider.getProductAccount("myapp.dot");
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_UNAVAILABLE");
+                expect(result.error).toBeInstanceOf(HostUnavailableError);
             }
         });
 
@@ -804,7 +849,7 @@ if (import.meta.vitest) {
             const result = await provider.getProductAccount("myapp.dot");
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_REJECTED");
+                expect(result.error).toBeInstanceOf(HostRejectedError);
             }
         });
 
@@ -862,7 +907,27 @@ if (import.meta.vitest) {
             const result = await provider.getProductAccountAlias("myapp.dot");
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_UNAVAILABLE");
+                expect(result.error).toBeInstanceOf(HostUnavailableError);
+            }
+        });
+
+        test("getProductAccountAlias returns error when host rejects", async () => {
+            const rawAccounts: RawAccountTest[] = [{ publicKey: new Uint8Array(32).fill(0xaa) }];
+            const mockProvider = createMockProvider({ accounts: rawAccounts });
+            mockProvider.getProductAccountAlias.mockReturnValue({
+                match: async (_onOk: (v: unknown) => unknown, onErr: (e: unknown) => unknown) =>
+                    onErr({ tag: "Rejected" }),
+            });
+            const provider = new HostProvider({
+                maxRetries: 1,
+                loadSdk: () => Promise.resolve(createMockSdk(mockProvider)),
+            });
+            await provider.connect();
+
+            const result = await provider.getProductAccountAlias("myapp.dot");
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error).toBeInstanceOf(HostRejectedError);
             }
         });
     });
@@ -907,7 +972,7 @@ if (import.meta.vitest) {
             );
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_UNAVAILABLE");
+                expect(result.error).toBeInstanceOf(HostUnavailableError);
             }
         });
 
@@ -932,7 +997,7 @@ if (import.meta.vitest) {
             );
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_REJECTED");
+                expect(result.error).toBeInstanceOf(HostRejectedError);
             }
         });
     });

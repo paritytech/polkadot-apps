@@ -15,20 +15,20 @@ export type {
 export { err, ok } from "./types.js";
 
 // Errors
-export type { SignerError } from "./errors.js";
 export {
-    accountNotFound,
-    destroyed,
-    extensionNotFound,
-    extensionRejected,
-    hostDisconnected,
-    hostRejected,
-    hostUnavailable,
-    isExtensionError,
+    SignerError,
+    HostUnavailableError,
+    HostRejectedError,
+    HostDisconnectedError,
+    ExtensionNotFoundError,
+    ExtensionRejectedError,
+    SigningFailedError,
+    NoAccountsError,
+    TimeoutError,
+    AccountNotFoundError,
+    DestroyedError,
     isHostError,
-    noAccounts,
-    signingFailed,
-    timeout,
+    isExtensionError,
 } from "./errors.js";
 
 // Provider interface (for custom implementations)

@@ -136,7 +136,6 @@ export async function isAccountMapped(address: string, checker: MappingChecker):
     }
 }
 
-/* v8 ignore start */
 if (import.meta.vitest) {
     const { describe, test, expect, vi } = import.meta.vitest;
 

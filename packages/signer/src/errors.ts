@@ -1,254 +1,277 @@
 import type { ProviderType } from "./types.js";
 
-/** All possible signer errors as a discriminated union. */
-export type SignerError =
-    | { type: "HOST_UNAVAILABLE"; message: string }
-    | { type: "HOST_REJECTED"; message: string }
-    | { type: "HOST_DISCONNECTED"; message: string }
-    | { type: "EXTENSION_NOT_FOUND"; extensionName: string; message: string }
-    | { type: "EXTENSION_REJECTED"; extensionName: string; message: string }
-    | { type: "SIGNING_FAILED"; cause: unknown; message: string }
-    | { type: "NO_ACCOUNTS"; provider: ProviderType; message: string }
-    | { type: "TIMEOUT"; operation: string; ms: number; message: string }
-    | { type: "ACCOUNT_NOT_FOUND"; address: string; message: string }
-    | { type: "DESTROYED"; message: string };
-
-// ── Factory functions ────────────────────────────────────────────────
-
-export function hostUnavailable(message = "Host API is not available"): SignerError {
-    return { type: "HOST_UNAVAILABLE", message };
+/** Base class for all signer errors. Use `instanceof SignerError` to catch any signer-related error. */
+export class SignerError extends Error {
+    constructor(message: string, options?: ErrorOptions) {
+        super(message, options);
+        this.name = "SignerError";
+    }
 }
 
-export function hostRejected(message = "Host rejected the request"): SignerError {
-    return { type: "HOST_REJECTED", message };
+/** The Host API is not available (product-sdk not installed or not inside a container). */
+export class HostUnavailableError extends SignerError {
+    constructor(message = "Host API is not available") {
+        super(message);
+        this.name = "HostUnavailableError";
+    }
 }
 
-export function hostDisconnected(message = "Host connection lost"): SignerError {
-    return { type: "HOST_DISCONNECTED", message };
+/** The host rejected the account or signing request. */
+export class HostRejectedError extends SignerError {
+    constructor(message = "Host rejected the request") {
+        super(message);
+        this.name = "HostRejectedError";
+    }
 }
 
-export function extensionNotFound(extensionName: string, message?: string): SignerError {
-    return {
-        type: "EXTENSION_NOT_FOUND",
-        extensionName,
-        message: message ?? `Browser extension "${extensionName}" not found`,
-    };
+/** The host connection was lost. */
+export class HostDisconnectedError extends SignerError {
+    constructor(message = "Host connection lost") {
+        super(message);
+        this.name = "HostDisconnectedError";
+    }
 }
 
-export function extensionRejected(extensionName: string, message?: string): SignerError {
-    return {
-        type: "EXTENSION_REJECTED",
-        extensionName,
-        message: message ?? `Browser extension "${extensionName}" rejected the request`,
-    };
+/** A browser extension was not found. */
+export class ExtensionNotFoundError extends SignerError {
+    readonly extensionName: string;
+
+    constructor(extensionName: string, message?: string) {
+        super(message ?? `Browser extension "${extensionName}" not found`);
+        this.name = "ExtensionNotFoundError";
+        this.extensionName = extensionName;
+    }
 }
 
-export function signingFailed(cause: unknown, message?: string): SignerError {
-    return {
-        type: "SIGNING_FAILED",
-        cause,
-        message:
+/** A browser extension rejected the connection request. */
+export class ExtensionRejectedError extends SignerError {
+    readonly extensionName: string;
+
+    constructor(extensionName: string, message?: string) {
+        super(message ?? `Browser extension "${extensionName}" rejected the request`);
+        this.name = "ExtensionRejectedError";
+        this.extensionName = extensionName;
+    }
+}
+
+/** A signing operation failed. */
+export class SigningFailedError extends SignerError {
+    constructor(cause: unknown, message?: string) {
+        super(
             message ?? `Signing failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-    };
+            { cause },
+        );
+        this.name = "SigningFailedError";
+    }
 }
 
-export function noAccounts(provider: ProviderType, message?: string): SignerError {
-    return {
-        type: "NO_ACCOUNTS",
-        provider,
-        message: message ?? `No accounts available from ${provider} provider`,
-    };
+/** No accounts available from the provider. */
+export class NoAccountsError extends SignerError {
+    readonly provider: ProviderType;
+
+    constructor(provider: ProviderType, message?: string) {
+        super(message ?? `No accounts available from ${provider} provider`);
+        this.name = "NoAccountsError";
+        this.provider = provider;
+    }
 }
 
-export function timeout(operation: string, ms: number): SignerError {
-    return {
-        type: "TIMEOUT",
-        operation,
-        ms,
-        message: `Operation "${operation}" timed out after ${ms}ms`,
-    };
+/** An operation timed out. */
+export class TimeoutError extends SignerError {
+    readonly operation: string;
+    readonly ms: number;
+
+    constructor(operation: string, ms: number) {
+        super(`Operation "${operation}" timed out after ${ms}ms`);
+        this.name = "TimeoutError";
+        this.operation = operation;
+        this.ms = ms;
+    }
 }
 
-export function accountNotFound(address: string): SignerError {
-    return {
-        type: "ACCOUNT_NOT_FOUND",
-        address,
-        message: `Account not found: ${address}`,
-    };
+/** An account was not found by address. */
+export class AccountNotFoundError extends SignerError {
+    readonly address: string;
+
+    constructor(address: string) {
+        super(`Account not found: ${address}`);
+        this.name = "AccountNotFoundError";
+        this.address = address;
+    }
 }
 
-export function destroyed(): SignerError {
-    return {
-        type: "DESTROYED",
-        message: "SignerManager has been destroyed",
-    };
+/** The SignerManager has been destroyed and is no longer usable. */
+export class DestroyedError extends SignerError {
+    constructor() {
+        super("SignerManager has been destroyed");
+        this.name = "DestroyedError";
+    }
 }
 
 // ── Type guards ──────────────────────────────────────────────────────
 
+/** Check if a SignerError is a host-related error. */
 export function isHostError(
     e: SignerError,
-): e is Extract<SignerError, { type: "HOST_UNAVAILABLE" | "HOST_REJECTED" | "HOST_DISCONNECTED" }> {
+): e is HostUnavailableError | HostRejectedError | HostDisconnectedError {
     return (
-        e.type === "HOST_UNAVAILABLE" ||
-        e.type === "HOST_REJECTED" ||
-        e.type === "HOST_DISCONNECTED"
+        e instanceof HostUnavailableError ||
+        e instanceof HostRejectedError ||
+        e instanceof HostDisconnectedError
     );
 }
 
+/** Check if a SignerError is an extension-related error. */
 export function isExtensionError(
     e: SignerError,
-): e is Extract<SignerError, { type: "EXTENSION_NOT_FOUND" | "EXTENSION_REJECTED" }> {
-    return e.type === "EXTENSION_NOT_FOUND" || e.type === "EXTENSION_REJECTED";
+): e is ExtensionNotFoundError | ExtensionRejectedError {
+    return e instanceof ExtensionNotFoundError || e instanceof ExtensionRejectedError;
 }
 
-/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe } = import.meta.vitest;
 
-    describe("error factories", () => {
-        test("hostUnavailable with default message", () => {
-            const e = hostUnavailable();
-            expect(e.type).toBe("HOST_UNAVAILABLE");
+    describe("error classes", () => {
+        test("SignerError is the base class", () => {
+            const e = new HostUnavailableError();
+            expect(e).toBeInstanceOf(SignerError);
+            expect(e).toBeInstanceOf(Error);
+        });
+
+        test("HostUnavailableError with default message", () => {
+            const e = new HostUnavailableError();
+            expect(e.name).toBe("HostUnavailableError");
             expect(e.message).toBe("Host API is not available");
         });
 
-        test("hostUnavailable with custom message", () => {
-            const e = hostUnavailable("custom");
+        test("HostUnavailableError with custom message", () => {
+            const e = new HostUnavailableError("custom");
             expect(e.message).toBe("custom");
         });
 
-        test("hostRejected", () => {
-            const e = hostRejected();
-            expect(e.type).toBe("HOST_REJECTED");
+        test("HostRejectedError", () => {
+            const e = new HostRejectedError();
+            expect(e).toBeInstanceOf(SignerError);
             expect(e.message).toContain("rejected");
         });
 
-        test("hostDisconnected", () => {
-            const e = hostDisconnected();
-            expect(e.type).toBe("HOST_DISCONNECTED");
+        test("HostDisconnectedError", () => {
+            const e = new HostDisconnectedError();
+            expect(e).toBeInstanceOf(SignerError);
             expect(e.message).toContain("lost");
         });
 
-        test("extensionNotFound with default message", () => {
-            const e = extensionNotFound("talisman");
-            expect(e.type).toBe("EXTENSION_NOT_FOUND");
-            if (e.type === "EXTENSION_NOT_FOUND") {
-                expect(e.extensionName).toBe("talisman");
-            }
+        test("ExtensionNotFoundError with default message", () => {
+            const e = new ExtensionNotFoundError("talisman");
+            expect(e).toBeInstanceOf(SignerError);
+            expect(e.extensionName).toBe("talisman");
             expect(e.message).toContain("talisman");
         });
 
-        test("extensionNotFound with custom message", () => {
-            const e = extensionNotFound("talisman", "custom");
+        test("ExtensionNotFoundError with custom message", () => {
+            const e = new ExtensionNotFoundError("talisman", "custom");
             expect(e.message).toBe("custom");
         });
 
-        test("extensionRejected with default message", () => {
-            const e = extensionRejected("polkadot-js");
-            expect(e.type).toBe("EXTENSION_REJECTED");
-            if (e.type === "EXTENSION_REJECTED") {
-                expect(e.extensionName).toBe("polkadot-js");
-            }
+        test("ExtensionRejectedError with default message", () => {
+            const e = new ExtensionRejectedError("polkadot-js");
+            expect(e).toBeInstanceOf(SignerError);
+            expect(e.extensionName).toBe("polkadot-js");
             expect(e.message).toContain("polkadot-js");
         });
 
-        test("extensionRejected with custom message", () => {
-            const e = extensionRejected("polkadot-js", "denied");
+        test("ExtensionRejectedError with custom message", () => {
+            const e = new ExtensionRejectedError("polkadot-js", "denied");
             expect(e.message).toBe("denied");
         });
 
-        test("signingFailed with Error cause", () => {
+        test("SigningFailedError with Error cause", () => {
             const cause = new Error("bad signature");
-            const e = signingFailed(cause);
-            expect(e.type).toBe("SIGNING_FAILED");
-            if (e.type === "SIGNING_FAILED") {
-                expect(e.cause).toBe(cause);
-                expect(e.message).toContain("bad signature");
-            }
+            const e = new SigningFailedError(cause);
+            expect(e).toBeInstanceOf(SignerError);
+            expect(e.cause).toBe(cause);
+            expect(e.message).toContain("bad signature");
         });
 
-        test("signingFailed with string cause", () => {
-            const e = signingFailed("oops");
-            if (e.type === "SIGNING_FAILED") {
-                expect(e.message).toContain("oops");
-            }
+        test("SigningFailedError with string cause", () => {
+            const e = new SigningFailedError("oops");
+            expect(e.message).toContain("oops");
         });
 
-        test("signingFailed with custom message", () => {
-            const e = signingFailed("oops", "custom msg");
+        test("SigningFailedError with custom message", () => {
+            const e = new SigningFailedError("oops", "custom msg");
             expect(e.message).toBe("custom msg");
         });
 
-        test("noAccounts", () => {
-            const e = noAccounts("host");
-            expect(e.type).toBe("NO_ACCOUNTS");
-            if (e.type === "NO_ACCOUNTS") {
-                expect(e.provider).toBe("host");
-                expect(e.message).toContain("host");
-            }
+        test("NoAccountsError", () => {
+            const e = new NoAccountsError("host");
+            expect(e).toBeInstanceOf(SignerError);
+            expect(e.provider).toBe("host");
+            expect(e.message).toContain("host");
         });
 
-        test("noAccounts with custom message", () => {
-            const e = noAccounts("extension", "none found");
+        test("NoAccountsError with custom message", () => {
+            const e = new NoAccountsError("extension", "none found");
             expect(e.message).toBe("none found");
         });
 
-        test("timeout", () => {
-            const e = timeout("connect", 5000);
-            expect(e.type).toBe("TIMEOUT");
-            if (e.type === "TIMEOUT") {
-                expect(e.operation).toBe("connect");
-                expect(e.ms).toBe(5000);
-                expect(e.message).toContain("5000");
-            }
+        test("TimeoutError", () => {
+            const e = new TimeoutError("connect", 5000);
+            expect(e).toBeInstanceOf(SignerError);
+            expect(e.operation).toBe("connect");
+            expect(e.ms).toBe(5000);
+            expect(e.message).toContain("5000");
         });
 
-        test("accountNotFound", () => {
-            const e = accountNotFound("5GrwvaEF...");
-            expect(e.type).toBe("ACCOUNT_NOT_FOUND");
-            if (e.type === "ACCOUNT_NOT_FOUND") {
-                expect(e.address).toBe("5GrwvaEF...");
-            }
+        test("AccountNotFoundError", () => {
+            const e = new AccountNotFoundError("5GrwvaEF...");
+            expect(e).toBeInstanceOf(SignerError);
+            expect(e.address).toBe("5GrwvaEF...");
         });
 
-        test("destroyed", () => {
-            const e = destroyed();
-            expect(e.type).toBe("DESTROYED");
+        test("DestroyedError", () => {
+            const e = new DestroyedError();
+            expect(e).toBeInstanceOf(SignerError);
             expect(e.message).toContain("destroyed");
+        });
+
+        test("all errors have stack traces", () => {
+            const e = new HostUnavailableError();
+            expect(e.stack).toBeDefined();
+            expect(e.stack).toContain("HostUnavailableError");
         });
     });
 
     describe("type guards", () => {
-        test("isHostError returns true for HOST_ errors", () => {
-            expect(isHostError(hostUnavailable())).toBe(true);
-            expect(isHostError(hostRejected())).toBe(true);
-            expect(isHostError(hostDisconnected())).toBe(true);
+        test("isHostError returns true for host errors", () => {
+            expect(isHostError(new HostUnavailableError())).toBe(true);
+            expect(isHostError(new HostRejectedError())).toBe(true);
+            expect(isHostError(new HostDisconnectedError())).toBe(true);
         });
 
         test("isHostError returns false for non-host errors", () => {
-            expect(isHostError(extensionNotFound("x"))).toBe(false);
-            expect(isHostError(extensionRejected("x"))).toBe(false);
-            expect(isHostError(signingFailed("x"))).toBe(false);
-            expect(isHostError(noAccounts("dev"))).toBe(false);
-            expect(isHostError(timeout("op", 100))).toBe(false);
-            expect(isHostError(accountNotFound("x"))).toBe(false);
-            expect(isHostError(destroyed())).toBe(false);
+            expect(isHostError(new ExtensionNotFoundError("x"))).toBe(false);
+            expect(isHostError(new ExtensionRejectedError("x"))).toBe(false);
+            expect(isHostError(new SigningFailedError("x"))).toBe(false);
+            expect(isHostError(new NoAccountsError("dev"))).toBe(false);
+            expect(isHostError(new TimeoutError("op", 100))).toBe(false);
+            expect(isHostError(new AccountNotFoundError("x"))).toBe(false);
+            expect(isHostError(new DestroyedError())).toBe(false);
         });
 
-        test("isExtensionError returns true for EXTENSION_ errors", () => {
-            expect(isExtensionError(extensionNotFound("x"))).toBe(true);
-            expect(isExtensionError(extensionRejected("x"))).toBe(true);
+        test("isExtensionError returns true for extension errors", () => {
+            expect(isExtensionError(new ExtensionNotFoundError("x"))).toBe(true);
+            expect(isExtensionError(new ExtensionRejectedError("x"))).toBe(true);
         });
 
         test("isExtensionError returns false for non-extension errors", () => {
-            expect(isExtensionError(hostUnavailable())).toBe(false);
-            expect(isExtensionError(hostRejected())).toBe(false);
-            expect(isExtensionError(signingFailed("x"))).toBe(false);
-            expect(isExtensionError(noAccounts("dev"))).toBe(false);
-            expect(isExtensionError(timeout("op", 100))).toBe(false);
-            expect(isExtensionError(accountNotFound("x"))).toBe(false);
-            expect(isExtensionError(destroyed())).toBe(false);
+            expect(isExtensionError(new HostUnavailableError())).toBe(false);
+            expect(isExtensionError(new HostRejectedError())).toBe(false);
+            expect(isExtensionError(new SigningFailedError("x"))).toBe(false);
+            expect(isExtensionError(new NoAccountsError("dev"))).toBe(false);
+            expect(isExtensionError(new TimeoutError("op", 100))).toBe(false);
+            expect(isExtensionError(new AccountNotFoundError("x"))).toBe(false);
+            expect(isExtensionError(new DestroyedError())).toBe(false);
         });
     });
 }

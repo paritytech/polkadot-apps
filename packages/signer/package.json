@@ -21,9 +21,8 @@
     },
     "dependencies": {
         "@polkadot-apps/address": "workspace:*",
+        "@polkadot-apps/keys": "workspace:*",
         "@polkadot-apps/logger": "workspace:*",
-        "@polkadot-labs/hdkd": "catalog:",
-        "@polkadot-labs/hdkd-helpers": "catalog:",
         "polkadot-api": "catalog:"
     },
     "peerDependencies": {

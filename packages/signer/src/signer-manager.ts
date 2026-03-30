@@ -3,13 +3,13 @@ import type { PolkadotSigner } from "polkadot-api";
 import { createLogger } from "@polkadot-apps/logger";
 
 import {
-    accountNotFound,
-    destroyed,
-    hostDisconnected,
-    hostUnavailable,
-    signingFailed,
+    AccountNotFoundError,
+    DestroyedError,
+    HostDisconnectedError,
+    HostUnavailableError,
+    SigningFailedError,
+    SignerError,
 } from "./errors.js";
-import type { SignerError } from "./errors.js";
 import { isInsideContainer } from "./container.js";
 import { DevProvider } from "./providers/dev.js";
 import { ExtensionProvider } from "./providers/extension.js";
@@ -46,6 +46,7 @@ function persistenceStorageKey(dappName: string): string {
     return `polkadot-apps:signer:${dappName}:selectedAccount`;
 }
 
+/* @integration */
 /**
  * Auto-detect the best available persistence adapter.
  *
@@ -190,11 +191,12 @@ export class SignerManager {
      */
     async connect(providerType?: ProviderType): Promise<Result<SignerAccount[], SignerError>> {
         if (this.isDestroyed) {
-            return err(destroyed());
+            return err(new DestroyedError());
         }
 
-        // Cancel any in-flight connection
+        // Cancel any in-flight connection or reconnect attempt
         this.cancelConnect();
+        this.cancelReconnect();
         this.connectController = new AbortController();
         const signal = this.connectController.signal;
 
@@ -204,6 +206,11 @@ export class SignerManager {
         this.setState({ status: "connecting", error: null });
 
         if (providerType) {
+            // When explicitly requesting extension inside a container, inject
+            // Spektr first so the host wallet appears as a browser extension.
+            if (providerType === "extension" && isInsideContainer()) {
+                await HostProvider.injectSpektr();
+            }
             return this.connectToProvider(providerType, signal);
         }
 
@@ -225,13 +232,13 @@ export class SignerManager {
      */
     selectAccount(address: string): Result<SignerAccount, SignerError> {
         if (this.isDestroyed) {
-            return err(destroyed());
+            return err(new DestroyedError());
         }
 
         const account = this.state.accounts.find((a) => a.address === address);
         if (!account) {
             log.warn("account not found", { address });
-            return err(accountNotFound(address));
+            return err(new AccountNotFoundError(address));
         }
 
         this.setState({ selectedAccount: account });
@@ -259,12 +266,12 @@ export class SignerManager {
      */
     async signRaw(data: Uint8Array): Promise<Result<Uint8Array, SignerError>> {
         if (this.isDestroyed) {
-            return err(destroyed());
+            return err(new DestroyedError());
         }
 
         const signer = this.getSigner();
         if (!signer) {
-            return err(signingFailed(null, "No account selected"));
+            return err(new SigningFailedError(null, "No account selected"));
         }
 
         try {
@@ -272,7 +279,7 @@ export class SignerManager {
             return ok(signature);
         } catch (cause) {
             log.error("signRaw failed", { cause });
-            return err(signingFailed(cause));
+            return err(new SigningFailedError(cause));
         }
     }
 
@@ -297,11 +304,13 @@ export class SignerManager {
         dotNsIdentifier: string,
         derivationIndex = 0,
     ): Promise<Result<SignerAccount, SignerError>> {
-        if (this.isDestroyed) return err(destroyed());
+        if (this.isDestroyed) return err(new DestroyedError());
 
         const host = this.getHostProvider();
         if (!host) {
-            return err(hostUnavailable("Product accounts require a host provider connection"));
+            return err(
+                new HostUnavailableError("Product accounts require a host provider connection"),
+            );
         }
         return host.getProductAccount(dotNsIdentifier, derivationIndex);
     }
@@ -317,12 +326,14 @@ export class SignerManager {
         dotNsIdentifier: string,
         derivationIndex = 0,
     ): Promise<Result<ContextualAlias, SignerError>> {
-        if (this.isDestroyed) return err(destroyed());
+        if (this.isDestroyed) return err(new DestroyedError());
 
         const host = this.getHostProvider();
         if (!host) {
             return err(
-                hostUnavailable("Product account aliases require a host provider connection"),
+                new HostUnavailableError(
+                    "Product account aliases require a host provider connection",
+                ),
             );
         }
         return host.getProductAccountAlias(dotNsIdentifier, derivationIndex);
@@ -341,11 +352,13 @@ export class SignerManager {
         location: RingLocation,
         message: Uint8Array,
     ): Promise<Result<Uint8Array, SignerError>> {
-        if (this.isDestroyed) return err(destroyed());
+        if (this.isDestroyed) return err(new DestroyedError());
 
         const host = this.getHostProvider();
         if (!host) {
-            return err(hostUnavailable("Ring VRF proofs require a host provider connection"));
+            return err(
+                new HostUnavailableError("Ring VRF proofs require a host provider connection"),
+            );
         }
         return host.createRingVRFProof(dotNsIdentifier, derivationIndex, location, message);
     }
@@ -544,6 +557,7 @@ export class SignerManager {
         }
     }
 
+    /* @integration */
     private handleProviderStatusChange(status: ConnectionStatus): void {
         if (status === "disconnected" && this.state.status === "connected") {
             log.warn("provider disconnected, attempting reconnect");
@@ -551,6 +565,7 @@ export class SignerManager {
         }
     }
 
+    /* @integration */
     private attemptReconnect(): void {
         this.cancelReconnect();
 
@@ -565,7 +580,7 @@ export class SignerManager {
         withRetry(
             async () => {
                 if (signal.aborted) {
-                    return err(hostDisconnected("Reconnect cancelled"));
+                    return err(new HostDisconnectedError("Reconnect cancelled"));
                 }
 
                 this.disconnectInternal();
@@ -627,7 +642,7 @@ export class SignerManager {
                         log.error("all reconnect attempts failed", { error: fallback.error });
                         this.setState({
                             status: "disconnected",
-                            error: hostDisconnected("Reconnect failed after all retries"),
+                            error: new HostDisconnectedError("Reconnect failed after all retries"),
                         });
                     }
                 }
@@ -636,7 +651,7 @@ export class SignerManager {
                 log.error("unexpected reconnect error", { cause });
                 this.setState({
                     status: "disconnected",
-                    error: hostDisconnected("Reconnect failed unexpectedly"),
+                    error: new HostDisconnectedError("Reconnect failed unexpectedly"),
                 });
             });
     }
@@ -717,10 +732,9 @@ export class SignerManager {
     }
 }
 
-/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe, vi, beforeEach, afterEach } = import.meta.vitest;
-    const { hostUnavailable, extensionNotFound } = await import("./errors.js");
+    const { HostUnavailableError, ExtensionNotFoundError } = await import("./errors.js");
 
     beforeEach(() => {
         vi.useFakeTimers();
@@ -806,7 +820,7 @@ if (import.meta.vitest) {
             const result = manager.selectAccount("5NonExistentAddress");
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("ACCOUNT_NOT_FOUND");
+                expect(result.error).toBeInstanceOf(AccountNotFoundError);
             }
 
             manager.destroy();
@@ -850,13 +864,13 @@ if (import.meta.vitest) {
             const result = await manager.connect("dev");
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("DESTROYED");
+                expect(result.error).toBeInstanceOf(DestroyedError);
             }
 
             const selectResult = manager.selectAccount("x");
             expect(selectResult.ok).toBe(false);
             if (!selectResult.ok) {
-                expect(selectResult.error.type).toBe("DESTROYED");
+                expect(selectResult.error).toBeInstanceOf(DestroyedError);
             }
         });
 
@@ -936,7 +950,7 @@ if (import.meta.vitest) {
                             type: "host",
                             connect: async () => {
                                 callOrder.push("host");
-                                return err(hostUnavailable());
+                                return err(new HostUnavailableError());
                             },
                             disconnect: () => {},
                             onStatusChange: () => () => {},
@@ -977,8 +991,8 @@ if (import.meta.vitest) {
                         type,
                         connect: async () => {
                             callOrder.push(type);
-                            if (type === "host") return err(hostUnavailable());
-                            return err(extensionNotFound("*", "No extensions"));
+                            if (type === "host") return err(new HostUnavailableError());
+                            return err(new ExtensionNotFoundError("*", "No extensions"));
                         },
                         disconnect: () => {},
                         onStatusChange: () => () => {},
@@ -992,7 +1006,7 @@ if (import.meta.vitest) {
             expect(callOrder).toEqual(["extension"]);
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("EXTENSION_NOT_FOUND");
+                expect(result.error).toBeInstanceOf(ExtensionNotFoundError);
             }
 
             manager.destroy();
@@ -1057,7 +1071,7 @@ if (import.meta.vitest) {
             const result = await manager.getProductAccount("myapp.dot");
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_UNAVAILABLE");
+                expect(result.error).toBeInstanceOf(HostUnavailableError);
             }
             manager.destroy();
         });
@@ -1069,7 +1083,7 @@ if (import.meta.vitest) {
             const result = await manager.getProductAccount("myapp.dot");
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("DESTROYED");
+                expect(result.error).toBeInstanceOf(DestroyedError);
             }
         });
 
@@ -1118,7 +1132,7 @@ if (import.meta.vitest) {
             const result = await manager.getProductAccountAlias("myapp.dot");
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_UNAVAILABLE");
+                expect(result.error).toBeInstanceOf(HostUnavailableError);
             }
             manager.destroy();
         });
@@ -1135,7 +1149,7 @@ if (import.meta.vitest) {
             );
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_UNAVAILABLE");
+                expect(result.error).toBeInstanceOf(HostUnavailableError);
             }
             manager.destroy();
         });
@@ -1209,7 +1223,7 @@ if (import.meta.vitest) {
                     if (type === "host") {
                         return {
                             type: "host",
-                            connect: async () => err(hostUnavailable()),
+                            connect: async () => err(new HostUnavailableError()),
                             disconnect: () => {},
                             onStatusChange: () => () => {},
                             onAccountsChange: () => () => {},
@@ -1246,7 +1260,7 @@ if (import.meta.vitest) {
                 createProvider: (type) =>
                     ({
                         type,
-                        connect: async () => err(hostUnavailable()),
+                        connect: async () => err(new HostUnavailableError()),
                         disconnect: () => {},
                         onStatusChange: () => () => {},
                         onAccountsChange: () => () => {},
@@ -1257,7 +1271,7 @@ if (import.meta.vitest) {
             const result = await manager.connect();
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("HOST_UNAVAILABLE");
+                expect(result.error).toBeInstanceOf(HostUnavailableError);
             }
 
             spy.mockRestore();
@@ -1314,6 +1328,233 @@ if (import.meta.vitest) {
             // Should have attempted reconnect (at least one more connect call)
             expect(connectCallCount).toBeGreaterThan(1);
 
+            manager.destroy();
+        });
+
+        test("connect() cancels in-flight reconnect", async () => {
+            let statusCallback: ((status: ConnectionStatus) => void) | undefined;
+            let connectCallCount = 0;
+
+            const manager = new SignerManager({
+                createProvider: () => {
+                    connectCallCount++;
+                    return {
+                        type: "dev" as const,
+                        connect: async () =>
+                            ok([
+                                {
+                                    address: "5Test",
+                                    h160Address: "0x0000000000000000000000000000000000000000",
+                                    publicKey: new Uint8Array(32),
+                                    name: "Test",
+                                    source: "dev" as const,
+                                    getSigner: () =>
+                                        ({
+                                            publicKey: new Uint8Array(32),
+                                        }) as unknown as import("polkadot-api").PolkadotSigner,
+                                },
+                            ]),
+                        disconnect: () => {},
+                        onStatusChange: (cb: (s: ConnectionStatus) => void) => {
+                            statusCallback = cb;
+                            return () => {};
+                        },
+                        onAccountsChange: () => () => {},
+                    } as unknown as SignerProvider;
+                },
+                persistence: null,
+            });
+
+            await manager.connect("dev");
+            // Trigger reconnect
+            statusCallback!("disconnected");
+            // Immediately call connect() — should cancel the reconnect
+            await manager.connect("dev");
+
+            expect(manager.getState().status).toBe("connected");
+            manager.destroy();
+        });
+
+        test("connect('extension') injects Spektr inside container", async () => {
+            const containerModule = await import("./container.js");
+            const containerSpy = vi
+                .spyOn(containerModule, "isInsideContainer")
+                .mockReturnValue(true);
+            const spektrSpy = vi.spyOn(HostProvider, "injectSpektr").mockResolvedValue(true);
+
+            const manager = new SignerManager({
+                createProvider: (type) =>
+                    ({
+                        type,
+                        connect: async () => err(new ExtensionNotFoundError("*", "No extensions")),
+                        disconnect: () => {},
+                        onStatusChange: () => () => {},
+                        onAccountsChange: () => () => {},
+                    }) as unknown as SignerProvider,
+                persistence: null,
+            });
+
+            await manager.connect("extension");
+            // Spektr injection should have been attempted
+            expect(spektrSpy).toHaveBeenCalled();
+
+            containerSpy.mockRestore();
+            spektrSpy.mockRestore();
+            manager.destroy();
+        });
+
+        test("handleProviderStatusChange ignores non-disconnect events", async () => {
+            let statusCallback: ((status: ConnectionStatus) => void) | undefined;
+            const manager = new SignerManager({
+                createProvider: () =>
+                    ({
+                        type: "dev" as const,
+                        connect: async () =>
+                            ok([
+                                {
+                                    address: "5Test",
+                                    h160Address: "0x0000000000000000000000000000000000000000",
+                                    publicKey: new Uint8Array(32),
+                                    name: "Test",
+                                    source: "dev" as const,
+                                    getSigner: () =>
+                                        ({
+                                            publicKey: new Uint8Array(32),
+                                        }) as unknown as import("polkadot-api").PolkadotSigner,
+                                },
+                            ]),
+                        disconnect: () => {},
+                        onStatusChange: (cb: (s: ConnectionStatus) => void) => {
+                            statusCallback = cb;
+                            return () => {};
+                        },
+                        onAccountsChange: () => () => {},
+                    }) as unknown as SignerProvider,
+                persistence: null,
+            });
+
+            await manager.connect("dev");
+            // "connected" status change should NOT trigger reconnect
+            statusCallback!("connected");
+            expect(manager.getState().status).toBe("connected");
+
+            manager.destroy();
+        });
+
+        test("connectToProvider cleans up on failure", async () => {
+            const disconnectSpy = vi.fn();
+            const manager = new SignerManager({
+                createProvider: () =>
+                    ({
+                        type: "dev" as const,
+                        connect: async () => err(new HostUnavailableError("test failure")),
+                        disconnect: disconnectSpy,
+                        onStatusChange: () => () => {},
+                        onAccountsChange: () => () => {},
+                    }) as unknown as SignerProvider,
+                persistence: null,
+            });
+
+            const result = await manager.connect("dev");
+            expect(result.ok).toBe(false);
+            expect(disconnectSpy).toHaveBeenCalled();
+            expect(manager.getState().status).toBe("disconnected");
+
+            manager.destroy();
+        });
+
+        test("onAccountsChange updates state and clears selected if removed", async () => {
+            let accountsCallback: ((accounts: SignerAccount[]) => void) | undefined;
+            const mockAccount: SignerAccount = {
+                address: "5Test",
+                h160Address: "0x0000000000000000000000000000000000000000",
+                publicKey: new Uint8Array(32),
+                name: "Test",
+                source: "dev",
+                getSigner: () =>
+                    ({
+                        publicKey: new Uint8Array(32),
+                    }) as unknown as import("polkadot-api").PolkadotSigner,
+            };
+
+            const manager = new SignerManager({
+                createProvider: () =>
+                    ({
+                        type: "dev" as const,
+                        connect: async () => ok([mockAccount]),
+                        disconnect: () => {},
+                        onStatusChange: () => () => {},
+                        onAccountsChange: (cb: (accounts: SignerAccount[]) => void) => {
+                            accountsCallback = cb;
+                            return () => {};
+                        },
+                    }) as unknown as SignerProvider,
+                persistence: null,
+            });
+
+            await manager.connect("dev");
+            expect(manager.getState().selectedAccount?.address).toBe("5Test");
+
+            // Fire account change with empty list — selected account should be cleared
+            accountsCallback!([]);
+            expect(manager.getState().accounts).toEqual([]);
+            expect(manager.getState().selectedAccount).toBeNull();
+
+            manager.destroy();
+        });
+
+        test("default createProvider builds HostProvider for 'host' type", async () => {
+            vi.useRealTimers();
+            // No createProvider override — exercises the default switch case
+            const manager = new SignerManager({
+                persistence: null,
+                maxRetries: 1,
+                hostTimeout: 500,
+            });
+            // connect("host") uses the real HostProvider which fails in Node
+            // (either HOST_UNAVAILABLE if SDK missing, or HOST_REJECTED if SDK present but no host)
+            const result = await manager.connect("host");
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error).toBeInstanceOf(SignerError);
+            }
+            manager.destroy();
+            vi.useFakeTimers();
+        });
+
+        test("default createProvider builds ExtensionProvider for 'extension' type", async () => {
+            vi.useRealTimers();
+            const manager = new SignerManager({
+                persistence: null,
+                extensionTimeout: 0,
+            });
+            // connect("extension") uses the real ExtensionProvider which fails in Node
+            const result = await manager.connect("extension");
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error).toBeInstanceOf(ExtensionNotFoundError);
+            }
+            manager.destroy();
+            vi.useFakeTimers();
+        });
+
+        test("loadPersistedAccount treats empty string as null", async () => {
+            const storage = new Map<string, string>();
+            storage.set("polkadot-apps:signer:test-app:selectedAccount", "");
+            const persistence = {
+                getItem: (key: string) => storage.get(key) ?? null,
+                setItem: (key: string, value: string) => {
+                    storage.set(key, value);
+                },
+                removeItem: (key: string) => {
+                    storage.delete(key);
+                },
+            };
+
+            const manager = new SignerManager({ persistence, dappName: "test-app" });
+            await manager.connect("dev");
+            // Empty string should be treated as null — first account (Alice) selected
+            expect(manager.getState().selectedAccount?.name).toBe("Alice");
             manager.destroy();
         });
 
@@ -1397,7 +1638,7 @@ if (import.meta.vitest) {
             const result = await manager.signRaw(new Uint8Array([1, 2, 3]));
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("SIGNING_FAILED");
+                expect(result.error).toBeInstanceOf(SigningFailedError);
             }
             manager.destroy();
         });
@@ -1408,7 +1649,7 @@ if (import.meta.vitest) {
             const result = await manager.signRaw(new Uint8Array([1]));
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("DESTROYED");
+                expect(result.error).toBeInstanceOf(DestroyedError);
             }
         });
 
@@ -1481,8 +1722,8 @@ if (import.meta.vitest) {
             const result = await manager.signRaw(new Uint8Array([1]));
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                expect(result.error.type).toBe("SIGNING_FAILED");
-                if (result.error.type === "SIGNING_FAILED") {
+                expect(result.error).toBeInstanceOf(SigningFailedError);
+                if (result.error instanceof SigningFailedError) {
                     expect(result.error.message).toContain("hardware wallet disconnected");
                 }
             }

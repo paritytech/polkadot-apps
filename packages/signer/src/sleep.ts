@@ -23,7 +23,6 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
     });
 }
 
-/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe, vi, beforeEach, afterEach } = import.meta.vitest;
 

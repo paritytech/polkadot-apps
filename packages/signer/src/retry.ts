@@ -1,3 +1,18 @@
+/**
+ * Result-based retry with exponential backoff for signer connection attempts.
+ *
+ * This retry utility works with `Result<T, E>` return values (not exceptions).
+ * It exists separately from the tx package's exception-based `withRetry` because:
+ *
+ * - **Signer retry**: retries connection attempts that return `Result<T, SignerError>`.
+ *   Errors are expected values, not exceptional conditions. Supports AbortSignal.
+ * - **TX retry**: retries transaction submissions that throw exceptions.
+ *   Non-retryable errors (dispatch, rejection, timeout) are detected and rethrown.
+ *
+ * Both use exponential backoff but serve different abstraction layers.
+ *
+ * @module
+ */
 import { sleep } from "./sleep.js";
 import type { Result } from "./types.js";
 
@@ -61,7 +76,6 @@ export async function withRetry<T, E>(
     return lastResult!;
 }
 
-/* v8 ignore start */
 if (import.meta.vitest) {
     const { test, expect, describe, vi, beforeEach, afterEach } = import.meta.vitest;
     const { ok, err } = await import("./types.js");
