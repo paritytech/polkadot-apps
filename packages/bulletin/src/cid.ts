@@ -1,4 +1,5 @@
 import { blake2b } from "@noble/hashes/blake2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { CID } from "multiformats/cid";
 import * as raw from "multiformats/codecs/raw";
 import * as Digest from "multiformats/hashes/digest";
@@ -12,6 +13,28 @@ const BLAKE2B_256 = 0xb220;
 export function computeCid(data: Uint8Array): string {
     const hash = blake2b(data, { dkLen: 32 });
     return CID.createV1(raw.code, Digest.create(BLAKE2B_256, hash)).toString();
+}
+
+/**
+ * Extract the blake2b-256 digest from a CIDv1 string and return it as a
+ * `0x`-prefixed hex string — the preimage key format used by the host API.
+ *
+ * @param cid - CIDv1 base32 string (as produced by {@link computeCid}).
+ * @returns `0x`-prefixed hex string of the 32-byte blake2b-256 digest.
+ * @throws If the CID cannot be parsed or does not use blake2b-256.
+ */
+export function cidToPreimageKey(cid: string): `0x${string}` {
+    const parsed = CID.parse(cid);
+    if (parsed.version !== 1) {
+        throw new Error(`Expected CIDv1, got CIDv${parsed.version}`);
+    }
+    if (parsed.multihash.code !== BLAKE2B_256) {
+        throw new Error(
+            `Expected blake2b-256 (0x${BLAKE2B_256.toString(16)}), ` +
+                `got 0x${parsed.multihash.code.toString(16)}`,
+        );
+    }
+    return `0x${bytesToHex(parsed.multihash.digest)}`;
 }
 
 if (import.meta.vitest) {
@@ -53,6 +76,33 @@ if (import.meta.vitest) {
             const parsed = CID.parse(cid);
             expect(parsed.version).toBe(1);
             expect(parsed.code).toBe(raw.code);
+        });
+    });
+
+    describe("cidToPreimageKey", () => {
+        test("round-trips with computeCid — returns 0x-prefixed 64-char hex", () => {
+            const data = new TextEncoder().encode("hello bulletin");
+            const cid = computeCid(data);
+            const key = cidToPreimageKey(cid);
+            expect(key).toMatch(/^0x[0-9a-f]{64}$/);
+        });
+
+        test("deterministic — same CID always yields same key", () => {
+            const cid = computeCid(new Uint8Array([1, 2, 3]));
+            expect(cidToPreimageKey(cid)).toBe(cidToPreimageKey(cid));
+        });
+
+        test("matches raw blake2b-256 hash", () => {
+            const data = new TextEncoder().encode("test");
+            const cid = computeCid(data);
+            const key = cidToPreimageKey(cid);
+            const hash = blake2b(data, { dkLen: 32 });
+            const expected = `0x${bytesToHex(hash)}`;
+            expect(key).toBe(expected);
+        });
+
+        test("throws for non-CIDv1 input", () => {
+            expect(() => cidToPreimageKey("QmInvalidCidV0")).toThrow();
         });
     });
 }
