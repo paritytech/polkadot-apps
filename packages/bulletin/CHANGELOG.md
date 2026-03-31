@@ -1,5 +1,11 @@
 # @polkadot-apps/bulletin
 
+## 0.3.0
+
+### Minor Changes
+
+- 08cf1c3: Make signer optional in upload functions. When omitted, auto-resolves: uses host preimage API inside containers, dev signer (Alice) when standalone. Adds `preimageKey` to `UploadResult` and makes `blockHash` optional.
+
 ## 0.2.6
 
 ### Patch Changes
