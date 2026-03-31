@@ -1,5 +1,6 @@
 {
     "name": "@polkadot-apps/address",
+    "description": "Substrate and EVM address utilities — SS58/H160 encoding, validation, and conversion",
     "version": "0.3.1",
     "type": "module",
     "main": "./dist/index.js",
