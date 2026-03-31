@@ -2,7 +2,9 @@ import { getChainAPI } from "@polkadot-apps/chain-client";
 import type { PolkadotSigner } from "polkadot-api";
 
 import { computeCid } from "./cid.js";
-import { cidExists, fetchBytes, fetchJson, getGateway, gatewayUrl } from "./gateway.js";
+import { cidExists, getGateway, gatewayUrl } from "./gateway.js";
+import { executeQuery } from "./query.js";
+import { resolveQueryStrategy, type QueryStrategy } from "./resolve-query.js";
 import { batchUpload, upload } from "./upload.js";
 import type {
     BatchUploadItem,
@@ -10,7 +12,7 @@ import type {
     BatchUploadResult,
     BulletinApi,
     Environment,
-    FetchOptions,
+    QueryOptions,
     UploadOptions,
     UploadResult,
 } from "./types.js";
@@ -39,9 +41,19 @@ export class BulletinClient {
     readonly api: BulletinApi;
     readonly gateway: string;
 
+    private queryStrategyPromise: Promise<QueryStrategy> | null = null;
+
     private constructor(api: BulletinApi, gateway: string) {
         this.api = api;
         this.gateway = gateway;
+    }
+
+    /** Lazily resolve and cache the query strategy for the client lifetime. */
+    private resolveQuery(): Promise<QueryStrategy> {
+        if (!this.queryStrategyPromise) {
+            this.queryStrategyPromise = resolveQueryStrategy();
+        }
+        return this.queryStrategyPromise;
     }
 
     /** Create from an environment — resolves API via chain-client, gateway from known list. */
@@ -90,14 +102,25 @@ export class BulletinClient {
         return batchUpload(this.api, items, signer, { ...options, gateway: this.gateway });
     }
 
-    /** Fetch raw bytes by CID from the gateway. */
-    async fetchBytes(cid: string, options?: FetchOptions): Promise<Uint8Array> {
-        return fetchBytes(cid, this.gateway, options);
+    /**
+     * Fetch raw bytes by CID.
+     *
+     * Auto-resolves query path: host preimage lookup inside a container,
+     * direct IPFS gateway fetch standalone.
+     */
+    async fetchBytes(cid: string, options?: QueryOptions): Promise<Uint8Array> {
+        const strategy = await this.resolveQuery();
+        return executeQuery(strategy, cid, this.gateway, options);
     }
 
-    /** Fetch and parse JSON by CID from the gateway. */
-    async fetchJson<T>(cid: string, options?: FetchOptions): Promise<T> {
-        return fetchJson<T>(cid, this.gateway, options);
+    /**
+     * Fetch and parse JSON by CID.
+     *
+     * Auto-resolves query path (same as {@link fetchBytes}).
+     */
+    async fetchJson<T>(cid: string, options?: QueryOptions): Promise<T> {
+        const bytes = await this.fetchBytes(cid, options);
+        return JSON.parse(new TextDecoder().decode(bytes)) as T;
     }
 
     /** Check if a CID exists on the gateway. */
@@ -165,6 +188,43 @@ if (import.meta.vitest) {
             const result = await client.upload(data, {} as PolkadotSigner);
             expect(result.gatewayUrl).toContain(GATEWAY);
             expect(result.cid).toBeTruthy();
+        });
+
+        test("fetchBytes auto-resolves query strategy", async () => {
+            const client = BulletinClient.from(mockApi, GATEWAY);
+            const payload = new Uint8Array([1, 2, 3]);
+            vi.stubGlobal(
+                "fetch",
+                vi.fn().mockResolvedValue({
+                    ok: true,
+                    arrayBuffer: () => Promise.resolve(payload.buffer),
+                }),
+            );
+            try {
+                const result = await client.fetchBytes("bafyabc");
+                expect(result).toEqual(payload);
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        });
+
+        test("fetchJson auto-resolves and parses JSON", async () => {
+            const obj = { key: "value" };
+            const bytes = new TextEncoder().encode(JSON.stringify(obj));
+            vi.stubGlobal(
+                "fetch",
+                vi.fn().mockResolvedValue({
+                    ok: true,
+                    arrayBuffer: () => Promise.resolve(bytes.buffer),
+                }),
+            );
+            try {
+                const client = BulletinClient.from(mockApi, GATEWAY);
+                const result = await client.fetchJson<typeof obj>("bafyabc");
+                expect(result).toEqual(obj);
+            } finally {
+                vi.unstubAllGlobals();
+            }
         });
     });
 }
