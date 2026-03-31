@@ -101,8 +101,20 @@ if (import.meta.vitest) {
             expect(key).toBe(expected);
         });
 
-        test("throws for non-CIDv1 input", () => {
-            expect(() => cidToPreimageKey("QmInvalidCidV0")).toThrow();
+        test("throws for CIDv0 input", () => {
+            // CIDv0: sha2-256, dag-pb — valid but not CIDv1
+            const sha256Code = 0x12;
+            const hash = new Uint8Array(32).fill(0xab);
+            const cidV0 = CID.create(0, 0x70, Digest.create(sha256Code, hash));
+            expect(() => cidToPreimageKey(cidV0.toString())).toThrow("Expected CIDv1");
+        });
+
+        test("throws for CIDv1 with non-blake2b-256 hash", () => {
+            // CIDv1 with sha2-256 instead of blake2b-256
+            const sha256Code = 0x12;
+            const hash = new Uint8Array(32).fill(0xcd);
+            const cidV1 = CID.createV1(raw.code, Digest.create(sha256Code, hash));
+            expect(() => cidToPreimageKey(cidV1.toString())).toThrow("Expected blake2b-256");
         });
     });
 }

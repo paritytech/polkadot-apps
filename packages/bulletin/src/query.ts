@@ -76,6 +76,45 @@ export async function executeQuery(
 if (import.meta.vitest) {
     const { describe, test, expect, vi } = import.meta.vitest;
 
+    describe("queryBytes", () => {
+        test("resolves via gateway outside container and returns bytes", async () => {
+            const payload = new Uint8Array([4, 5, 6]);
+            vi.stubGlobal(
+                "fetch",
+                vi.fn().mockResolvedValue({
+                    ok: true,
+                    arrayBuffer: () => Promise.resolve(payload.buffer),
+                }),
+            );
+            try {
+                const result = await queryBytes("bafytest", "https://gw/ipfs/");
+                expect(result).toEqual(payload);
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        });
+    });
+
+    describe("queryJson", () => {
+        test("resolves via gateway outside container and parses JSON", async () => {
+            const obj = { hello: "world" };
+            const bytes = new TextEncoder().encode(JSON.stringify(obj));
+            vi.stubGlobal(
+                "fetch",
+                vi.fn().mockResolvedValue({
+                    ok: true,
+                    arrayBuffer: () => Promise.resolve(bytes.buffer),
+                }),
+            );
+            try {
+                const result = await queryJson<typeof obj>("bafytest", "https://gw/ipfs/");
+                expect(result).toEqual(obj);
+            } finally {
+                vi.unstubAllGlobals();
+            }
+        });
+    });
+
     describe("executeQuery", () => {
         const testData = new Uint8Array([1, 2, 3]);
 

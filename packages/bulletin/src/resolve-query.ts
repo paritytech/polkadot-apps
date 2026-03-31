@@ -80,33 +80,34 @@ export function lookupViaHost(
     const key = cidToPreimageKey(cid);
 
     return new Promise<Uint8Array>((resolve, reject) => {
-        let settled = false;
+        const settle = (fn: () => void) => {
+            if (timer === null) return;
+            clearTimeout(timer);
+            timer = null;
+            fn();
+        };
 
-        const timer = setTimeout(() => {
-            if (!settled) {
-                settled = true;
+        let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+            settle(() => {
                 sub.unsubscribe();
                 reject(new Error(`Host preimage lookup timed out after ${timeoutMs}ms for ${key}`));
-            }
+            });
         }, timeoutMs);
 
         const sub = manager.lookup(key, (preimage) => {
-            if (settled) return;
             if (preimage !== null) {
-                settled = true;
-                clearTimeout(timer);
-                sub.unsubscribe();
-                resolve(preimage);
+                settle(() => {
+                    sub.unsubscribe();
+                    resolve(preimage);
+                });
             }
             // null means "not found yet" — host will keep polling
         });
 
         sub.onInterrupt(() => {
-            if (!settled) {
-                settled = true;
-                clearTimeout(timer);
+            settle(() => {
                 reject(new Error(`Host preimage lookup interrupted for ${key}`));
-            }
+            });
         });
     });
 }
@@ -123,15 +124,27 @@ if (import.meta.vitest) {
         test("returns host-lookup strategy when inside container with SDK", async () => {
             const fakeWindow = { top: null, __HOST_WEBVIEW_MARK__: true };
             vi.stubGlobal("window", fakeWindow);
+            const mockData = new Uint8Array([1, 2, 3]);
             vi.doMock("@novasamatech/product-sdk", () => ({
                 preimageManager: {
-                    lookup: vi.fn(),
+                    lookup: vi.fn((_key: string, cb: (p: Uint8Array | null) => void) => {
+                        queueMicrotask(() => cb(mockData));
+                        return {
+                            unsubscribe: vi.fn(),
+                            onInterrupt: () => vi.fn(),
+                        };
+                    }),
                 },
                 sandboxProvider: { isCorrectEnvironment: () => true },
             }));
             try {
                 const strategy = await resolveQueryStrategy();
                 expect(strategy.kind).toBe("host-lookup");
+                if (strategy.kind === "host-lookup") {
+                    const cid = computeCid(new TextEncoder().encode("test"));
+                    const result = await strategy.lookup(cid, 5000);
+                    expect(result).toEqual(mockData);
+                }
             } finally {
                 vi.doUnmock("@novasamatech/product-sdk");
                 vi.unstubAllGlobals();
