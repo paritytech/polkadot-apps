@@ -44,12 +44,6 @@ jobs:
               if: steps.changesets.outputs.found == 'true'
               run: pnpm changeset version
 
-            # Strip file:generated dep AFTER versioning (changeset version
-            # overwrites package.json, re-adding the dep from source)
-            - name: Strip descriptors file:generated dep
-              if: steps.changesets.outputs.found == 'true'
-              run: node -e 'const p=require("./packages/descriptors/package.json");delete p.dependencies;require("fs").writeFileSync("./packages/descriptors/package.json",JSON.stringify(p,null,4)+"\n")'
-
             # Build all publishable packages
             - name: Build packages
               if: steps.changesets.outputs.found == 'true'
@@ -59,6 +53,12 @@ jobs:
             - name: Format
               if: steps.changesets.outputs.found == 'true'
               run: pnpm format
+
+            # Strip file:generated dep AFTER build and format — both
+            # changeset version and papi (called by build) re-add it
+            - name: Strip descriptors file:generated dep
+              if: steps.changesets.outputs.found == 'true'
+              run: node -e 'const p=require("./packages/descriptors/package.json");delete p.dependencies;require("fs").writeFileSync("./packages/descriptors/package.json",JSON.stringify(p,null,4)+"\n")'
 
             # Commit version bumps
             - name: Commit version changes
