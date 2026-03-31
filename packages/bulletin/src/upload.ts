@@ -1,9 +1,11 @@
+import { createLogger } from "@polkadot-apps/logger";
 import { submitAndWatch } from "@polkadot-apps/tx";
 import type { PolkadotSigner } from "polkadot-api";
 import { Binary } from "polkadot-api";
 
 import { computeCid } from "./cid.js";
 import { gatewayUrl } from "./gateway.js";
+import { resolveUploadStrategy } from "./resolve-signer.js";
 import type {
     BatchUploadItem,
     BatchUploadOptions,
@@ -13,27 +15,58 @@ import type {
     UploadResult,
 } from "./types.js";
 
+const log = createLogger("bulletin");
+
 /**
- * Upload data to the Bulletin Chain via `TransactionStorage.store`.
+ * Upload data to the Bulletin Chain.
  *
- * Computes the CID locally, submits the transaction via {@link submitAndWatch}
- * (from `@polkadot-apps/tx`), and returns the CID + block hash.
+ * When a signer is provided, submits a `TransactionStorage.store` transaction
+ * directly. When omitted, the upload strategy is auto-resolved:
+ *
+ * - **Inside a host container** (Polkadot Desktop / Mobile): uses the host
+ *   preimage API — the host signs and submits automatically.
+ * - **Standalone**: uses Alice's dev signer (pre-funded on test chains).
+ *
+ * Computes the CIDv1 (blake2b-256, raw codec) locally in both cases.
+ *
+ * @param api    - Typed Bulletin Chain API.
+ * @param data   - Raw bytes to store.
+ * @param signer - Optional signer. When omitted, auto-resolved.
+ * @param options - Upload options (gateway, timeout, waitFor, status callback).
+ * @returns Upload result with CID and either blockHash or preimageKey.
  */
 export async function upload(
     api: BulletinApi,
     data: Uint8Array,
-    signer: PolkadotSigner,
+    signer?: PolkadotSigner,
     options?: UploadOptions,
 ): Promise<UploadResult> {
+    const strategy = await resolveUploadStrategy(signer);
     const cid = computeCid(data);
+
+    if (strategy.kind === "preimage") {
+        log.info("uploading via host preimage API", { cid, size: data.byteLength });
+        const preimageKey = await strategy.submit(data);
+        log.info("preimage submitted successfully", { cid, preimageKey });
+        return {
+            kind: "preimage",
+            cid,
+            preimageKey,
+            gatewayUrl: options?.gateway ? gatewayUrl(cid, options.gateway) : undefined,
+        };
+    }
+
+    log.info("uploading via TransactionStorage.store", { cid, size: data.byteLength });
     const tx = api.tx.TransactionStorage.store({ data: Binary.fromBytes(data) });
-    const result = await submitAndWatch(tx, signer, {
+    const result = await submitAndWatch(tx, strategy.signer, {
         waitFor: options?.waitFor,
         timeoutMs: options?.timeoutMs,
         onStatus: options?.onStatus,
     });
 
+    log.info("transaction included in block", { cid, blockHash: result.block.hash });
     return {
+        kind: "transaction",
         cid,
         blockHash: result.block.hash,
         gatewayUrl: options?.gateway ? gatewayUrl(cid, options.gateway) : undefined,
@@ -41,19 +74,29 @@ export async function upload(
 }
 
 /**
- * Upload multiple items sequentially, reusing the same chain connection.
+ * Upload multiple items sequentially to the Bulletin Chain.
  *
  * Bulletin Chain requires sequential transaction submission (nonce ordering).
  * Individual failures are captured in results — the batch does not abort.
+ *
+ * Signer resolution follows the same rules as {@link upload}: when omitted,
+ * the strategy is auto-resolved once and reused for all items.
+ *
+ * @param api    - Typed Bulletin Chain API.
+ * @param items  - Array of items to upload, each with data and a label.
+ * @param signer - Optional signer. When omitted, auto-resolved.
+ * @param options - Batch upload options (gateway, timeout, progress callback).
+ * @returns Array of results, one per item, preserving input order.
  */
 export async function batchUpload(
     api: BulletinApi,
     items: BatchUploadItem[],
-    signer: PolkadotSigner,
+    signer?: PolkadotSigner,
     options?: BatchUploadOptions,
 ): Promise<BatchUploadResult[]> {
     if (items.length === 0) return [];
 
+    const strategy = await resolveUploadStrategy(signer);
     const results: BatchUploadResult[] = [];
 
     for (let i = 0; i < items.length; i++) {
@@ -61,27 +104,60 @@ export async function batchUpload(
         const cid = computeCid(item.data);
 
         try {
-            const tx = api.tx.TransactionStorage.store({ data: Binary.fromBytes(item.data) });
-            const result = await submitAndWatch(tx, signer, {
-                waitFor: options?.waitFor,
-                timeoutMs: options?.timeoutMs,
-            });
+            if (strategy.kind === "preimage") {
+                log.info("batch: uploading item via preimage", {
+                    label: item.label,
+                    index: i,
+                    total: items.length,
+                });
+                const preimageKey = await strategy.submit(item.data);
 
-            const entry: BatchUploadResult = {
-                label: item.label,
-                cid,
-                success: true,
-                blockHash: result.block.hash,
-                gatewayUrl: options?.gateway ? gatewayUrl(cid, options.gateway) : undefined,
-            };
-            results.push(entry);
-            options?.onProgress?.(i + 1, items.length, entry);
+                const entry: BatchUploadResult = {
+                    kind: "preimage",
+                    label: item.label,
+                    cid,
+                    success: true,
+                    preimageKey,
+                    gatewayUrl: options?.gateway ? gatewayUrl(cid, options.gateway) : undefined,
+                };
+                results.push(entry);
+                options?.onProgress?.(i + 1, items.length, entry);
+            } else {
+                log.info("batch: uploading item via transaction", {
+                    label: item.label,
+                    index: i,
+                    total: items.length,
+                });
+                const tx = api.tx.TransactionStorage.store({
+                    data: Binary.fromBytes(item.data),
+                });
+                const result = await submitAndWatch(tx, strategy.signer, {
+                    waitFor: options?.waitFor,
+                    timeoutMs: options?.timeoutMs,
+                });
+
+                const entry: BatchUploadResult = {
+                    kind: "transaction",
+                    label: item.label,
+                    cid,
+                    success: true,
+                    blockHash: result.block.hash,
+                    gatewayUrl: options?.gateway ? gatewayUrl(cid, options.gateway) : undefined,
+                };
+                results.push(entry);
+                options?.onProgress?.(i + 1, items.length, entry);
+            }
         } catch (err) {
+            log.error("batch: item upload failed", {
+                label: item.label,
+                index: i,
+                error: err instanceof Error ? err.message : String(err),
+            });
             const entry: BatchUploadResult = {
+                kind: strategy.kind === "preimage" ? "preimage" : "transaction",
                 label: item.label,
                 cid,
                 success: false,
-                blockHash: "",
                 error: err instanceof Error ? err.message : String(err),
             };
             results.push(entry);
@@ -125,14 +201,17 @@ if (import.meta.vitest) {
     const mockSigner = {} as PolkadotSigner;
 
     describe("upload", () => {
-        test("calls TransactionStorage.store and returns CID + blockHash", async () => {
+        test("calls TransactionStorage.store and returns CID + blockHash with explicit signer", async () => {
             const api = createMockApi();
             const data = new TextEncoder().encode("test data");
             const result = await upload(api as unknown as BulletinApi, data, mockSigner);
 
             expect(api.tx.TransactionStorage.store).toHaveBeenCalledOnce();
+            expect(result.kind).toBe("transaction");
             expect(result.cid).toBeTruthy();
-            expect(result.blockHash).toBe("0xblockhash");
+            if (result.kind === "transaction") {
+                expect(result.blockHash).toBe("0xblockhash");
+            }
         });
 
         test("includes gatewayUrl when gateway option provided", async () => {
@@ -152,6 +231,55 @@ if (import.meta.vitest) {
 
             expect(result.gatewayUrl).toBeUndefined();
         });
+
+        test("returns preimage result when no signer and inside container", async () => {
+            const fakeWindow = { top: null, __HOST_WEBVIEW_MARK__: true };
+            vi.stubGlobal("window", fakeWindow);
+            vi.doMock("@novasamatech/product-sdk", () => ({
+                preimageManager: {
+                    submit: async () => "0xpreimagekey",
+                },
+                sandboxProvider: { isCorrectEnvironment: () => true },
+            }));
+            try {
+                const api = createMockApi();
+                const data = new TextEncoder().encode("preimage test");
+                const result = await upload(api as unknown as BulletinApi, data, undefined, {
+                    gateway: "https://gw/ipfs/",
+                });
+
+                expect(result.kind).toBe("preimage");
+                if (result.kind === "preimage") {
+                    expect(result.preimageKey).toBe("0xpreimagekey");
+                }
+                expect(result.cid).toBeTruthy();
+                expect(result.gatewayUrl).toContain("https://gw/ipfs/");
+                expect(api.tx.TransactionStorage.store).not.toHaveBeenCalled();
+            } finally {
+                vi.doUnmock("@novasamatech/product-sdk");
+                vi.unstubAllGlobals();
+            }
+        });
+
+        test("preimage upload omits gatewayUrl when no gateway option", async () => {
+            const fakeWindow = { top: null, __HOST_WEBVIEW_MARK__: true };
+            vi.stubGlobal("window", fakeWindow);
+            vi.doMock("@novasamatech/product-sdk", () => ({
+                preimageManager: { submit: async () => "0xkey" },
+                sandboxProvider: { isCorrectEnvironment: () => true },
+            }));
+            try {
+                const api = createMockApi();
+                const data = new TextEncoder().encode("no-gw");
+                const result = await upload(api as unknown as BulletinApi, data);
+
+                expect(result.kind).toBe("preimage");
+                expect(result.gatewayUrl).toBeUndefined();
+            } finally {
+                vi.doUnmock("@novasamatech/product-sdk");
+                vi.unstubAllGlobals();
+            }
+        });
     });
 
     describe("batchUpload", () => {
@@ -161,7 +289,7 @@ if (import.meta.vitest) {
             expect(results).toEqual([]);
         });
 
-        test("processes items sequentially", async () => {
+        test("processes items sequentially with explicit signer", async () => {
             const api = createMockApi();
             const items: BatchUploadItem[] = [
                 { data: new TextEncoder().encode("a"), label: "file-a" },
@@ -170,8 +298,10 @@ if (import.meta.vitest) {
             const results = await batchUpload(api as unknown as BulletinApi, items, mockSigner);
 
             expect(results).toHaveLength(2);
+            expect(results[0]!.kind).toBe("transaction");
             expect(results[0]!.label).toBe("file-a");
             expect(results[0]!.success).toBe(true);
+            expect(results[1]!.kind).toBe("transaction");
             expect(results[1]!.label).toBe("file-b");
             expect(results[1]!.success).toBe(true);
         });
@@ -220,9 +350,12 @@ if (import.meta.vitest) {
             const results = await batchUpload(api as unknown as BulletinApi, items, mockSigner);
 
             expect(results).toHaveLength(3);
+            expect(results[0]!.kind).toBe("transaction");
             expect(results[0]!.success).toBe(true);
-            expect(results[1]!.success).toBe(false);
-            expect(results[1]!.error).toContain("tx failed");
+            const f1 = results[1]!;
+            expect(f1.kind).toBe("transaction");
+            expect(f1.success).toBe(false);
+            if (!f1.success) expect(f1.error).toContain("tx failed");
             expect(results[2]!.success).toBe(true);
         });
 
@@ -241,6 +374,111 @@ if (import.meta.vitest) {
                 [1, 2, "a"],
                 [2, 2, "b"],
             ]);
+        });
+
+        test("batch processes items via preimage when inside container", async () => {
+            const fakeWindow = { top: null, __HOST_WEBVIEW_MARK__: true };
+            vi.stubGlobal("window", fakeWindow);
+            vi.doMock("@novasamatech/product-sdk", () => ({
+                preimageManager: {
+                    submit: async () => "0xbatchkey",
+                },
+                sandboxProvider: { isCorrectEnvironment: () => true },
+            }));
+            try {
+                const api = createMockApi();
+                const items: BatchUploadItem[] = [
+                    { data: new TextEncoder().encode("x"), label: "item-x" },
+                    { data: new TextEncoder().encode("y"), label: "item-y" },
+                ];
+                const progress: Array<[number, number, string]> = [];
+                const results = await batchUpload(api as unknown as BulletinApi, items, undefined, {
+                    gateway: "https://gw/ipfs/",
+                    onProgress: (done, total, current) =>
+                        progress.push([done, total, current.label]),
+                });
+
+                expect(results).toHaveLength(2);
+                const r0 = results[0]!;
+                expect(r0.kind).toBe("preimage");
+                expect(r0.success).toBe(true);
+                if (r0.kind === "preimage" && r0.success) {
+                    expect(r0.preimageKey).toBe("0xbatchkey");
+                }
+                expect(r0.gatewayUrl).toContain("https://gw/ipfs/");
+                expect(results[1]!.kind).toBe("preimage");
+                expect(results[1]!.success).toBe(true);
+                expect(api.tx.TransactionStorage.store).not.toHaveBeenCalled();
+                expect(progress).toEqual([
+                    [1, 2, "item-x"],
+                    [2, 2, "item-y"],
+                ]);
+            } finally {
+                vi.doUnmock("@novasamatech/product-sdk");
+                vi.unstubAllGlobals();
+            }
+        });
+
+        test("batch preimage captures individual failures without aborting", async () => {
+            let callCount = 0;
+            const fakeWindow = { top: null, __HOST_WEBVIEW_MARK__: true };
+            vi.stubGlobal("window", fakeWindow);
+            vi.doMock("@novasamatech/product-sdk", () => ({
+                preimageManager: {
+                    submit: async () => {
+                        callCount++;
+                        if (callCount === 2) throw new Error("preimage rejected");
+                        return "0xok";
+                    },
+                },
+                sandboxProvider: { isCorrectEnvironment: () => true },
+            }));
+            try {
+                const api = createMockApi();
+                const items: BatchUploadItem[] = [
+                    { data: new TextEncoder().encode("a"), label: "ok1" },
+                    { data: new TextEncoder().encode("b"), label: "fail" },
+                    { data: new TextEncoder().encode("c"), label: "ok2" },
+                ];
+                const results = await batchUpload(api as unknown as BulletinApi, items);
+
+                expect(results).toHaveLength(3);
+                const s0 = results[0]!;
+                expect(s0.kind).toBe("preimage");
+                expect(s0.success).toBe(true);
+                if (s0.kind === "preimage" && s0.success) {
+                    expect(s0.preimageKey).toBe("0xok");
+                }
+                const s1 = results[1]!;
+                expect(s1.kind).toBe("preimage");
+                expect(s1.success).toBe(false);
+                if (!s1.success) expect(s1.error).toContain("preimage rejected");
+                expect(results[2]!.success).toBe(true);
+            } finally {
+                vi.doUnmock("@novasamatech/product-sdk");
+                vi.unstubAllGlobals();
+            }
+        });
+
+        test("batch preimage omits gatewayUrl when no gateway option", async () => {
+            const fakeWindow = { top: null, __HOST_WEBVIEW_MARK__: true };
+            vi.stubGlobal("window", fakeWindow);
+            vi.doMock("@novasamatech/product-sdk", () => ({
+                preimageManager: { submit: async () => "0xk" },
+                sandboxProvider: { isCorrectEnvironment: () => true },
+            }));
+            try {
+                const api = createMockApi();
+                const items: BatchUploadItem[] = [
+                    { data: new TextEncoder().encode("z"), label: "z" },
+                ];
+                const results = await batchUpload(api as unknown as BulletinApi, items);
+
+                expect(results[0]!.gatewayUrl).toBeUndefined();
+            } finally {
+                vi.doUnmock("@novasamatech/product-sdk");
+                vi.unstubAllGlobals();
+            }
         });
     });
 }

@@ -21,10 +21,17 @@ import type {
  * Bundles a typed Bulletin API (from chain-client) and an IPFS gateway URL
  * so callers don't need to re-pass them on every call.
  *
+ * When no signer is provided to upload methods, the client auto-resolves:
+ * - Inside a host container: uses the host preimage API (no user signing).
+ * - Standalone: uses Alice's dev signer (pre-funded on test chains).
+ *
  * @example
  * ```ts
  * const bulletin = await BulletinClient.create("paseo");
- * const result = await bulletin.upload(fileBytes, signer);
+ * // Auto-resolved signer (preimage in host, dev signer standalone):
+ * const result = await bulletin.upload(fileBytes);
+ * // Or with an explicit signer:
+ * const result = await bulletin.upload(fileBytes, mySigner);
  * const metadata = await bulletin.fetchJson<Metadata>(result.cid);
  * ```
  */
@@ -53,19 +60,31 @@ export class BulletinClient {
         return computeCid(data);
     }
 
-    /** Upload data to the Bulletin Chain. */
+    /**
+     * Upload data to the Bulletin Chain.
+     *
+     * @param data   - Raw bytes to store.
+     * @param signer - Optional signer. When omitted, auto-resolved (preimage in host, dev signer standalone).
+     * @param options - Upload options (timeout, waitFor, status callback).
+     */
     async upload(
         data: Uint8Array,
-        signer: PolkadotSigner,
+        signer?: PolkadotSigner,
         options?: Omit<UploadOptions, "gateway">,
     ): Promise<UploadResult> {
         return upload(this.api, data, signer, { ...options, gateway: this.gateway });
     }
 
-    /** Upload multiple items sequentially. */
+    /**
+     * Upload multiple items sequentially.
+     *
+     * @param items  - Array of items to upload, each with data and a label.
+     * @param signer - Optional signer. When omitted, auto-resolved.
+     * @param options - Batch upload options (timeout, progress callback).
+     */
     async batchUpload(
         items: BatchUploadItem[],
-        signer: PolkadotSigner,
+        signer?: PolkadotSigner,
         options?: Omit<BatchUploadOptions, "gateway">,
     ): Promise<BatchUploadResult[]> {
         return batchUpload(this.api, items, signer, { ...options, gateway: this.gateway });
@@ -140,7 +159,7 @@ if (import.meta.vitest) {
             expect(client.gatewayUrl("bafyabc")).toBe("https://test-gw/ipfs/bafyabc");
         });
 
-        test("upload() passes gateway from client", async () => {
+        test("upload() passes gateway from client with explicit signer", async () => {
             const client = BulletinClient.from(mockApi, GATEWAY);
             const data = new TextEncoder().encode("test");
             const result = await client.upload(data, {} as PolkadotSigner);
