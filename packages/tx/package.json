@@ -1,5 +1,6 @@
 {
     "name": "@polkadot-apps/tx",
+    "description": "Transaction submission, lifecycle watching, and dev signers for Polkadot chains",
     "version": "0.2.5",
     "type": "module",
     "main": "./dist/index.js",

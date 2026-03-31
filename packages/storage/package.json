@@ -1,5 +1,6 @@
 {
     "name": "@polkadot-apps/storage",
+    "description": "Key-value storage abstraction with automatic host/browser backend detection",
     "version": "0.2.2",
     "type": "module",
     "main": "./dist/index.js",

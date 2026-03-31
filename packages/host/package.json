@@ -1,5 +1,6 @@
 {
     "name": "@polkadot-apps/host",
+    "description": "Host container detection and storage access for Polkadot Desktop and Mobile environments",
     "version": "0.2.1",
     "type": "module",
     "main": "./dist/index.js",
