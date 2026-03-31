@@ -1,5 +1,6 @@
 {
     "name": "@polkadot-apps/bulletin",
+    "description": "TypeScript SDK for uploading and retrieving data on the Polkadot Bulletin Chain",
     "version": "0.2.6",
     "type": "module",
     "main": "./dist/index.js",
