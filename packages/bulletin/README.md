@@ -205,16 +205,13 @@ type UploadResult =
 
 ### `BatchUploadResult`
 
+Discriminated union on `kind` and `success`:
+
 ```ts
-interface BatchUploadResult {
-    label: string;
-    cid: string;
-    success: boolean;
-    blockHash?: string;    // present on successful transaction uploads
-    preimageKey?: string;  // present on successful preimage uploads
-    gatewayUrl?: string;
-    error?: string;        // present when success is false
-}
+type BatchUploadResult =
+    | { kind: "transaction"; success: true; label: string; cid: string; blockHash: string; gatewayUrl?: string }
+    | { kind: "preimage"; success: true; label: string; cid: string; preimageKey: string; gatewayUrl?: string }
+    | { kind: "transaction" | "preimage"; success: false; label: string; cid: string; error: string; gatewayUrl?: string };
 ```
 
 ### `UploadStrategy`

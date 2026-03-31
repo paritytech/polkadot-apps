@@ -8,16 +8,31 @@ export type BulletinApi = TypedApi<typeof bulletin>;
 /** Network environment. Matches chain-client's Environment type. */
 export type Environment = "polkadot" | "kusama" | "paseo";
 
-/** Options for {@link upload}. */
+/**
+ * Options for {@link upload}.
+ *
+ * Note: `waitFor`, `timeoutMs`, and `onStatus` only apply to the **transaction**
+ * upload path (when an explicit signer is used or the dev signer fallback is active).
+ * The preimage path delegates to the host which controls its own submission
+ * lifecycle — these options are ignored in that case.
+ */
 export interface UploadOptions {
     /** IPFS gateway base URL (e.g., from `getGateway("paseo")`). If provided, result includes gatewayUrl. */
     gateway?: string;
-    /** When to resolve: `"best-block"` (default) or `"finalized"`. Passed to submitAndWatch. */
+    /** When to resolve: `"best-block"` (default) or `"finalized"`. Transaction path only. */
     waitFor?: WaitFor;
-    /** Timeout in ms. Default: 300_000 (5 min). Passed to submitAndWatch. */
+    /** Timeout in ms. Default: 300_000 (5 min). Transaction path only. */
     timeoutMs?: number;
-    /** Lifecycle status callback for UI progress. Passed to submitAndWatch. */
+    /** Lifecycle status callback for UI progress. Transaction path only. */
     onStatus?: (status: TxStatus) => void;
+}
+
+/** Fields common to all upload results. */
+interface UploadResultBase {
+    /** CIDv1 string (blake2b-256, raw codec). */
+    cid: string;
+    /** Gateway URL. Present only if `gateway` was provided in options. */
+    gatewayUrl?: string;
 }
 
 /**
@@ -30,26 +45,18 @@ export interface UploadOptions {
  * Use `result.kind` to narrow the type and access path-specific fields.
  */
 export type UploadResult =
-    | {
+    | (UploadResultBase & {
           /** Upload was performed via a signed transaction. */
           kind: "transaction";
-          /** CIDv1 string (blake2b-256, raw codec). */
-          cid: string;
           /** Block hash where the store transaction was included. */
           blockHash: string;
-          /** Gateway URL. Present only if `gateway` was provided in options. */
-          gatewayUrl?: string;
-      }
-    | {
+      })
+    | (UploadResultBase & {
           /** Upload was performed via the host preimage API. */
           kind: "preimage";
-          /** CIDv1 string (blake2b-256, raw codec). */
-          cid: string;
           /** Hex key returned by the host preimage API. */
           preimageKey: string;
-          /** Gateway URL. Present only if `gateway` was provided in options. */
-          gatewayUrl?: string;
-      };
+      });
 
 /** A single item in a batch upload. */
 export interface BatchUploadItem {
@@ -59,24 +66,39 @@ export interface BatchUploadItem {
     label: string;
 }
 
+/** Fields common to all batch upload results. */
+interface BatchUploadResultBase {
+    label: string;
+    cid: string;
+    gatewayUrl?: string;
+}
+
 /**
  * Result for one item in a batch upload.
  *
- * When `success` is `true`, either `blockHash` (transaction path) or
- * `preimageKey` (preimage path) will be present. When `success` is `false`,
- * `error` describes the failure.
+ * Discriminated on `kind` (upload path) and `success` (outcome).
+ * Use `result.success` to check for errors, then `result.kind` to access
+ * path-specific fields like `blockHash` or `preimageKey`.
  */
-export interface BatchUploadResult {
-    label: string;
-    cid: string;
-    success: boolean;
-    /** Block hash. Present on successful transaction uploads. */
-    blockHash?: string;
-    /** Hex key from host preimage API. Present on successful preimage uploads. */
-    preimageKey?: string;
-    gatewayUrl?: string;
-    error?: string;
-}
+export type BatchUploadResult =
+    | (BatchUploadResultBase & {
+          kind: "transaction";
+          success: true;
+          /** Block hash where the store transaction was included. */
+          blockHash: string;
+      })
+    | (BatchUploadResultBase & {
+          kind: "preimage";
+          success: true;
+          /** Hex key returned by the host preimage API. */
+          preimageKey: string;
+      })
+    | (BatchUploadResultBase & {
+          kind: "transaction" | "preimage";
+          success: false;
+          /** Error message describing the failure. */
+          error: string;
+      });
 
 /** Options for {@link batchUpload}. */
 export interface BatchUploadOptions extends UploadOptions {

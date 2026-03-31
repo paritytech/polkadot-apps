@@ -113,6 +113,7 @@ export async function batchUpload(
                 const preimageKey = await strategy.submit(item.data);
 
                 const entry: BatchUploadResult = {
+                    kind: "preimage",
                     label: item.label,
                     cid,
                     success: true,
@@ -136,6 +137,7 @@ export async function batchUpload(
                 });
 
                 const entry: BatchUploadResult = {
+                    kind: "transaction",
                     label: item.label,
                     cid,
                     success: true,
@@ -152,6 +154,7 @@ export async function batchUpload(
                 error: err instanceof Error ? err.message : String(err),
             });
             const entry: BatchUploadResult = {
+                kind: strategy.kind === "preimage" ? "preimage" : "transaction",
                 label: item.label,
                 cid,
                 success: false,
@@ -295,8 +298,10 @@ if (import.meta.vitest) {
             const results = await batchUpload(api as unknown as BulletinApi, items, mockSigner);
 
             expect(results).toHaveLength(2);
+            expect(results[0]!.kind).toBe("transaction");
             expect(results[0]!.label).toBe("file-a");
             expect(results[0]!.success).toBe(true);
+            expect(results[1]!.kind).toBe("transaction");
             expect(results[1]!.label).toBe("file-b");
             expect(results[1]!.success).toBe(true);
         });
@@ -345,9 +350,12 @@ if (import.meta.vitest) {
             const results = await batchUpload(api as unknown as BulletinApi, items, mockSigner);
 
             expect(results).toHaveLength(3);
+            expect(results[0]!.kind).toBe("transaction");
             expect(results[0]!.success).toBe(true);
-            expect(results[1]!.success).toBe(false);
-            expect(results[1]!.error).toContain("tx failed");
+            const f1 = results[1]!;
+            expect(f1.kind).toBe("transaction");
+            expect(f1.success).toBe(false);
+            if (!f1.success) expect(f1.error).toContain("tx failed");
             expect(results[2]!.success).toBe(true);
         });
 
@@ -391,9 +399,14 @@ if (import.meta.vitest) {
                 });
 
                 expect(results).toHaveLength(2);
-                expect(results[0]!.success).toBe(true);
-                expect(results[0]!.preimageKey).toBe("0xbatchkey");
-                expect(results[0]!.gatewayUrl).toContain("https://gw/ipfs/");
+                const r0 = results[0]!;
+                expect(r0.kind).toBe("preimage");
+                expect(r0.success).toBe(true);
+                if (r0.kind === "preimage" && r0.success) {
+                    expect(r0.preimageKey).toBe("0xbatchkey");
+                }
+                expect(r0.gatewayUrl).toContain("https://gw/ipfs/");
+                expect(results[1]!.kind).toBe("preimage");
                 expect(results[1]!.success).toBe(true);
                 expect(api.tx.TransactionStorage.store).not.toHaveBeenCalled();
                 expect(progress).toEqual([
@@ -430,10 +443,16 @@ if (import.meta.vitest) {
                 const results = await batchUpload(api as unknown as BulletinApi, items);
 
                 expect(results).toHaveLength(3);
-                expect(results[0]!.success).toBe(true);
-                expect(results[0]!.preimageKey).toBe("0xok");
-                expect(results[1]!.success).toBe(false);
-                expect(results[1]!.error).toContain("preimage rejected");
+                const s0 = results[0]!;
+                expect(s0.kind).toBe("preimage");
+                expect(s0.success).toBe(true);
+                if (s0.kind === "preimage" && s0.success) {
+                    expect(s0.preimageKey).toBe("0xok");
+                }
+                const s1 = results[1]!;
+                expect(s1.kind).toBe("preimage");
+                expect(s1.success).toBe(false);
+                if (!s1.success) expect(s1.error).toContain("preimage rejected");
                 expect(results[2]!.success).toBe(true);
             } finally {
                 vi.doUnmock("@novasamatech/product-sdk");
