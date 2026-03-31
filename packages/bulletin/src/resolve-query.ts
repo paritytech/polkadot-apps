@@ -80,31 +80,33 @@ export function lookupViaHost(
     const key = cidToPreimageKey(cid);
 
     return new Promise<Uint8Array>((resolve, reject) => {
+        const cleanup = () => {
+            cancelInterrupt();
+            sub.unsubscribe();
+        };
+
         const settle = (fn: () => void) => {
             if (timer === null) return;
             clearTimeout(timer);
             timer = null;
+            cleanup();
             fn();
         };
 
         let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
             settle(() => {
-                sub.unsubscribe();
                 reject(new Error(`Host preimage lookup timed out after ${timeoutMs}ms for ${key}`));
             });
         }, timeoutMs);
 
         const sub = manager.lookup(key, (preimage) => {
             if (preimage !== null) {
-                settle(() => {
-                    sub.unsubscribe();
-                    resolve(preimage);
-                });
+                settle(() => resolve(preimage));
             }
             // null means "not found yet" — host will keep polling
         });
 
-        sub.onInterrupt(() => {
+        const cancelInterrupt = sub.onInterrupt(() => {
             settle(() => {
                 reject(new Error(`Host preimage lookup interrupted for ${key}`));
             });
@@ -172,6 +174,7 @@ if (import.meta.vitest) {
             behavior: "resolve" | "null-then-resolve" | "hang" | "interrupt",
         ) {
             const unsubscribe = vi.fn();
+            const cancelInterrupt = vi.fn();
             let interruptCb: VoidFunction | undefined;
 
             const lookup = vi.fn((_key: string, callback: (p: Uint8Array | null) => void) => {
@@ -191,12 +194,12 @@ if (import.meta.vitest) {
                     unsubscribe,
                     onInterrupt: (cb: VoidFunction) => {
                         interruptCb = cb;
-                        return vi.fn();
+                        return cancelInterrupt;
                     },
                 };
             });
 
-            return { lookup, unsubscribe };
+            return { lookup, unsubscribe, cancelInterrupt };
         }
 
         const testCid = computeCid(new TextEncoder().encode("test"));
@@ -223,9 +226,16 @@ if (import.meta.vitest) {
             await expect(lookupViaHost(manager, testCid)).rejects.toThrow("interrupted");
         });
 
-        test("calls unsubscribe on resolution", async () => {
+        test("calls unsubscribe and cancelInterrupt on resolution", async () => {
             const manager = createMockManager("resolve");
             await lookupViaHost(manager, testCid);
+            expect(manager.unsubscribe).toHaveBeenCalledOnce();
+            expect(manager.cancelInterrupt).toHaveBeenCalledOnce();
+        });
+
+        test("calls unsubscribe on interrupt", async () => {
+            const manager = createMockManager("interrupt");
+            await expect(lookupViaHost(manager, testCid)).rejects.toThrow("interrupted");
             expect(manager.unsubscribe).toHaveBeenCalledOnce();
         });
 
