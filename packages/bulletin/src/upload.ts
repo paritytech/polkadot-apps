@@ -384,16 +384,11 @@ if (import.meta.vitest) {
                     { data: new TextEncoder().encode("y"), label: "item-y" },
                 ];
                 const progress: Array<[number, number, string]> = [];
-                const results = await batchUpload(
-                    api as unknown as BulletinApi,
-                    items,
-                    undefined,
-                    {
-                        gateway: "https://gw/ipfs/",
-                        onProgress: (done, total, current) =>
-                            progress.push([done, total, current.label]),
-                    },
-                );
+                const results = await batchUpload(api as unknown as BulletinApi, items, undefined, {
+                    gateway: "https://gw/ipfs/",
+                    onProgress: (done, total, current) =>
+                        progress.push([done, total, current.label]),
+                });
 
                 expect(results).toHaveLength(2);
                 expect(results[0]!.success).toBe(true);
