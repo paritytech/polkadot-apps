@@ -251,8 +251,27 @@ if (import.meta.vitest) {
                 }
                 expect(result.cid).toBeTruthy();
                 expect(result.gatewayUrl).toContain("https://gw/ipfs/");
-                // Transaction should NOT have been called
                 expect(api.tx.TransactionStorage.store).not.toHaveBeenCalled();
+            } finally {
+                vi.doUnmock("@novasamatech/product-sdk");
+                vi.unstubAllGlobals();
+            }
+        });
+
+        test("preimage upload omits gatewayUrl when no gateway option", async () => {
+            const fakeWindow = { top: null, __HOST_WEBVIEW_MARK__: true };
+            vi.stubGlobal("window", fakeWindow);
+            vi.doMock("@novasamatech/product-sdk", () => ({
+                preimageManager: { submit: async () => "0xkey" },
+                sandboxProvider: { isCorrectEnvironment: () => true },
+            }));
+            try {
+                const api = createMockApi();
+                const data = new TextEncoder().encode("no-gw");
+                const result = await upload(api as unknown as BulletinApi, data);
+
+                expect(result.kind).toBe("preimage");
+                expect(result.gatewayUrl).toBeUndefined();
             } finally {
                 vi.doUnmock("@novasamatech/product-sdk");
                 vi.unstubAllGlobals();
@@ -347,6 +366,105 @@ if (import.meta.vitest) {
                 [1, 2, "a"],
                 [2, 2, "b"],
             ]);
+        });
+
+        test("batch processes items via preimage when inside container", async () => {
+            const fakeWindow = { top: null, __HOST_WEBVIEW_MARK__: true };
+            vi.stubGlobal("window", fakeWindow);
+            vi.doMock("@novasamatech/product-sdk", () => ({
+                preimageManager: {
+                    submit: async () => "0xbatchkey",
+                },
+                sandboxProvider: { isCorrectEnvironment: () => true },
+            }));
+            try {
+                const api = createMockApi();
+                const items: BatchUploadItem[] = [
+                    { data: new TextEncoder().encode("x"), label: "item-x" },
+                    { data: new TextEncoder().encode("y"), label: "item-y" },
+                ];
+                const progress: Array<[number, number, string]> = [];
+                const results = await batchUpload(
+                    api as unknown as BulletinApi,
+                    items,
+                    undefined,
+                    {
+                        gateway: "https://gw/ipfs/",
+                        onProgress: (done, total, current) =>
+                            progress.push([done, total, current.label]),
+                    },
+                );
+
+                expect(results).toHaveLength(2);
+                expect(results[0]!.success).toBe(true);
+                expect(results[0]!.preimageKey).toBe("0xbatchkey");
+                expect(results[0]!.gatewayUrl).toContain("https://gw/ipfs/");
+                expect(results[1]!.success).toBe(true);
+                expect(api.tx.TransactionStorage.store).not.toHaveBeenCalled();
+                expect(progress).toEqual([
+                    [1, 2, "item-x"],
+                    [2, 2, "item-y"],
+                ]);
+            } finally {
+                vi.doUnmock("@novasamatech/product-sdk");
+                vi.unstubAllGlobals();
+            }
+        });
+
+        test("batch preimage captures individual failures without aborting", async () => {
+            let callCount = 0;
+            const fakeWindow = { top: null, __HOST_WEBVIEW_MARK__: true };
+            vi.stubGlobal("window", fakeWindow);
+            vi.doMock("@novasamatech/product-sdk", () => ({
+                preimageManager: {
+                    submit: async () => {
+                        callCount++;
+                        if (callCount === 2) throw new Error("preimage rejected");
+                        return "0xok";
+                    },
+                },
+                sandboxProvider: { isCorrectEnvironment: () => true },
+            }));
+            try {
+                const api = createMockApi();
+                const items: BatchUploadItem[] = [
+                    { data: new TextEncoder().encode("a"), label: "ok1" },
+                    { data: new TextEncoder().encode("b"), label: "fail" },
+                    { data: new TextEncoder().encode("c"), label: "ok2" },
+                ];
+                const results = await batchUpload(api as unknown as BulletinApi, items);
+
+                expect(results).toHaveLength(3);
+                expect(results[0]!.success).toBe(true);
+                expect(results[0]!.preimageKey).toBe("0xok");
+                expect(results[1]!.success).toBe(false);
+                expect(results[1]!.error).toContain("preimage rejected");
+                expect(results[2]!.success).toBe(true);
+            } finally {
+                vi.doUnmock("@novasamatech/product-sdk");
+                vi.unstubAllGlobals();
+            }
+        });
+
+        test("batch preimage omits gatewayUrl when no gateway option", async () => {
+            const fakeWindow = { top: null, __HOST_WEBVIEW_MARK__: true };
+            vi.stubGlobal("window", fakeWindow);
+            vi.doMock("@novasamatech/product-sdk", () => ({
+                preimageManager: { submit: async () => "0xk" },
+                sandboxProvider: { isCorrectEnvironment: () => true },
+            }));
+            try {
+                const api = createMockApi();
+                const items: BatchUploadItem[] = [
+                    { data: new TextEncoder().encode("z"), label: "z" },
+                ];
+                const results = await batchUpload(api as unknown as BulletinApi, items);
+
+                expect(results[0]!.gatewayUrl).toBeUndefined();
+            } finally {
+                vi.doUnmock("@novasamatech/product-sdk");
+                vi.unstubAllGlobals();
+            }
         });
     });
 }

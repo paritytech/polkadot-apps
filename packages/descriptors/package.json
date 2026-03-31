@@ -14,9 +14,7 @@
         "./package.json": "./package.json"
     },
     "sideEffects": false,
-    "files": [
-        "generated/dist"
-    ],
+    "files": ["generated/dist"],
     "publishConfig": {
         "access": "public"
     },
