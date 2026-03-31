@@ -1,5 +1,11 @@
 # @polkadot-apps/descriptors
 
+## 0.1.5
+
+### Patch Changes
+
+- f103fdb: Fix release workflow to strip `file:generated` dependency after changeset version step, preventing the dependency from being re-added before publish.
+
 ## 0.1.4
 
 ### Patch Changes

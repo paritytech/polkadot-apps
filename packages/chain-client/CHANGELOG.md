@@ -1,5 +1,12 @@
 # @polkadot-apps/chain-client
 
+## 0.3.4
+
+### Patch Changes
+
+- Updated dependencies [f103fdb]
+  - @polkadot-apps/descriptors@0.1.5
+
 ## 0.3.3
 
 ### Patch Changes
