@@ -20,15 +20,36 @@ export interface UploadOptions {
     onStatus?: (status: TxStatus) => void;
 }
 
-/** Result of a successful upload to the Bulletin Chain. */
-export interface UploadResult {
-    /** CIDv1 string (blake2b-256, raw codec). */
-    cid: string;
-    /** Block hash where the store transaction was included. */
-    blockHash: string;
-    /** Gateway URL. Present only if `gateway` was provided in options. */
-    gatewayUrl?: string;
-}
+/**
+ * Result of a successful upload to the Bulletin Chain.
+ *
+ * Discriminated on `kind`:
+ * - `"transaction"` — uploaded via a signed `TransactionStorage.store` extrinsic.
+ * - `"preimage"` — uploaded via the host preimage API (no user signing).
+ *
+ * Use `result.kind` to narrow the type and access path-specific fields.
+ */
+export type UploadResult =
+    | {
+          /** Upload was performed via a signed transaction. */
+          kind: "transaction";
+          /** CIDv1 string (blake2b-256, raw codec). */
+          cid: string;
+          /** Block hash where the store transaction was included. */
+          blockHash: string;
+          /** Gateway URL. Present only if `gateway` was provided in options. */
+          gatewayUrl?: string;
+      }
+    | {
+          /** Upload was performed via the host preimage API. */
+          kind: "preimage";
+          /** CIDv1 string (blake2b-256, raw codec). */
+          cid: string;
+          /** Hex key returned by the host preimage API. */
+          preimageKey: string;
+          /** Gateway URL. Present only if `gateway` was provided in options. */
+          gatewayUrl?: string;
+      };
 
 /** A single item in a batch upload. */
 export interface BatchUploadItem {
@@ -38,12 +59,21 @@ export interface BatchUploadItem {
     label: string;
 }
 
-/** Result for one item in a batch upload. */
+/**
+ * Result for one item in a batch upload.
+ *
+ * When `success` is `true`, either `blockHash` (transaction path) or
+ * `preimageKey` (preimage path) will be present. When `success` is `false`,
+ * `error` describes the failure.
+ */
 export interface BatchUploadResult {
     label: string;
     cid: string;
     success: boolean;
-    blockHash: string;
+    /** Block hash. Present on successful transaction uploads. */
+    blockHash?: string;
+    /** Hex key from host preimage API. Present on successful preimage uploads. */
+    preimageKey?: string;
     gatewayUrl?: string;
     error?: string;
 }

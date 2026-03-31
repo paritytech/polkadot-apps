@@ -22,12 +22,23 @@
     "dependencies": {
         "@polkadot-apps/chain-client": "workspace:*",
         "@polkadot-apps/descriptors": "workspace:*",
+        "@polkadot-apps/host": "workspace:*",
+        "@polkadot-apps/logger": "workspace:*",
         "@polkadot-apps/tx": "workspace:*",
         "@noble/hashes": "catalog:",
         "multiformats": "catalog:",
         "polkadot-api": "catalog:"
     },
+    "peerDependencies": {
+        "@novasamatech/product-sdk": ">=0.1.0"
+    },
+    "peerDependenciesMeta": {
+        "@novasamatech/product-sdk": {
+            "optional": true
+        }
+    },
     "devDependencies": {
+        "@novasamatech/product-sdk": "catalog:",
         "typescript": "catalog:"
     }
 }
