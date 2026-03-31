@@ -1,5 +1,14 @@
 # @polkadot-apps/storage
 
+## 0.2.3
+
+### Patch Changes
+
+- 997e628: Add README documentation and package descriptions for all packages.
+- Updated dependencies [997e628]
+  - @polkadot-apps/host@0.2.2
+  - @polkadot-apps/logger@0.1.4
+
 ## 0.2.2
 
 ### Patch Changes

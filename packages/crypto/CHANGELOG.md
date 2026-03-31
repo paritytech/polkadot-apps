@@ -1,5 +1,11 @@
 # @polkadot-apps/crypto
 
+## 0.3.3
+
+### Patch Changes
+
+- 997e628: Add README documentation and package descriptions for all packages.
+
 ## 0.3.2
 
 ### Patch Changes

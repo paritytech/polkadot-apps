@@ -1,5 +1,14 @@
 # @polkadot-apps/tx
 
+## 0.2.6
+
+### Patch Changes
+
+- 997e628: Add README documentation and package descriptions for all packages.
+- Updated dependencies [997e628]
+  - @polkadot-apps/keys@0.3.3
+  - @polkadot-apps/logger@0.1.4
+
 ## 0.2.5
 
 ### Patch Changes

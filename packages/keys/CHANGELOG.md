@@ -1,5 +1,15 @@
 # @polkadot-apps/keys
 
+## 0.3.3
+
+### Patch Changes
+
+- 997e628: Add README documentation and package descriptions for all packages.
+- Updated dependencies [997e628]
+  - @polkadot-apps/address@0.3.2
+  - @polkadot-apps/crypto@0.3.3
+  - @polkadot-apps/storage@0.2.3
+
 ## 0.3.2
 
 ### Patch Changes

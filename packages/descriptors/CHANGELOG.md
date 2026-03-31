@@ -1,5 +1,11 @@
 # @polkadot-apps/descriptors
 
+## 0.1.7
+
+### Patch Changes
+
+- 997e628: Add README documentation and package descriptions for all packages.
+
 ## 0.1.6
 
 ### Patch Changes

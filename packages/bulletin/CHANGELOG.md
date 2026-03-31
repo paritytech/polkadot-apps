@@ -1,5 +1,16 @@
 # @polkadot-apps/bulletin
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [997e628]
+  - @polkadot-apps/chain-client@0.3.6
+  - @polkadot-apps/descriptors@0.1.7
+  - @polkadot-apps/host@0.2.2
+  - @polkadot-apps/logger@0.1.4
+  - @polkadot-apps/tx@0.2.6
+
 ## 0.3.0
 
 ### Minor Changes

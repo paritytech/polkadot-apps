@@ -1,5 +1,11 @@
 # @polkadot-apps/logger
 
+## 0.1.4
+
+### Patch Changes
+
+- 997e628: Add README documentation and package descriptions for all packages.
+
 ## 0.1.3
 
 ### Patch Changes

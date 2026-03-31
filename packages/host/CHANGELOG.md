@@ -1,5 +1,11 @@
 # @polkadot-apps/host
 
+## 0.2.2
+
+### Patch Changes
+
+- 997e628: Add README documentation and package descriptions for all packages.
+
 ## 0.2.1
 
 ### Patch Changes
