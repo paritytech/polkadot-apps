@@ -16,8 +16,8 @@ catalogs:
       specifier: ^2.0.1
       version: 2.0.1
     '@novasamatech/product-sdk':
-      specifier: ^0.6.6
-      version: 0.6.6
+      specifier: ^0.6.12
+      version: 0.6.12
     '@polkadot-api/sdk-ink':
       specifier: ^0.6.2
       version: 0.6.2
@@ -126,7 +126,7 @@ importers:
     devDependencies:
       '@novasamatech/product-sdk':
         specifier: 'catalog:'
-        version: 0.6.6(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+        version: 0.6.12(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -135,7 +135,7 @@ importers:
     dependencies:
       '@novasamatech/product-sdk':
         specifier: 'catalog:'
-        version: 0.6.6(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+        version: 0.6.12(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
       '@polkadot-api/sdk-ink':
         specifier: 'catalog:'
         version: 0.6.2(@polkadot-api/ink-contracts@0.4.6)(polkadot-api@1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2))(rxjs@7.8.2)(typescript@5.9.3)
@@ -179,7 +179,7 @@ importers:
     devDependencies:
       '@novasamatech/product-sdk':
         specifier: 'catalog:'
-        version: 0.6.6(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+        version: 0.6.12(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -219,7 +219,7 @@ importers:
     dependencies:
       '@novasamatech/product-sdk':
         specifier: 'catalog:'
-        version: 0.6.6(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+        version: 0.6.12(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
       '@polkadot-apps/address':
         specifier: workspace:*
         version: link:../address
@@ -886,14 +886,14 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@novasamatech/host-api@0.6.6':
-    resolution: {integrity: sha512-E4K3b+fgpXMEHUnD0R3el9Az0Kfz4v6bnUg8x7U0o8J1h0xe1sEW8AKC78lhsnWv1uKPwNZDt5ZADIOjf+rHpg==}
+  '@novasamatech/host-api@0.6.12':
+    resolution: {integrity: sha512-OpWSOlNvnpLl8ffph491RCcmVt7jUY8yZ///1xK+udoLDGwhgbcAM40FsMVBqwLH/HU9dbfYrChFDfDMnwAQ4g==}
 
-  '@novasamatech/product-sdk@0.6.6':
-    resolution: {integrity: sha512-EY69PlpOnB5itlfeE1go3iYb89QL2OhrGy3G2ONWfuiljrh9gKTOztVfD5ozozf/50ZnXSnRasqHMN0zvdHtbg==}
+  '@novasamatech/product-sdk@0.6.12':
+    resolution: {integrity: sha512-ZEVfKEt7McsW8eF1dzcNTO84gFusP6ZDKWeTzkgf6mkPLPSh/LgvmZhtRTvmJ8n/Y0IxagLma11KVXLvWwJECA==}
 
-  '@novasamatech/scale@0.6.6':
-    resolution: {integrity: sha512-lQWtp4nLyXhfghlJFkWi1T3JvEyjARJPbmHVFra15C+hqjNHXl7MlRK0Mq3WnCTbV7W0QV/if+Oxy/70a53FhQ==}
+  '@novasamatech/scale@0.6.12':
+    resolution: {integrity: sha512-Mz9ZuQ0d1xfKxobaUNQ8CT0pardsnNXzJ/k9CiUOCf7fHOSlPu0aPDjZU+/umpTr37crRtJ4G5E7mAY+8VAPOg==}
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -3314,18 +3314,18 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
-  '@novasamatech/host-api@0.6.6':
+  '@novasamatech/host-api@0.6.12':
     dependencies:
-      '@novasamatech/scale': 0.6.6
+      '@novasamatech/scale': 0.6.12
       '@polkadot-api/utils': 0.2.0
       nanoevents: 9.1.0
       nanoid: 5.1.7
       neverthrow: 8.2.0
       scale-ts: 1.6.1
 
-  '@novasamatech/product-sdk@0.6.6(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)':
+  '@novasamatech/product-sdk@0.6.12(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)':
     dependencies:
-      '@novasamatech/host-api': 0.6.6
+      '@novasamatech/host-api': 0.6.12
       '@polkadot-api/json-rpc-provider': 0.0.4
       '@polkadot-api/json-rpc-provider-proxy': 0.2.8
       '@polkadot-api/substrate-bindings': 0.17.0
@@ -3337,7 +3337,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@novasamatech/scale@0.6.6':
+  '@novasamatech/scale@0.6.12':
     dependencies:
       '@polkadot-api/utils': 0.2.0
       scale-ts: 1.6.1

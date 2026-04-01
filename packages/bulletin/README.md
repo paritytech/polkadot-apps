@@ -49,6 +49,17 @@ const alice = createDevSigner("Alice");
 const result = await bulletin.upload(data, alice);
 ```
 
+## Query resolution
+
+When fetching data with `fetchBytes()`, `fetchJson()`, or their standalone equivalents (`queryBytes`, `queryJson`), the SDK auto-detects the environment:
+
+| Environment | Strategy | What happens |
+|---|---|---|
+| Inside host container (Polkadot Desktop / Mobile) | Host preimage lookup | The host checks its local cache first, then polls the IPFS gateway with automatic retry. Data uploaded by *any* signer is available — the lookup is upload-path-agnostic. |
+| Standalone (browser, Node, scripts) | Direct IPFS gateway | Standard HTTP fetch from the configured IPFS gateway URL. |
+
+The query path is transparent — `bulletin.fetchBytes(cid)` works identically in both environments, but benefits from host-managed caching when available.
+
 ## API
 
 ### `BulletinClient`
@@ -126,15 +137,24 @@ const results = await bulletin.batchUpload(items, undefined, {
 
 #### `bulletin.fetchBytes(cid, options?)`
 
-Fetch raw bytes from the IPFS gateway by CID.
+Fetch raw bytes by CID. Auto-resolves the query path (see "Query resolution" above).
 
 ```ts
 const bytes = await bulletin.fetchBytes("bafk...");
+
+// With host lookup timeout override:
+const bytes2 = await bulletin.fetchBytes("bafk...", { lookupTimeoutMs: 10_000 });
 ```
+
+**Parameters:**
+- `cid` — CIDv1 string
+- `options` — optional `QueryOptions`:
+  - `timeoutMs` — timeout for gateway fetch in ms (default: 30,000)
+  - `lookupTimeoutMs` — timeout for host preimage lookup in ms (default: 30,000; host path only)
 
 #### `bulletin.fetchJson<T>(cid, options?)`
 
-Fetch and parse JSON from the IPFS gateway by CID.
+Fetch and parse JSON by CID. Auto-resolves the query path (same as `fetchBytes`).
 
 ```ts
 const metadata = await bulletin.fetchJson<{ name: string }>("bafk...");
@@ -161,7 +181,12 @@ const cid = BulletinClient.computeCid(new TextEncoder().encode("hello"));
 The same operations are available as standalone functions for lower-level usage:
 
 ```ts
-import { upload, batchUpload, computeCid, fetchBytes, fetchJson, cidExists, getGateway, gatewayUrl } from "@polkadot-apps/bulletin";
+import {
+    upload, batchUpload, computeCid, cidToPreimageKey,
+    fetchBytes, fetchJson, cidExists,
+    queryBytes, queryJson, resolveQueryStrategy,
+    getGateway, gatewayUrl,
+} from "@polkadot-apps/bulletin";
 ```
 
 #### `upload(api, data, signer?, options?)`
@@ -189,6 +214,36 @@ import { resolveUploadStrategy } from "@polkadot-apps/bulletin";
 
 const strategy = await resolveUploadStrategy();
 console.log(strategy.kind); // "preimage" or "signer"
+```
+
+#### `queryBytes(cid, gateway, options?)`
+
+Fetch raw bytes with auto-resolved query strategy. Equivalent to `BulletinClient.fetchBytes` but as a standalone function requiring an explicit gateway URL.
+
+#### `queryJson<T>(cid, gateway, options?)`
+
+Fetch and parse JSON with auto-resolved query strategy.
+
+#### `cidToPreimageKey(cid)`
+
+Extract the blake2b-256 digest from a CIDv1 string and return it as a `0x`-prefixed hex string — the preimage key format used by the host API.
+
+```ts
+import { computeCid, cidToPreimageKey } from "@polkadot-apps/bulletin";
+
+const cid = computeCid(data);
+const key = cidToPreimageKey(cid); // "0x1a2b3c..."
+```
+
+#### `resolveQueryStrategy()`
+
+Resolve which query strategy will be used. Returns a discriminated union:
+
+```ts
+import { resolveQueryStrategy } from "@polkadot-apps/bulletin";
+
+const strategy = await resolveQueryStrategy();
+console.log(strategy.kind); // "host-lookup" or "gateway"
 ```
 
 ## Types
@@ -226,6 +281,23 @@ type UploadStrategy =
 
 ```ts
 type Environment = "polkadot" | "kusama" | "paseo";
+```
+
+### `QueryStrategy`
+
+```ts
+type QueryStrategy =
+    | { kind: "host-lookup"; lookup: (cid: string, timeoutMs?: number) => Promise<Uint8Array> }
+    | { kind: "gateway" };
+```
+
+### `QueryOptions`
+
+```ts
+interface QueryOptions extends FetchOptions {
+    /** Timeout for host preimage lookup in ms (default: 30,000). Host path only. */
+    lookupTimeoutMs?: number;
+}
 ```
 
 ## CID format

@@ -111,3 +111,13 @@ export interface FetchOptions {
     /** Timeout in ms. Default: 30_000. */
     timeoutMs?: number;
 }
+
+/** Options for query operations that support host lookup auto-resolution. */
+export interface QueryOptions extends FetchOptions {
+    /**
+     * Timeout for the host preimage lookup subscription in ms.
+     * Only applies when the query resolves through the host path.
+     * Default: 30_000.
+     */
+    lookupTimeoutMs?: number;
+}
