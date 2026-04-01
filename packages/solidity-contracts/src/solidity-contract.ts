@@ -418,6 +418,52 @@ if (import.meta.vitest) {
                 ).rejects.toThrow("transfer: execution reverted");
             });
 
+            test("send() throws when NativeToEthRatio not yet loaded", async () => {
+                const { encodeFunctionResult } = require("viem") as typeof import("viem");
+                const transferResult = encodeFunctionResult({
+                    abi: erc20Abi,
+                    functionName: "transfer",
+                    result: true,
+                });
+
+                // Mock NativeToEthRatio to never resolve
+                const neverResolve = new Promise<bigint>(() => {});
+                const mockApi = {
+                    apis: {
+                        ReviveApi: {
+                            eth_transact: vi.fn().mockResolvedValue({
+                                success: true,
+                                value: {
+                                    data: Binary.fromHex(transferResult as `0x${string}`),
+                                    weight_required: { ref_time: 2000n, proof_size: 1000n },
+                                    max_storage_deposit: 200n,
+                                },
+                            }),
+                        },
+                    },
+                    tx: { Revive: { call: vi.fn() } },
+                    constants: {
+                        Revive: { NativeToEthRatio: vi.fn().mockReturnValue(neverResolve) },
+                    },
+                } as unknown as ReviveTypedApi;
+
+                // No nativeToEvmRatio in options — ratio must be loaded async
+                const contract = createSolidityContract(
+                    mockApi,
+                    `0x${"ab".repeat(20)}` as `0x${string}`,
+                    erc20Abi,
+                );
+
+                const result = await contract.write(
+                    "transfer",
+                    [`0x${"cd".repeat(20)}`, 500n],
+                    `0x${"ef".repeat(20)}`,
+                );
+
+                // Call send() immediately — ratio hasn't loaded yet
+                expect(() => result.send()).toThrow("NativeToEthRatio not loaded");
+            });
+
             test("send() creates a Revive.call transaction", async () => {
                 const { encodeFunctionResult } = require("viem") as typeof import("viem");
                 const transferResult = encodeFunctionResult({

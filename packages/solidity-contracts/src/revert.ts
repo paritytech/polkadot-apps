@@ -1,5 +1,5 @@
 import { Binary } from "polkadot-api";
-import { decodeAbiParameters, decodeErrorResult } from "viem";
+import { decodeErrorResult } from "viem";
 import type { Abi } from "viem";
 
 /**
@@ -42,21 +42,15 @@ export function extractRevertReason(errValue: unknown, abi: Abi): string | undef
             const errorData = obj.value.asHex() as `0x${string}`;
             if (errorData.length <= 2) return undefined;
 
-            // Try ABI-defined custom errors (e.g., OwnableUnauthorizedAccount)
+            // Decode using viem — handles both ABI-defined custom errors
+            // (e.g., OwnableUnauthorizedAccount) and standard Error(string)
+            // from require()/revert() natively.
             try {
                 const decoded = decodeErrorResult({ abi, data: errorData });
                 const args = decoded.args?.length ? `(${decoded.args.join(", ")})` : "";
                 return `${decoded.errorName}${args}`;
             } catch {
-                // Fallback: standard Error(string) from require() — selector 0x08c379a0
-                if (errorData.startsWith("0x08c379a0")) {
-                    const abiData = `0x${errorData.slice(10)}` as `0x${string}`;
-                    const [message] = decodeAbiParameters(
-                        [{ name: "message", type: "string" }],
-                        abiData,
-                    );
-                    return message;
-                }
+                // decodeErrorResult failed — unknown selector not in ABI
             }
         }
     } catch {
