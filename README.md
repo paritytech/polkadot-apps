@@ -17,7 +17,10 @@ Reusable TypeScript components for rapidly developing applications within the Po
 | [`@polkadot-apps/signer`](https://www.npmjs.com/package/@polkadot-apps/signer) | Multi-provider signer manager — Host API, browser extensions, and dev accounts |
 | [`@polkadot-apps/statement-store`](https://www.npmjs.com/package/@polkadot-apps/statement-store) | Publish/subscribe client for the Polkadot Statement Store with topic-based routing |
 | [`@polkadot-apps/storage`](https://www.npmjs.com/package/@polkadot-apps/storage) | Key-value storage abstraction with automatic host/browser backend detection |
+| [`@polkadot-apps/solidity-contracts`](https://www.npmjs.com/package/@polkadot-apps/solidity-contracts) | Solidity ABI contract interaction for pallet-revive — read, write, and decode without codegen |
 | [`@polkadot-apps/tx`](https://www.npmjs.com/package/@polkadot-apps/tx) | Transaction submission, lifecycle watching, and dev signers for Polkadot chains |
+
+Full API documentation is available at [paritytech.github.io/polkadot-apps](https://paritytech.github.io/polkadot-apps/).
 
 ## Getting Started
 

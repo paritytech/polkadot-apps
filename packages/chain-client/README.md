@@ -85,6 +85,26 @@ const contract = api.contracts.getContract(descriptor, contractAddress);
 const result = await contract.query.myMethod(args);
 ```
 
+### Solidity contracts (pallet-revive)
+
+For Solidity contracts deployed via Revive, use `@polkadot-apps/solidity-contracts` with the `api.assetHub` typed API:
+
+```typescript
+import { createSolidityContract } from "@polkadot-apps/solidity-contracts";
+
+const api = await getChainAPI("paseo");
+const contract = createSolidityContract(api.assetHub, "0xContractAddress", abi);
+
+// Read a view function
+const balance = await contract.read("balanceOf", ["0xOwner"]);
+
+// Write a state-changing function
+const result = await contract.write("transfer", ["0xTo", 1000n], senderAddress);
+const tx = result.send();
+```
+
+Alternatively, if you have pre-generated descriptors from `papi generate` with the `"sol"` key, use `api.contracts.getContract(descriptor, address)` directly — the Ink SDK handles Solidity ABI encoding automatically.
+
 ## Raw client access
 
 For advanced use cases, access the underlying `PolkadotClient` directly or check connection status.

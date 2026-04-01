@@ -1,0 +1,33 @@
+{
+    "name": "@polkadot-apps/solidity-contracts",
+    "description": "Solidity ABI contract interaction for Polkadot Asset Hub (pallet-revive) — read, write, and decode Solidity contracts without codegen",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "files": ["dist"],
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "@polkadot-apps/address": "workspace:*",
+        "@polkadot-apps/logger": "workspace:*",
+        "polkadot-api": "catalog:",
+        "viem": "catalog:"
+    },
+    "devDependencies": {
+        "typescript": "catalog:"
+    },
+    "license": "Apache-2.0"
+}

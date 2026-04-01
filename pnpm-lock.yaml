@@ -54,6 +54,9 @@ catalogs:
     typescript:
       specifier: ^5.9.3
       version: 5.9.3
+    viem:
+      specifier: ^2.41.2
+      version: 2.47.5
     vitest:
       specifier: ^3.1.4
       version: 3.2.4
@@ -232,6 +235,25 @@ importers:
       polkadot-api:
         specifier: 'catalog:'
         version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  packages/solidity-contracts:
+    dependencies:
+      '@polkadot-apps/address':
+        specifier: workspace:*
+        version: link:../address
+      '@polkadot-apps/logger':
+        specifier: workspace:*
+        version: link:../logger
+      polkadot-api:
+        specifier: 'catalog:'
+        version: 1.23.3(postcss@8.5.8)(rxjs@7.8.2)(yaml@2.8.2)
+      viem:
+        specifier: 'catalog:'
+        version: 2.47.5(typescript@5.9.3)
     devDependencies:
       typescript:
         specifier: 'catalog:'
