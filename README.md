@@ -19,6 +19,10 @@ Reusable TypeScript components for rapidly developing applications within the Po
 | [`@polkadot-apps/storage`](https://www.npmjs.com/package/@polkadot-apps/storage) | Key-value storage abstraction with automatic host/browser backend detection |
 | [`@polkadot-apps/tx`](https://www.npmjs.com/package/@polkadot-apps/tx) | Transaction submission, lifecycle watching, and dev signers for Polkadot chains |
 
+## Documentation
+
+Full API documentation is available at [paritytech.github.io/polkadot-apps](https://paritytech.github.io/polkadot-apps/).
+
 ## Getting Started
 
 ```bash
@@ -27,6 +31,19 @@ bash setup.sh
 pnpm build
 pnpm test
 ```
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `pnpm build` | Build all packages (turbo respects the dependency graph) |
+| `pnpm dev` | Start dev mode with watch |
+| `pnpm test` | Run vitest across all packages |
+| `pnpm test:coverage` | Run tests with coverage reporting |
+| `pnpm format` | Auto-fix formatting with Biome |
+| `pnpm format:check` | Check formatting without writing |
+| `pnpm clean` | Remove build artifacts |
+| `pnpm docs` | Generate API docs with TypeDoc |
 
 ## Contributing
 

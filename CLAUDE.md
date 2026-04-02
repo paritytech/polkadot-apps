@@ -5,9 +5,14 @@ Follow the contributor guidelines in `README.md`.
 ## Quick Reference
 
 - **Build:** `pnpm build`
+- **Dev:** `pnpm dev`
+- **Clean:** `pnpm clean`
 - **Test:** `pnpm test`
+- **Test with coverage:** `pnpm test:coverage`
 - **Format:** `pnpm format`
 - **Format check:** `pnpm format:check`
+- **Generate descriptors:** `pnpm generate-descriptors`
+- **Generate docs:** `pnpm docs`
 
 ## Key Conventions
 
