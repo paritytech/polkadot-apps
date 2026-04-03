@@ -22,6 +22,9 @@ npx papi add individuality -w wss://pop3-testnet.parity-lab.parity.io/people --s
 echo "==> Generating TypeScript descriptors..."
 npx papi
 
+echo "==> Generating per-chain entry files..."
+node scripts/generate-per-chain.mjs
+
 echo "==> Stripping file:generated dep (breaks npm consumers)..."
 node -e '
     const pkg = require("./package.json");

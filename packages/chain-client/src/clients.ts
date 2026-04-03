@@ -1,16 +1,17 @@
-import type { ChainDefinition, PolkadotClient } from "polkadot-api";
+import type { ChainDefinition, PolkadotClient, TypedApi } from "polkadot-api";
 import { createClient } from "polkadot-api";
-import {
-    polkadot_asset_hub,
-    kusama_asset_hub,
-    paseo_asset_hub,
-    bulletin,
-    individuality,
-} from "@polkadot-apps/descriptors";
 import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { createProvider, resetSmoldot } from "./providers.js";
 import { getClientCache, clearClientCache } from "./hmr.js";
 import type { ChainEntry } from "./types.js";
+
+// Type-only imports — erased at compile time, zero bundle cost.
+// These give us per-chain TypedApi types without importing runtime descriptor data.
+import type PolkadotAssetHubDef from "@polkadot-apps/descriptors/polkadot-asset-hub";
+import type KusamaAssetHubDef from "@polkadot-apps/descriptors/kusama-asset-hub";
+import type PaseoAssetHubDef from "@polkadot-apps/descriptors/paseo-asset-hub";
+import type BulletinDef from "@polkadot-apps/descriptors/bulletin";
+import type IndividualityDef from "@polkadot-apps/descriptors/individuality";
 
 export type Environment = "polkadot" | "kusama" | "paseo";
 
@@ -24,39 +25,58 @@ function findEntryByGenesis(genesis: string): ChainEntry | undefined {
     }
 }
 
-// Typed factories per environment — types flow directly from descriptors
-function createPolkadotChains(ah: PolkadotClient, b: PolkadotClient, i: PolkadotClient) {
-    return {
-        assetHub: ah.getTypedApi(polkadot_asset_hub),
-        bulletin: b.getTypedApi(bulletin),
-        individuality: i.getTypedApi(individuality),
-    };
-}
-function createKusamaChains(ah: PolkadotClient, b: PolkadotClient, i: PolkadotClient) {
-    return {
-        assetHub: ah.getTypedApi(kusama_asset_hub),
-        bulletin: b.getTypedApi(bulletin),
-        individuality: i.getTypedApi(individuality),
-    };
-}
-function createPaseoChains(ah: PolkadotClient, b: PolkadotClient, i: PolkadotClient) {
-    return {
-        assetHub: ah.getTypedApi(paseo_asset_hub),
-        bulletin: b.getTypedApi(bulletin),
-        individuality: i.getTypedApi(individuality),
-    };
-}
-
-const chainFactories = {
-    polkadot: createPolkadotChains,
-    kusama: createKusamaChains,
-    paseo: createPaseoChains,
+// Genesis hashes are fixed per chain — extracted as constants to avoid
+// importing all descriptor bundles at module scope.
+const GENESIS = {
+    polkadot_asset_hub: "0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f",
+    kusama_asset_hub: "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
+    paseo_asset_hub: "0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2",
+    bulletin: "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea",
+    individuality: "0xe583155e68c7b71e9d2443f846eaba0016d0c38aa807884923545a7003f5bef0",
 } as const;
+
+/**
+ * Lazy-load descriptors for a specific environment.
+ * Only imports the chains needed — avoids bundling all 5 chains when
+ * a consumer only uses one environment.
+ */
+async function loadDescriptors(env: Environment) {
+    const [bulletinMod, individualityMod] = await Promise.all([
+        import("@polkadot-apps/descriptors/bulletin"),
+        import("@polkadot-apps/descriptors/individuality"),
+    ]);
+    const bulletin = bulletinMod.default;
+    const individuality = individualityMod.default;
+    switch (env) {
+        case "polkadot": {
+            const mod = await import("@polkadot-apps/descriptors/polkadot-asset-hub");
+            return { assetHub: mod.default, bulletin, individuality };
+        }
+        case "kusama": {
+            const mod = await import("@polkadot-apps/descriptors/kusama-asset-hub");
+            return { assetHub: mod.default, bulletin, individuality };
+        }
+        case "paseo": {
+            const mod = await import("@polkadot-apps/descriptors/paseo-asset-hub");
+            return { assetHub: mod.default, bulletin, individuality };
+        }
+    }
+}
 
 type ContractSdk = ReturnType<typeof createInkSdk>;
 
+/** Maps each environment to its asset hub descriptor type. */
+type AssetHubDescriptors = {
+    polkadot: typeof PolkadotAssetHubDef;
+    kusama: typeof KusamaAssetHubDef;
+    paseo: typeof PaseoAssetHubDef;
+};
+
 /** Fully typed chain API for an environment, derived from descriptors. */
-export type ChainAPI<E extends Environment> = ReturnType<(typeof chainFactories)[E]> & {
+export type ChainAPI<E extends Environment> = {
+    assetHub: TypedApi<AssetHubDescriptors[E]>;
+    bulletin: TypedApi<typeof BulletinDef>;
+    individuality: TypedApi<typeof IndividualityDef>;
     contracts: ContractSdk;
     destroy: () => void;
 };
@@ -67,37 +87,37 @@ const AVAILABLE_ENVIRONMENTS: Set<Environment> = new Set(["paseo"]);
 const rpcs = {
     polkadot: {
         assetHub: {
-            genesis: polkadot_asset_hub.genesis!,
+            genesis: GENESIS.polkadot_asset_hub,
             rpcs: [
                 "wss://polkadot-asset-hub-rpc.polkadot.io",
                 "wss://sys.ibp.network/asset-hub-polkadot",
             ],
         },
-        bulletin: { genesis: bulletin.genesis!, rpcs: [] as string[] },
-        individuality: { genesis: individuality.genesis!, rpcs: [] as string[] },
+        bulletin: { genesis: GENESIS.bulletin, rpcs: [] as string[] },
+        individuality: { genesis: GENESIS.individuality, rpcs: [] as string[] },
     },
     kusama: {
         assetHub: {
-            genesis: kusama_asset_hub.genesis!,
+            genesis: GENESIS.kusama_asset_hub,
             rpcs: [
                 "wss://kusama-asset-hub-rpc.polkadot.io",
                 "wss://sys.ibp.network/asset-hub-kusama",
             ],
         },
-        bulletin: { genesis: bulletin.genesis!, rpcs: [] as string[] },
-        individuality: { genesis: individuality.genesis!, rpcs: [] as string[] },
+        bulletin: { genesis: GENESIS.bulletin, rpcs: [] as string[] },
+        individuality: { genesis: GENESIS.individuality, rpcs: [] as string[] },
     },
     paseo: {
         assetHub: {
-            genesis: paseo_asset_hub.genesis!,
+            genesis: GENESIS.paseo_asset_hub,
             rpcs: [
                 "wss://sys.ibp.network/asset-hub-paseo",
                 "wss://asset-hub-paseo-rpc.dwellir.com",
             ],
         },
-        bulletin: { genesis: bulletin.genesis!, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
+        bulletin: { genesis: GENESIS.bulletin, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
         individuality: {
-            genesis: individuality.genesis!,
+            genesis: GENESIS.individuality,
             rpcs: ["wss://pop3-testnet.parity-lab.parity.io/people"],
         },
     },
@@ -140,6 +160,9 @@ async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
     const envRpcs = rpcs[env];
     const clientCache = getClientCache();
 
+    // Load descriptors lazily — only the chains needed for this environment
+    const descriptors = await loadDescriptors(env);
+
     // Create providers (handles host routing + smoldot fallback)
     const [ahProvider, bProvider, iProvider] = await Promise.all([
         createProvider(envRpcs.assetHub.genesis, { rpcs: envRpcs.assetHub.rpcs }),
@@ -175,9 +198,12 @@ async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
     const ahEntry = clientCache.get(cacheKey(env, envRpcs.assetHub.genesis));
     if (ahEntry) ahEntry.contractSdk = contracts;
 
-    // Build typed APIs — types flow from descriptors via ReturnType
-    const factory = chainFactories[env];
-    const apis = factory(ahClient, bClient, iClient);
+    // Build typed APIs from lazily-loaded descriptors
+    const apis = {
+        assetHub: ahClient.getTypedApi(descriptors.assetHub),
+        bulletin: bClient.getTypedApi(descriptors.bulletin),
+        individuality: iClient.getTypedApi(descriptors.individuality),
+    };
 
     return {
         ...apis,
@@ -329,12 +355,12 @@ if (import.meta.vitest) {
         expect(() => getClient(fakeDescriptor)).toThrow(/Chain not connected/);
     });
 
-    test("descriptors have genesis hashes", () => {
-        expect(polkadot_asset_hub.genesis).toBeTruthy();
-        expect(kusama_asset_hub.genesis).toBeTruthy();
-        expect(paseo_asset_hub.genesis).toBeTruthy();
-        expect(bulletin.genesis).toBeTruthy();
-        expect(individuality.genesis).toBeTruthy();
+    test("genesis constants are defined for all chains", () => {
+        expect(GENESIS.polkadot_asset_hub).toBeTruthy();
+        expect(GENESIS.kusama_asset_hub).toBeTruthy();
+        expect(GENESIS.paseo_asset_hub).toBeTruthy();
+        expect(GENESIS.bulletin).toBeTruthy();
+        expect(GENESIS.individuality).toBeTruthy();
     });
 
     test("two envs cached independently, destroy one leaves other intact", () => {
@@ -381,27 +407,39 @@ if (import.meta.vitest) {
         await expect(getChainAPI("kusama")).rejects.toThrow("not yet available");
     });
 
-    test("chain factories return typed APIs", () => {
-        const mockApi = { query: {} };
-        const mockClient = { getTypedApi: () => mockApi } as unknown as PolkadotClient;
-
-        const polkadotChains = createPolkadotChains(mockClient, mockClient, mockClient);
-        expect(polkadotChains.assetHub).toBe(mockApi);
-        expect(polkadotChains.bulletin).toBe(mockApi);
-        expect(polkadotChains.individuality).toBe(mockApi);
-
-        const kusamaChains = createKusamaChains(mockClient, mockClient, mockClient);
-        expect(kusamaChains.assetHub).toBe(mockApi);
-        expect(kusamaChains.bulletin).toBe(mockApi);
-        expect(kusamaChains.individuality).toBe(mockApi);
-
-        const paseoChains = createPaseoChains(mockClient, mockClient, mockClient);
-        expect(paseoChains.assetHub).toBe(mockApi);
-        expect(paseoChains.bulletin).toBe(mockApi);
-        expect(paseoChains.individuality).toBe(mockApi);
+    test("genesis constants match rpcs config", () => {
+        expect(rpcs.polkadot.assetHub.genesis).toBe(GENESIS.polkadot_asset_hub);
+        expect(rpcs.kusama.assetHub.genesis).toBe(GENESIS.kusama_asset_hub);
+        expect(rpcs.paseo.assetHub.genesis).toBe(GENESIS.paseo_asset_hub);
+        expect(rpcs.paseo.bulletin.genesis).toBe(GENESIS.bulletin);
+        expect(rpcs.paseo.individuality.genesis).toBe(GENESIS.individuality);
     });
 
     test("findEntryByGenesis returns undefined for missing genesis", () => {
         expect(findEntryByGenesis("0xnonexistent")).toBeUndefined();
+    });
+
+    test("loadDescriptors returns descriptors with genesis hashes for paseo", async () => {
+        const descriptors = await loadDescriptors("paseo");
+        expect(descriptors).toBeDefined();
+        expect(descriptors!.assetHub).toBeDefined();
+        expect(descriptors!.bulletin).toBeDefined();
+        expect(descriptors!.individuality).toBeDefined();
+        // Verify genesis hashes match the GENESIS constants
+        expect(descriptors!.assetHub.genesis).toBe(GENESIS.paseo_asset_hub);
+        expect(descriptors!.bulletin.genesis).toBe(GENESIS.bulletin);
+        expect(descriptors!.individuality.genesis).toBe(GENESIS.individuality);
+    });
+
+    test("loadDescriptors returns correct asset hub per environment", async () => {
+        const polkadot = await loadDescriptors("polkadot");
+        const kusama = await loadDescriptors("kusama");
+        const paseo = await loadDescriptors("paseo");
+        expect(polkadot!.assetHub.genesis).toBe(GENESIS.polkadot_asset_hub);
+        expect(kusama!.assetHub.genesis).toBe(GENESIS.kusama_asset_hub);
+        expect(paseo!.assetHub.genesis).toBe(GENESIS.paseo_asset_hub);
+        // bulletin and individuality are the same across environments
+        expect(polkadot!.bulletin.genesis).toBe(paseo!.bulletin.genesis);
+        expect(polkadot!.individuality.genesis).toBe(paseo!.individuality.genesis);
     });
 }

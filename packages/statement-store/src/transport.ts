@@ -345,8 +345,8 @@ async function createDirectTransport(endpoint: string): Promise<RpcTransport> {
 async function createChainClientTransport(): Promise<RpcTransport> {
     try {
         const { getClient } = await import("@polkadot-apps/chain-client");
-        const { bulletin } = await import("@polkadot-apps/descriptors");
-        const client = getClient(bulletin);
+        const bulletinMod = await import("@polkadot-apps/descriptors/bulletin");
+        const client = getClient(bulletinMod.default);
         log.info("Connected to statement store via chain-client bulletin");
         return new RpcTransport(client as unknown as RpcClient, false);
     } catch (error) {

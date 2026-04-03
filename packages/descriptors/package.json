@@ -9,8 +9,27 @@
         ".": {
             "types": "./generated/dist/index.d.ts",
             "module": "./generated/dist/index.mjs",
-            "import": "./generated/dist/index.mjs",
-            "require": "./generated/dist/index.js"
+            "import": "./generated/dist/index.mjs"
+        },
+        "./polkadot-asset-hub": {
+            "types": "./generated/dist/polkadot_asset_hub.d.ts",
+            "import": "./generated/dist/polkadot-asset-hub.mjs"
+        },
+        "./kusama-asset-hub": {
+            "types": "./generated/dist/kusama_asset_hub.d.ts",
+            "import": "./generated/dist/kusama-asset-hub.mjs"
+        },
+        "./paseo-asset-hub": {
+            "types": "./generated/dist/paseo_asset_hub.d.ts",
+            "import": "./generated/dist/paseo-asset-hub.mjs"
+        },
+        "./bulletin": {
+            "types": "./generated/dist/bulletin.d.ts",
+            "import": "./generated/dist/bulletin.mjs"
+        },
+        "./individuality": {
+            "types": "./generated/dist/individuality.d.ts",
+            "import": "./generated/dist/individuality.mjs"
         },
         "./package.json": "./package.json"
     },
@@ -31,5 +50,8 @@
     },
     "devDependencies": {
         "polkadot-api": "catalog:"
+    },
+    "dependencies": {
+        "@polkadot-api/descriptors": "file:generated"
     }
 }
