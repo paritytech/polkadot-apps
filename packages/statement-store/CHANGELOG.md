@@ -1,5 +1,11 @@
 # @polkadot-apps/statement-store
 
+## 0.2.6
+
+### Patch Changes
+
+- abd49ca: Remove unused variables and imports
+
 ## 0.2.5
 
 ### Patch Changes

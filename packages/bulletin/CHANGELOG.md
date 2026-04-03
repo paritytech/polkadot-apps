@@ -1,5 +1,12 @@
 # @polkadot-apps/bulletin
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [abd49ca]
+  - @polkadot-apps/tx@0.2.7
+
 ## 0.4.0
 
 ### Minor Changes

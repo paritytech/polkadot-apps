@@ -1,5 +1,11 @@
 # @polkadot-apps/tx
 
+## 0.2.7
+
+### Patch Changes
+
+- abd49ca: Remove unused variables and imports
+
 ## 0.2.6
 
 ### Patch Changes
