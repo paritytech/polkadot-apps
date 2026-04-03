@@ -21,5 +21,14 @@
         "typescript": "catalog:",
         "@vitest/coverage-istanbul": "catalog:",
         "vitest": "catalog:"
+    },
+    "pnpm": {
+        "overrides": {
+            "picomatch@2": "2.3.2",
+            "picomatch@4": "4.0.4",
+            "brace-expansion@2": "2.0.3",
+            "brace-expansion@5": "5.0.5",
+            "yaml@2": "2.8.3"
+        }
     }
 }

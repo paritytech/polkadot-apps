@@ -191,11 +191,8 @@ if (import.meta.vitest) {
         });
 
         test("exponential backoff increases delay", () => {
-            // Use fixed random to test the exponential growth
             const base = 1_000;
-            const max = 100_000;
             // The minimum possible delay at each attempt (jitter factor = 0.5)
-            const minDelay0 = base * 0.5; // 500
             const minDelay2 = base * 4 * 0.5; // 2000
             // attempt 2 minimum should be greater than attempt 0 maximum
             const maxDelay0 = base * 1.0; // 1000
