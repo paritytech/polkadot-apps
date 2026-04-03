@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Post-processes the papi-generated index.mjs to create per-chain entry files
  * and a shared _common.mjs helper.
@@ -39,8 +38,14 @@ export { toBinary };
 writeFileSync(join(distDir, "_common.mjs"), commonContent);
 console.log("  Generated _common.mjs");
 
-// Chain configs: name → { exportName in index.mjs, section marker in generated source }
-const chains = [
+interface ChainConfig {
+    id: string;
+    srcName: string;
+    exportName: string;
+}
+
+// Chain configs: name -> { exportName in index.mjs, section marker in generated source }
+const chains: ChainConfig[] = [
     { id: "polkadot-asset-hub", srcName: "polkadot_asset_hub", exportName: "polkadot_asset_hub" },
     { id: "kusama-asset-hub", srcName: "kusama_asset_hub", exportName: "kusama_asset_hub" },
     { id: "paseo-asset-hub", srcName: "paseo_asset_hub", exportName: "paseo_asset_hub" },

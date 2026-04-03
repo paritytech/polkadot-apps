@@ -26,8 +26,8 @@ Follow the contributor guidelines in `README.md`.
 ## Descriptors
 
 - `@polkadot-apps/descriptors` provides per-chain subpath imports (e.g., `@polkadot-apps/descriptors/bulletin`). Prefer these over the barrel import to avoid bundling all chain metadata.
-- `pnpm generate-descriptors` runs `papi` then `scripts/generate-per-chain.mjs` to produce per-chain entry files.
-- Adding a new chain requires updating: (1) `scripts/generate.sh` (add the chain), (2) `scripts/generate-per-chain.mjs` (add to the `chains` array), (3) `package.json` exports map (add a subpath entry).
+- `pnpm generate-descriptors` runs `papi` then `scripts/generate-per-chain.ts` to produce per-chain entry files.
+- Adding a new chain requires updating: (1) `scripts/generate.sh` (add the chain), (2) `scripts/generate-per-chain.ts` (add to the `chains` array), (3) `package.json` exports map (add a subpath entry).
 
 ## Reference Repos
 

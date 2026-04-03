@@ -34,15 +34,13 @@
         "./package.json": "./package.json"
     },
     "sideEffects": false,
-    "files": [
-        "generated/dist"
-    ],
+    "files": ["generated/dist"],
     "publishConfig": {
         "access": "public"
     },
     "scripts": {
         "generate": "bash scripts/generate.sh",
-        "build": "test -d generated/dist || papi",
+        "build": "(test -d generated/dist || papi) && (test -f generated/dist/bulletin.mjs || npx tsx scripts/generate-per-chain.ts)",
         "clean": "rm -rf generated"
     },
     "peerDependencies": {

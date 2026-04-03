@@ -23,7 +23,7 @@ echo "==> Generating TypeScript descriptors..."
 npx papi
 
 echo "==> Generating per-chain entry files..."
-node scripts/generate-per-chain.mjs
+npx tsx scripts/generate-per-chain.ts
 
 echo "==> Stripping file:generated dep (breaks npm consumers)..."
 node -e '
