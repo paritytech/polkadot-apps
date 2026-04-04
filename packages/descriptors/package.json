@@ -34,7 +34,7 @@
     "scripts": {
         "generate": "bash scripts/generate.sh",
         "build": "bash scripts/build.sh",
-        "clean": "rm -rf chains/*/generated"
+        "clean": "rm -rf chains/*/generated/dist chains/*/generated/src"
     },
     "peerDependencies": {
         "polkadot-api": ">=1.23.0"

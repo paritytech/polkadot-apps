@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "==> Removing old metadata and generated output..."
-rm -rf chains/*/generated .papi/metadata/*.scale
+rm -rf chains/*/generated/dist chains/*/generated/src .papi/metadata/*.scale
 
 echo "==> Fetching chain metadata..."
 npx papi add polkadot_asset_hub -n polkadot_asset_hub --skip-codegen

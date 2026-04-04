@@ -41,28 +41,28 @@ const GENESIS = {
  * a consumer only uses one environment.
  */
 async function loadDescriptors(env: Environment) {
-    const [{ bulletin }, { individuality }] = await Promise.all([
+    const assetHubImport = {
+        polkadot: () => import("@polkadot-apps/descriptors/polkadot-asset-hub"),
+        kusama: () => import("@polkadot-apps/descriptors/kusama-asset-hub"),
+        paseo: () => import("@polkadot-apps/descriptors/paseo-asset-hub"),
+    }[env]();
+
+    const [ahMod, { bulletin }, { individuality }] = await Promise.all([
+        assetHubImport,
         import("@polkadot-apps/descriptors/bulletin"),
         import("@polkadot-apps/descriptors/individuality"),
     ]);
-    switch (env) {
-        case "polkadot": {
-            const { polkadot_asset_hub } = await import(
-                "@polkadot-apps/descriptors/polkadot-asset-hub"
-            );
-            return { assetHub: polkadot_asset_hub, bulletin, individuality };
-        }
-        case "kusama": {
-            const { kusama_asset_hub } = await import(
-                "@polkadot-apps/descriptors/kusama-asset-hub"
-            );
-            return { assetHub: kusama_asset_hub, bulletin, individuality };
-        }
-        case "paseo": {
-            const { paseo_asset_hub } = await import("@polkadot-apps/descriptors/paseo-asset-hub");
-            return { assetHub: paseo_asset_hub, bulletin, individuality };
-        }
-    }
+
+    // Extract the asset hub descriptor (the named export varies per environment)
+    const assetHub =
+        "polkadot_asset_hub" in ahMod
+            ? ahMod.polkadot_asset_hub
+            : "kusama_asset_hub" in ahMod
+              ? ahMod.kusama_asset_hub
+              : (ahMod as typeof import("@polkadot-apps/descriptors/paseo-asset-hub"))
+                    .paseo_asset_hub;
+
+    return { assetHub, bulletin, individuality };
 }
 
 type ContractSdk = ReturnType<typeof createInkSdk>;
@@ -357,12 +357,10 @@ if (import.meta.vitest) {
         expect(() => getClient(fakeDescriptor)).toThrow(/Chain not connected/);
     });
 
-    test("genesis constants are defined for all chains", () => {
-        expect(GENESIS.polkadot_asset_hub).toBeTruthy();
-        expect(GENESIS.kusama_asset_hub).toBeTruthy();
-        expect(GENESIS.paseo_asset_hub).toBeTruthy();
-        expect(GENESIS.bulletin).toBeTruthy();
-        expect(GENESIS.individuality).toBeTruthy();
+    test("genesis constants are valid hex hashes", () => {
+        for (const hash of Object.values(GENESIS)) {
+            expect(hash).toMatch(/^0x[a-f0-9]{64}$/);
+        }
     });
 
     test("two envs cached independently, destroy one leaves other intact", () => {

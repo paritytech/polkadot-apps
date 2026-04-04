@@ -82,7 +82,7 @@ const bulletin = await BulletinClient.create("paseo");
 Create a client from an explicit API instance and gateway URL. Useful for custom setups and testing.
 
 ```ts
-import { bulletin as bulletinDescriptor } from "@polkadot-apps/descriptors";
+import { bulletin as bulletinDescriptor } from "@polkadot-apps/descriptors/bulletin";
 
 const api = client.getTypedApi(bulletinDescriptor);
 const bulletin = BulletinClient.from(api, "https://paseo-ipfs.polkadot.io/ipfs/");

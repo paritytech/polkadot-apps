@@ -1,5 +1,5 @@
 ---
-"@polkadot-apps/descriptors": minor
+"@polkadot-apps/descriptors": major
 "@polkadot-apps/chain-client": patch
 "@polkadot-apps/bulletin": patch
 "@polkadot-apps/statement-store": patch
