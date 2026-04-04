@@ -209,10 +209,12 @@ if (import.meta.vitest) {
 
         test("setDefaults updates origin and signer", async () => {
             const mgr = new ContractManager(cdmJson, fakeInkSdk);
-            // Initially no defaults — query would throw
+            // Query works even without explicit origin (uses fallback)
             const contract = mgr.getContract("@test/counter");
-            await expect(contract.getCount.query()).rejects.toThrow(/No origin/);
+            const fallbackResult = await contract.getCount.query();
+            expect(fallbackResult.success).toBe(true);
 
+            // After setting origin, it uses the explicit one
             mgr.setDefaults({ origin: "5NewOrigin" as any });
             const contract2 = mgr.getContract("@test/counter");
             const result = await contract2.getCount.query();
@@ -341,9 +343,9 @@ if (import.meta.vitest) {
             } as unknown as InkSdk;
 
             const mgr = new ContractManager(cdmJson, trackingSdk);
-            // No signer source initially — query would fail
+            // No signer source initially — query uses fallback origin
             const contract = mgr.getContract("@test/counter");
-            await expect(contract.getCount.query()).rejects.toThrow(/No origin/);
+            await contract.getCount.query(); // works with fallback
 
             // Add signer source
             mgr.setDefaults({

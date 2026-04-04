@@ -49,13 +49,27 @@ function extractOverrides<T>(
 }
 
 /**
- * Resolve the origin address: explicit override → signerSource → static default.
+ * Well-known dev address used as fallback origin for read-only queries.
+ * Queries are dry-run simulations — the origin only affects gas estimation
+ * and is safe to stub when no wallet is connected.
  */
-function resolveOrigin(defaults: ContractDefaults, override?: SS58String): SS58String | undefined {
+const QUERY_FALLBACK_ORIGIN = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" as SS58String; // Alice
+
+/**
+ * Resolve the origin address: explicit override → signerSource → static default.
+ * For queries, pass `forQuery: true` to enable the dev-address fallback.
+ */
+function resolveOrigin(
+    defaults: ContractDefaults,
+    override?: SS58String,
+    forQuery?: boolean,
+): SS58String | undefined {
     if (override) return override;
     const sourceAddr = defaults.signerSource?.getState().selectedAccount?.address;
     if (sourceAddr) return sourceAddr as SS58String;
-    return defaults.origin;
+    if (defaults.origin) return defaults.origin;
+    if (forQuery) return QUERY_FALLBACK_ORIGIN;
+    return undefined;
 }
 
 /**
@@ -102,12 +116,7 @@ export function wrapContract(
                         args,
                     );
                     const data = positionalToNamed(argNames, positionalArgs);
-                    const origin = resolveOrigin(defaults, overrides?.origin);
-                    if (!origin) {
-                        throw new Error(
-                            "No origin available. Pass { origin }, set defaultOrigin, or provide a signerSource.",
-                        );
-                    }
+                    const origin = resolveOrigin(defaults, overrides?.origin, true)!;
 
                     const result = await inkContract.query(methodName, {
                         origin,
@@ -395,11 +404,18 @@ if (import.meta.vitest) {
             expect(captured.origin).toBe("5Override");
         });
 
-        test("query throws without origin", async () => {
-            const fakeInk = { query: async () => ({ success: true, value: {} }) };
+        test("query uses fallback origin when nothing else available", async () => {
+            let captured: any;
+            const fakeInk = {
+                query: async (_: string, args: any) => {
+                    captured = args;
+                    return { success: true, value: { response: 0 } };
+                },
+            };
             const wrapped = wrapContract(fakeInk, abi, {});
 
-            await expect(wrapped.getCount.query()).rejects.toThrow(/No origin/);
+            await wrapped.getCount.query();
+            expect(captured.origin).toBe(QUERY_FALLBACK_ORIGIN);
         });
 
         test("query returns undefined value on failure", async () => {
