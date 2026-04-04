@@ -16,10 +16,10 @@ pnpm add polkadot-api
 
 ## Quick start
 
-Use per-chain subpath imports to only bundle the chains you need:
+Import descriptors per chain — each subpath is a separate papi build, so you only bundle the chain metadata you actually use:
 
 ```typescript
-import bulletin from "@polkadot-apps/descriptors/bulletin";
+import { bulletin } from "@polkadot-apps/descriptors/bulletin";
 import { createClient } from "polkadot-api";
 
 const client = createClient(/* transport */);
@@ -29,34 +29,22 @@ const api = client.getTypedApi(bulletin);
 const fee = await api.query.TransactionStorage.ByteFee.getValue();
 ```
 
-Per-chain imports are the **recommended** pattern — they avoid bundling metadata for chains you don't use, which can save several MB of bundle size.
-
-The barrel import is still available when you need multiple chains at once:
-
-```typescript
-import { polkadot_asset_hub, bulletin } from "@polkadot-apps/descriptors";
-```
-
 ## Available chain descriptors
 
-| Export | Chain | Genesis hash |
-|--------|-------|--------------|
-| `polkadot_asset_hub` | Polkadot Asset Hub | `0x68d56f15...` |
-| `kusama_asset_hub` | Kusama Asset Hub | `0x48239ef6...` |
-| `paseo_asset_hub` | Paseo Asset Hub | `0xd6eec261...` |
-| `bulletin` | Bulletin Chain (Paseo) | `0x744960c3...` |
-| `individuality` | People Chain (Paseo) | `0xe583155e...` |
-
-Each export is a typed descriptor object that you pass to `client.getTypedApi()` from `polkadot-api`. The descriptor carries full chain metadata so that all storage queries, transactions, events, and constants are type-safe.
-
-Per-chain subpath imports (recommended for bundle size):
+| Subpath | Export | Chain |
+|---------|--------|-------|
+| `./polkadot-asset-hub` | `polkadot_asset_hub` | Polkadot Asset Hub |
+| `./kusama-asset-hub` | `kusama_asset_hub` | Kusama Asset Hub |
+| `./paseo-asset-hub` | `paseo_asset_hub` | Paseo Asset Hub |
+| `./bulletin` | `bulletin` | Bulletin Chain (Paseo) |
+| `./individuality` | `individuality` | People Chain (Paseo) |
 
 ```typescript
-import polkadot_asset_hub from "@polkadot-apps/descriptors/polkadot-asset-hub";
-import kusama_asset_hub from "@polkadot-apps/descriptors/kusama-asset-hub";
-import paseo_asset_hub from "@polkadot-apps/descriptors/paseo-asset-hub";
-import bulletin from "@polkadot-apps/descriptors/bulletin";
-import individuality from "@polkadot-apps/descriptors/individuality";
+import { polkadot_asset_hub } from "@polkadot-apps/descriptors/polkadot-asset-hub";
+import { kusama_asset_hub } from "@polkadot-apps/descriptors/kusama-asset-hub";
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+import { bulletin } from "@polkadot-apps/descriptors/bulletin";
+import { individuality } from "@polkadot-apps/descriptors/individuality";
 ```
 
 ## Regenerating descriptors
@@ -64,10 +52,17 @@ import individuality from "@polkadot-apps/descriptors/individuality";
 This package contains generated code. To regenerate from chain metadata:
 
 ```bash
-pnpm generate
+pnpm generate-descriptors
 ```
 
-This runs the Polkadot API CLI to fetch current chain metadata, rebuild the descriptor files, and generate per-chain entry files for subpath imports.
+This fetches current chain metadata and runs `papi generate` once per chain, producing isolated per-chain builds.
+
+## Adding a new chain
+
+1. Add the chain's metadata: update `scripts/generate.sh` with a `papi add` command.
+2. Create `chains/<name>/.papi/polkadot-api.json` with the chain config and a minimal `package.json`.
+3. Add the chain to the `CHAINS` list in `scripts/build.sh`.
+4. Add a subpath export in the root `package.json`.
 
 ## License
 

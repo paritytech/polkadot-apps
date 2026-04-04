@@ -95,7 +95,7 @@ For advanced use cases, access the underlying `PolkadotClient` directly or check
 
 ```typescript
 import { getClient, isConnected } from "@polkadot-apps/chain-client";
-import paseo_asset_hub from "@polkadot-apps/descriptors/paseo-asset-hub";
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
 
 const client = getClient(paseo_asset_hub);
 const connected = isConnected(paseo_asset_hub); // boolean, synchronous

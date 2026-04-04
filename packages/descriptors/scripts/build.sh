@@ -1,22 +1,32 @@
 #!/usr/bin/env bash
-# Build descriptors: run papi if needed, then generate per-chain entry files.
+# Build per-chain descriptors. Each chain has its own papi config and
+# generates into its own chains/<name>/generated/dist/ directory.
+# This avoids bundling all chains into one index.mjs.
 set -euo pipefail
+
 cd "$(dirname "$0")/.."
 
-# 1. Run papi if generated output doesn't exist
-if [ ! -d generated/dist ]; then
-    papi
+CHAINS="polkadot-asset-hub kusama-asset-hub paseo-asset-hub bulletin individuality"
 
-    # papi adds "dependencies": { "@polkadot-api/descriptors": "file:generated" }
-    # to package.json which breaks npm consumers — strip it entirely.
-    node --input-type=commonjs -e '
-        const p = require("./package.json");
-        delete p.dependencies;
-        require("fs").writeFileSync("package.json", JSON.stringify(p, null, 4) + "\n");
-    '
-fi
+for chain in $CHAINS; do
+    dir="chains/$chain"
 
-# 2. Generate per-chain entry files if missing
-if [ ! -f generated/dist/bulletin.mjs ]; then
-    npx tsx scripts/generate-per-chain.ts
-fi
+    # Skip if already built
+    if [ -f "$dir/generated/dist/index.mjs" ]; then
+        continue
+    fi
+
+    echo "  Building $chain..."
+    (
+        cd "$dir"
+        npx papi generate --config .papi/polkadot-api.json
+
+        # papi adds "dependencies": { "@polkadot-api/descriptors": "file:generated" }
+        # to the chain's package.json — strip it so it doesn't interfere.
+        node --input-type=commonjs -e '
+            const p = require("./package.json");
+            delete p.dependencies;
+            require("fs").writeFileSync("package.json", JSON.stringify(p, null, 4) + "\n");
+        '
+    )
+done

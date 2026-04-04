@@ -3,45 +3,38 @@
     "description": "Pre-generated Polkadot API descriptors for Asset Hub, Bulletin, and Individuality chains",
     "version": "0.1.7",
     "type": "module",
-    "main": "./generated/dist/index.mjs",
-    "types": "./generated/dist/index.d.ts",
     "exports": {
-        ".": {
-            "types": "./generated/dist/index.d.ts",
-            "module": "./generated/dist/index.mjs",
-            "import": "./generated/dist/index.mjs"
-        },
         "./polkadot-asset-hub": {
-            "types": "./generated/dist/polkadot_asset_hub.d.ts",
-            "import": "./generated/dist/polkadot-asset-hub.mjs"
+            "types": "./chains/polkadot-asset-hub/generated/dist/index.d.ts",
+            "import": "./chains/polkadot-asset-hub/generated/dist/index.mjs"
         },
         "./kusama-asset-hub": {
-            "types": "./generated/dist/kusama_asset_hub.d.ts",
-            "import": "./generated/dist/kusama-asset-hub.mjs"
+            "types": "./chains/kusama-asset-hub/generated/dist/index.d.ts",
+            "import": "./chains/kusama-asset-hub/generated/dist/index.mjs"
         },
         "./paseo-asset-hub": {
-            "types": "./generated/dist/paseo_asset_hub.d.ts",
-            "import": "./generated/dist/paseo-asset-hub.mjs"
+            "types": "./chains/paseo-asset-hub/generated/dist/index.d.ts",
+            "import": "./chains/paseo-asset-hub/generated/dist/index.mjs"
         },
         "./bulletin": {
-            "types": "./generated/dist/bulletin.d.ts",
-            "import": "./generated/dist/bulletin.mjs"
+            "types": "./chains/bulletin/generated/dist/index.d.ts",
+            "import": "./chains/bulletin/generated/dist/index.mjs"
         },
         "./individuality": {
-            "types": "./generated/dist/individuality.d.ts",
-            "import": "./generated/dist/individuality.mjs"
+            "types": "./chains/individuality/generated/dist/index.d.ts",
+            "import": "./chains/individuality/generated/dist/index.mjs"
         },
         "./package.json": "./package.json"
     },
     "sideEffects": false,
-    "files": ["generated/dist"],
+    "files": ["chains/*/generated/dist"],
     "publishConfig": {
         "access": "public"
     },
     "scripts": {
         "generate": "bash scripts/generate.sh",
         "build": "bash scripts/build.sh",
-        "clean": "rm -rf generated"
+        "clean": "rm -rf chains/*/generated"
     },
     "peerDependencies": {
         "polkadot-api": ">=1.23.0"

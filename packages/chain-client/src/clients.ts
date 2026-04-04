@@ -7,11 +7,11 @@ import type { ChainEntry } from "./types.js";
 
 // Type-only imports — erased at compile time, zero bundle cost.
 // These give us per-chain TypedApi types without importing runtime descriptor data.
-import type PolkadotAssetHubDef from "@polkadot-apps/descriptors/polkadot-asset-hub";
-import type KusamaAssetHubDef from "@polkadot-apps/descriptors/kusama-asset-hub";
-import type PaseoAssetHubDef from "@polkadot-apps/descriptors/paseo-asset-hub";
-import type BulletinDef from "@polkadot-apps/descriptors/bulletin";
-import type IndividualityDef from "@polkadot-apps/descriptors/individuality";
+import type { polkadot_asset_hub as PolkadotAssetHubDef } from "@polkadot-apps/descriptors/polkadot-asset-hub";
+import type { kusama_asset_hub as KusamaAssetHubDef } from "@polkadot-apps/descriptors/kusama-asset-hub";
+import type { paseo_asset_hub as PaseoAssetHubDef } from "@polkadot-apps/descriptors/paseo-asset-hub";
+import type { bulletin as BulletinDef } from "@polkadot-apps/descriptors/bulletin";
+import type { individuality as IndividualityDef } from "@polkadot-apps/descriptors/individuality";
 
 export type Environment = "polkadot" | "kusama" | "paseo";
 
@@ -41,24 +41,26 @@ const GENESIS = {
  * a consumer only uses one environment.
  */
 async function loadDescriptors(env: Environment) {
-    const [bulletinMod, individualityMod] = await Promise.all([
+    const [{ bulletin }, { individuality }] = await Promise.all([
         import("@polkadot-apps/descriptors/bulletin"),
         import("@polkadot-apps/descriptors/individuality"),
     ]);
-    const bulletin = bulletinMod.default;
-    const individuality = individualityMod.default;
     switch (env) {
         case "polkadot": {
-            const mod = await import("@polkadot-apps/descriptors/polkadot-asset-hub");
-            return { assetHub: mod.default, bulletin, individuality };
+            const { polkadot_asset_hub } = await import(
+                "@polkadot-apps/descriptors/polkadot-asset-hub"
+            );
+            return { assetHub: polkadot_asset_hub, bulletin, individuality };
         }
         case "kusama": {
-            const mod = await import("@polkadot-apps/descriptors/kusama-asset-hub");
-            return { assetHub: mod.default, bulletin, individuality };
+            const { kusama_asset_hub } = await import(
+                "@polkadot-apps/descriptors/kusama-asset-hub"
+            );
+            return { assetHub: kusama_asset_hub, bulletin, individuality };
         }
         case "paseo": {
-            const mod = await import("@polkadot-apps/descriptors/paseo-asset-hub");
-            return { assetHub: mod.default, bulletin, individuality };
+            const { paseo_asset_hub } = await import("@polkadot-apps/descriptors/paseo-asset-hub");
+            return { assetHub: paseo_asset_hub, bulletin, individuality };
         }
     }
 }
