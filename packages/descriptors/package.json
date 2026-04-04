@@ -40,7 +40,7 @@
     },
     "scripts": {
         "generate": "bash scripts/generate.sh",
-        "build": "(test -d generated/dist || papi) && (test -f generated/dist/bulletin.mjs || npx tsx scripts/generate-per-chain.ts)",
+        "build": "bash scripts/build.sh",
         "clean": "rm -rf generated"
     },
     "peerDependencies": {
@@ -48,8 +48,5 @@
     },
     "devDependencies": {
         "polkadot-api": "catalog:"
-    },
-    "dependencies": {
-        "@polkadot-api/descriptors": "file:generated"
     }
 }

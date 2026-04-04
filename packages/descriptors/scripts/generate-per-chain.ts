@@ -78,8 +78,12 @@ for (const chain of chains) {
         .replace(/\bextensions\d+\b/g, "extensions")
         .replace(/\bgetMetadata\d+\b/g, "getMetadata")
         .replace(/\bgenesis\d+\b/g, "genesis")
-        .replace(/\b_allDescriptors\d+\b/g, "_allDescriptors")
-        .replace(/\b\w+_default\b/g, `${chain.exportName}_default`);
+        .replace(/\b_allDescriptors\d+\b/g, "_allDescriptors");
+
+    // Rename the chain's _default export variable. Match only the specific papi pattern:
+    // `var <srcName>_default = _allDescriptors` — not arbitrary `_default` suffixes.
+    const srcDefaultPattern = new RegExp(`\\b${chain.srcName}_default\\b`, "g");
+    chainCode = chainCode.replace(srcDefaultPattern, `${chain.exportName}_default`);
 
     const fileContent = `// Auto-generated per-chain entry for ${chain.exportName}
 // Do not edit — regenerate with: pnpm generate-descriptors
