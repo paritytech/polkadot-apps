@@ -389,4 +389,89 @@ if (import.meta.vitest) {
             expect(capturedOrigin).toBe("5Late");
         });
     });
+
+    describe("createContract", () => {
+        const abi: import("./types.js").AbiEntry[] = [
+            {
+                type: "function",
+                name: "getCount",
+                inputs: [],
+                outputs: [{ name: "", type: "uint32" }],
+                stateMutability: "view",
+            },
+            {
+                type: "function",
+                name: "increment",
+                inputs: [],
+                outputs: [],
+                stateMutability: "nonpayable",
+            },
+        ];
+
+        test("wraps raw address + ABI into query/tx handle", async () => {
+            let queriedMethod: string | undefined;
+            let sentMethod: string | undefined;
+            const fakeSigner = { id: "s" } as any;
+
+            const fakeSdk = {
+                getContract: () => ({
+                    query: async (method: string) => {
+                        queriedMethod = method;
+                        return { success: true, value: { response: 7 } };
+                    },
+                    send: (method: string) => {
+                        sentMethod = method;
+                        return {
+                            signAndSubmit: async () => ({
+                                txHash: "0xa",
+                                block: { hash: "0xb" },
+                                ok: true,
+                                events: [],
+                            }),
+                        };
+                    },
+                }),
+            } as unknown as InkSdk;
+
+            const contract = createContract(fakeSdk, "0xABC" as any, abi, {
+                defaultOrigin: "5X" as any,
+                defaultSigner: fakeSigner,
+            });
+
+            const qr = await contract.getCount.query();
+            expect(queriedMethod).toBe("getCount");
+            expect(qr.value).toBe(7);
+
+            const tr = await contract.increment.tx();
+            expect(sentMethod).toBe("increment");
+            expect(tr.ok).toBe(true);
+        });
+
+        test("supports signerSource", async () => {
+            let capturedSigner: any;
+            const hostSigner = { id: "host" } as any;
+
+            const fakeSdk = {
+                getContract: () => ({
+                    query: async () => ({ success: true, value: { response: 0 } }),
+                    send: () => ({
+                        signAndSubmit: async (s: any) => {
+                            capturedSigner = s;
+                            return { txHash: "0x1", block: { hash: "0x2" }, ok: true, events: [] };
+                        },
+                    }),
+                }),
+            } as unknown as InkSdk;
+
+            const contract = createContract(fakeSdk, "0xABC" as any, abi, {
+                signerSource: {
+                    getSigner: () => hostSigner,
+                    getState: () => ({ selectedAccount: { address: "5Host" } }),
+                },
+            });
+
+            await contract.increment.tx();
+            expect(capturedSigner).toBe(hostSigner);
+        });
+    });
 }
