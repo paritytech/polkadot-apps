@@ -1,4 +1,4 @@
-import { bulletin } from "@polkadot-apps/descriptors";
+import { bulletin } from "@polkadot-apps/descriptors/bulletin";
 import type { TypedApi } from "polkadot-api";
 import type { TxStatus, WaitFor } from "@polkadot-apps/tx";
 

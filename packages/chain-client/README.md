@@ -85,13 +85,17 @@ const contract = api.contracts.getContract(descriptor, contractAddress);
 const result = await contract.query.myMethod(args);
 ```
 
+## Bundle size
+
+Descriptors are lazy-loaded per environment. Calling `getChainAPI("paseo")` only bundles metadata for Paseo Asset Hub, Bulletin, and Individuality -- not all five supported chains. Unused environments (e.g., Polkadot, Kusama) are excluded from the bundle via dynamic imports.
+
 ## Raw client access
 
 For advanced use cases, access the underlying `PolkadotClient` directly or check connection status.
 
 ```typescript
 import { getClient, isConnected } from "@polkadot-apps/chain-client";
-import { paseo_asset_hub } from "@polkadot-apps/descriptors";
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
 
 const client = getClient(paseo_asset_hub);
 const connected = isConnected(paseo_asset_hub); // boolean, synchronous

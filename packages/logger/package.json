@@ -12,6 +12,7 @@
         }
     },
     "files": ["dist"],
+    "sideEffects": ["./dist/state.js"],
     "publishConfig": {
         "access": "public"
     },

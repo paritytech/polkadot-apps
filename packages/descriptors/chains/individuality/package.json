@@ -1,0 +1,5 @@
+{
+    "name": "@polkadot-apps/descriptors-individuality-internal",
+    "private": true,
+    "type": "module"
+}

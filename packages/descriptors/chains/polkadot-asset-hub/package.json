@@ -1,0 +1,5 @@
+{
+    "name": "@polkadot-apps/descriptors-polkadot-asset-hub-internal",
+    "private": true,
+    "type": "module"
+}
