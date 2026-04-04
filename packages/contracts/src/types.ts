@@ -136,6 +136,16 @@ export interface ContractManagerOptions {
     defaultSigner?: PolkadotSigner;
 }
 
+/** Options for {@link createContract}. */
+export interface ContractOptions {
+    /** Reactive signer source (e.g. `SignerManager`). */
+    signerSource?: SignerSource;
+    /** Static fallback caller address for queries. */
+    defaultOrigin?: SS58String;
+    /** Static fallback signer for transactions. */
+    defaultSigner?: PolkadotSigner;
+}
+
 /** A typed contract handle where each method exposes `.query()` and `.tx()`. */
 export type Contract<C extends ContractDef> = {
     [K in keyof C["methods"]]: {

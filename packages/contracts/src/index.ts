@@ -1,4 +1,4 @@
-export { ContractManager } from "./manager.js";
+export { ContractManager, createContract } from "./manager.js";
 export { generateContractTypes } from "./codegen.js";
 export type {
     CdmJson,
@@ -15,5 +15,6 @@ export type {
     TxResult,
     ContractDefaults,
     ContractManagerOptions,
+    ContractOptions,
     SignerSource,
 } from "./types.js";

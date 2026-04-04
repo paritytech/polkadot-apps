@@ -2,12 +2,14 @@ import type { HexString } from "polkadot-api";
 import type { InkSdk } from "@polkadot-api/sdk-ink";
 import { wrapContract } from "./wrap.js";
 import type {
+    AbiEntry,
     CdmJson,
     CdmJsonContract,
     Contract,
     ContractDef,
     ContractDefaults,
     ContractManagerOptions,
+    ContractOptions,
     Contracts,
 } from "./types.js";
 
@@ -99,6 +101,34 @@ export class ContractManager {
     getAddress(library: string): HexString {
         return this.getContractData(library).address as HexString;
     }
+}
+
+/**
+ * Create a contract handle from a raw address and ABI — no `cdm.json` needed.
+ *
+ * @example
+ * ```ts
+ * const api = await getChainAPI("paseo");
+ * const counter = createContract(api.contracts, "0xC472...", abi, {
+ *     signerSource: signerManager,
+ * });
+ * await counter.getCount.query();
+ * await counter.increment.tx();
+ * ```
+ */
+export function createContract(
+    inkSdk: InkSdk,
+    address: HexString,
+    abi: AbiEntry[],
+    options?: ContractOptions,
+): Contract<ContractDef> {
+    const inkContract = inkSdk.getContract({ abi } as any, address);
+    const defaults: ContractDefaults = {
+        signerSource: options?.signerSource,
+        origin: options?.defaultOrigin,
+        signer: options?.defaultSigner,
+    };
+    return wrapContract(inkContract, abi, defaults) as Contract<ContractDef>;
 }
 
 if (import.meta.vitest) {
