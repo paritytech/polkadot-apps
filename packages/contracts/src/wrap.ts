@@ -1,4 +1,4 @@
-import type { SS58String } from "polkadot-api";
+import type { PolkadotSigner, SS58String } from "polkadot-api";
 import type {
     AbiEntry,
     ContractDefaults,
@@ -49,6 +49,29 @@ function extractOverrides<T>(
 }
 
 /**
+ * Resolve the origin address: explicit override → signerSource → static default.
+ */
+function resolveOrigin(defaults: ContractDefaults, override?: SS58String): SS58String | undefined {
+    if (override) return override;
+    const sourceAddr = defaults.signerSource?.getState().selectedAccount?.address;
+    if (sourceAddr) return sourceAddr as SS58String;
+    return defaults.origin;
+}
+
+/**
+ * Resolve the signer: explicit override → signerSource → static default.
+ */
+function resolveSigner(
+    defaults: ContractDefaults,
+    override?: PolkadotSigner,
+): PolkadotSigner | undefined {
+    if (override) return override;
+    const sourceSigner = defaults.signerSource?.getSigner();
+    if (sourceSigner) return sourceSigner;
+    return defaults.signer;
+}
+
+/**
  * Wrap an ink SDK contract instance with a proxy that exposes each ABI
  * method as `{ query, tx }` — converting positional arguments to the
  * named-parameter format the SDK expects.
@@ -79,10 +102,10 @@ export function wrapContract(
                         args,
                     );
                     const data = positionalToNamed(argNames, positionalArgs);
-                    const origin = overrides?.origin ?? defaults.origin;
+                    const origin = resolveOrigin(defaults, overrides?.origin);
                     if (!origin) {
                         throw new Error(
-                            "No origin provided for query. Pass { origin } or set defaultOrigin.",
+                            "No origin available. Pass { origin }, set defaultOrigin, or provide a signerSource.",
                         );
                     }
 
@@ -104,14 +127,14 @@ export function wrapContract(
                         args,
                     );
                     const data = positionalToNamed(argNames, positionalArgs);
-                    const signer = overrides?.signer ?? defaults.signer;
+                    const signer = resolveSigner(defaults, overrides?.signer);
                     if (!signer) {
                         throw new Error(
-                            "No signer provided for tx. Pass { signer } or set defaultSigner.",
+                            "No signer available. Pass { signer }, set defaultSigner, or provide a signerSource.",
                         );
                     }
 
-                    const origin = overrides?.origin ?? defaults.origin;
+                    const origin = resolveOrigin(defaults, overrides?.origin);
                     const tx = inkContract.send(methodName, {
                         data,
                         origin: origin ?? "",
@@ -207,6 +230,97 @@ if (import.meta.vitest) {
             const result = extractOverrides(["a"], [1, "extra"]);
             expect(result.positionalArgs).toEqual([1, "extra"]);
             expect(result.overrides).toBeUndefined();
+        });
+    });
+
+    describe("resolveOrigin", () => {
+        test("explicit override wins", () => {
+            const defaults: ContractDefaults = {
+                origin: "5Static" as SS58String,
+                signerSource: {
+                    getSigner: () => null,
+                    getState: () => ({ selectedAccount: { address: "5Source" } }),
+                },
+            };
+            expect(resolveOrigin(defaults, "5Override" as SS58String)).toBe("5Override");
+        });
+
+        test("signerSource wins over static default", () => {
+            const defaults: ContractDefaults = {
+                origin: "5Static" as SS58String,
+                signerSource: {
+                    getSigner: () => null,
+                    getState: () => ({ selectedAccount: { address: "5Source" } }),
+                },
+            };
+            expect(resolveOrigin(defaults)).toBe("5Source");
+        });
+
+        test("falls back to static default", () => {
+            const defaults: ContractDefaults = { origin: "5Static" as SS58String };
+            expect(resolveOrigin(defaults)).toBe("5Static");
+        });
+
+        test("returns undefined when nothing available", () => {
+            expect(resolveOrigin({})).toBeUndefined();
+        });
+
+        test("skips signerSource when no account selected", () => {
+            const defaults: ContractDefaults = {
+                origin: "5Static" as SS58String,
+                signerSource: {
+                    getSigner: () => null,
+                    getState: () => ({ selectedAccount: null }),
+                },
+            };
+            expect(resolveOrigin(defaults)).toBe("5Static");
+        });
+    });
+
+    describe("resolveSigner", () => {
+        const fakeSigner = { id: "fake" } as any;
+        const sourceSigner = { id: "source" } as any;
+
+        test("explicit override wins", () => {
+            const defaults: ContractDefaults = {
+                signer: { id: "static" } as any,
+                signerSource: {
+                    getSigner: () => sourceSigner,
+                    getState: () => ({ selectedAccount: null }),
+                },
+            };
+            expect(resolveSigner(defaults, fakeSigner)).toBe(fakeSigner);
+        });
+
+        test("signerSource wins over static default", () => {
+            const defaults: ContractDefaults = {
+                signer: { id: "static" } as any,
+                signerSource: {
+                    getSigner: () => sourceSigner,
+                    getState: () => ({ selectedAccount: null }),
+                },
+            };
+            expect(resolveSigner(defaults)).toBe(sourceSigner);
+        });
+
+        test("falls back to static default", () => {
+            const defaults: ContractDefaults = { signer: fakeSigner };
+            expect(resolveSigner(defaults)).toBe(fakeSigner);
+        });
+
+        test("returns undefined when nothing available", () => {
+            expect(resolveSigner({})).toBeUndefined();
+        });
+
+        test("skips signerSource when getSigner returns null", () => {
+            const defaults: ContractDefaults = {
+                signer: fakeSigner,
+                signerSource: {
+                    getSigner: () => null,
+                    getState: () => ({ selectedAccount: null }),
+                },
+            };
+            expect(resolveSigner(defaults)).toBe(fakeSigner);
         });
     });
 
@@ -375,6 +489,74 @@ if (import.meta.vitest) {
             const fakeInk = {};
             const wrapped = wrapContract(fakeInk, abi, {});
             expect((wrapped as any)[Symbol.iterator]).toBeUndefined();
+        });
+
+        test("query uses signerSource origin when no static default", async () => {
+            let captured: any;
+            const fakeInk = {
+                query: async (_: string, args: any) => {
+                    captured = args;
+                    return { success: true, value: { response: 1 } };
+                },
+            };
+            const wrapped = wrapContract(fakeInk, abi, {
+                signerSource: {
+                    getSigner: () => null,
+                    getState: () => ({ selectedAccount: { address: "5FromSource" } }),
+                },
+            });
+
+            await wrapped.getCount.query();
+            expect(captured.origin).toBe("5FromSource");
+        });
+
+        test("tx uses signerSource signer when no static default", async () => {
+            const sourceSigner = { id: "host-signer" } as any;
+            let signerUsed: any;
+            const fakeInk = {
+                send: () => ({
+                    signAndSubmit: async (s: any) => {
+                        signerUsed = s;
+                        return { txHash: "0x1", block: { hash: "0x2" }, ok: true, events: [] };
+                    },
+                }),
+            };
+            const wrapped = wrapContract(fakeInk, abi, {
+                signerSource: {
+                    getSigner: () => sourceSigner,
+                    getState: () => ({ selectedAccount: { address: "5Host" } }),
+                },
+            });
+
+            await wrapped.increment.tx();
+            expect(signerUsed).toBe(sourceSigner);
+        });
+
+        test("signerSource tracks account changes between calls", async () => {
+            let currentAccount = "5Alice";
+            let currentSigner = { id: "alice" } as any;
+            const origins: string[] = [];
+
+            const fakeInk = {
+                query: async (_: string, args: any) => {
+                    origins.push(args.origin);
+                    return { success: true, value: { response: 0 } };
+                },
+            };
+            const wrapped = wrapContract(fakeInk, abi, {
+                signerSource: {
+                    getSigner: () => currentSigner,
+                    getState: () => ({ selectedAccount: { address: currentAccount } }),
+                },
+            });
+
+            await wrapped.getCount.query();
+            // User switches account
+            currentAccount = "5Bob";
+            currentSigner = { id: "bob" } as any;
+            await wrapped.getCount.query();
+
+            expect(origins).toEqual(["5Alice", "5Bob"]);
         });
     });
 }

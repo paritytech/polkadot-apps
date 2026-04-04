@@ -1,4 +1,4 @@
-import type { PolkadotSigner, SS58String, HexString } from "polkadot-api";
+import type { PolkadotSigner, SS58String } from "polkadot-api";
 
 // ---------------------------------------------------------------------------
 // cdm.json schema
@@ -89,19 +89,50 @@ export interface TxResult {
     events: unknown[];
 }
 
+/**
+ * Reactive signer source — provides the currently logged-in account's
+ * signer and address.
+ *
+ * {@link SignerManager} from `@polkadot-apps/signer` satisfies this
+ * interface structurally — no import required.
+ *
+ * Resolved at **call time** so account switches are picked up
+ * automatically without re-creating contracts.
+ */
+export interface SignerSource {
+    /** Get the PolkadotSigner for the currently selected account. */
+    getSigner(): PolkadotSigner | null;
+    /** Get the current state including the selected account's address. */
+    getState(): { selectedAccount: { address: string } | null };
+}
+
 /** Mutable defaults shared across all contract handles from a manager. */
 export interface ContractDefaults {
     origin?: SS58String;
     signer?: PolkadotSigner;
+    signerSource?: SignerSource;
 }
 
 /** Options for {@link ContractManager} construction. */
 export interface ContractManagerOptions {
     /** Explicit target hash to select from cdm.json. Defaults to the first target. */
     targetHash?: string;
-    /** Default caller address for queries. */
+    /**
+     * Reactive signer source — typically a `SignerManager` from
+     * `@polkadot-apps/signer`. When provided, the currently selected
+     * account is used as the default signer and origin for all contract
+     * interactions. Checked at call time so account switches are
+     * reflected immediately.
+     *
+     * Resolution order (highest wins):
+     * 1. Explicit override in call options
+     * 2. `signerSource` (current logged-in account)
+     * 3. Static `defaultSigner` / `defaultOrigin`
+     */
+    signerSource?: SignerSource;
+    /** Static fallback caller address for queries. */
     defaultOrigin?: SS58String;
-    /** Default signer for transactions. */
+    /** Static fallback signer for transactions. */
     defaultSigner?: PolkadotSigner;
 }
 

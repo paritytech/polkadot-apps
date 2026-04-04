@@ -14,6 +14,10 @@ import type {
 /**
  * Manages typed contract interactions backed by a `cdm.json` manifest.
  *
+ * Pass a `signerSource` (e.g. a `SignerManager` from `@polkadot-apps/signer`)
+ * so the currently logged-in account is used automatically — no manual
+ * signer/origin wiring needed.
+ *
  * @example
  * ```ts
  * import { getChainAPI } from "@polkadot-apps/chain-client";
@@ -22,10 +26,10 @@ import type {
  *
  * const api = await getChainAPI("paseo");
  * const manager = new ContractManager(cdmJson, api.contracts, {
- *     defaultOrigin: myAddress,
- *     defaultSigner: mySigner,
+ *     signerSource: signerManager, // from @polkadot-apps/signer
  * });
  *
+ * // Uses the host's logged-in account automatically
  * const counter = manager.getContract("@example/counter");
  * const { value } = await counter.getCount.query();
  * await counter.increment.tx();
@@ -50,13 +54,15 @@ export class ContractManager {
         }
 
         this.defaults = {
+            signerSource: options?.signerSource,
             origin: options?.defaultOrigin,
             signer: options?.defaultSigner,
         };
     }
 
-    /** Update the default origin and/or signer used by all contract handles. */
+    /** Update the default origin, signer, or signerSource used by all contract handles. */
     setDefaults(defaults: ContractDefaults): void {
+        if (defaults.signerSource !== undefined) this.defaults.signerSource = defaults.signerSource;
         if (defaults.origin !== undefined) this.defaults.origin = defaults.origin;
         if (defaults.signer !== undefined) this.defaults.signer = defaults.signer;
     }
@@ -276,6 +282,79 @@ if (import.meta.vitest) {
             expect(sentMethod).toBe("increment");
             expect(result.txHash).toBe("0x1");
             expect(result.ok).toBe(true);
+        });
+
+        test("signerSource provides signer and origin automatically", async () => {
+            const hostSigner = { id: "host" } as any;
+            let capturedOrigin: string | undefined;
+            let capturedSigner: any;
+
+            const trackingSdk = {
+                getContract: () => ({
+                    query: async (_: string, args: any) => {
+                        capturedOrigin = args.origin;
+                        return { success: true, value: { response: 0 } };
+                    },
+                    send: (_: string, args: any) => {
+                        capturedOrigin = args.origin;
+                        return {
+                            signAndSubmit: async (s: any) => {
+                                capturedSigner = s;
+                                return {
+                                    txHash: "0x1",
+                                    block: { hash: "0x2" },
+                                    ok: true,
+                                    events: [],
+                                };
+                            },
+                        };
+                    },
+                }),
+            } as unknown as InkSdk;
+
+            const mgr = new ContractManager(cdmJson, trackingSdk, {
+                signerSource: {
+                    getSigner: () => hostSigner,
+                    getState: () => ({ selectedAccount: { address: "5HostUser" } }),
+                },
+            });
+            const contract = mgr.getContract("@test/counter");
+
+            await contract.getCount.query();
+            expect(capturedOrigin).toBe("5HostUser");
+
+            await contract.increment.tx();
+            expect(capturedSigner).toBe(hostSigner);
+            expect(capturedOrigin).toBe("5HostUser");
+        });
+
+        test("signerSource can be set after construction via setDefaults", async () => {
+            let capturedOrigin: string | undefined;
+            const trackingSdk = {
+                getContract: () => ({
+                    query: async (_: string, args: any) => {
+                        capturedOrigin = args.origin;
+                        return { success: true, value: { response: 0 } };
+                    },
+                    send: () => ({ signAndSubmit: async () => ({}) }),
+                }),
+            } as unknown as InkSdk;
+
+            const mgr = new ContractManager(cdmJson, trackingSdk);
+            // No signer source initially — query would fail
+            const contract = mgr.getContract("@test/counter");
+            await expect(contract.getCount.query()).rejects.toThrow(/No origin/);
+
+            // Add signer source
+            mgr.setDefaults({
+                signerSource: {
+                    getSigner: () => ({}) as any,
+                    getState: () => ({ selectedAccount: { address: "5Late" } }),
+                },
+            });
+            const contract2 = mgr.getContract("@test/counter");
+            await contract2.getCount.query();
+            expect(capturedOrigin).toBe("5Late");
         });
     });
 }

@@ -15,4 +15,5 @@ export type {
     TxResult,
     ContractDefaults,
     ContractManagerOptions,
+    SignerSource,
 } from "./types.js";
