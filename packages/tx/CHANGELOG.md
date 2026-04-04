@@ -1,5 +1,14 @@
 # @polkadot-apps/tx
 
+## 0.2.8
+
+### Patch Changes
+
+- 648008e: Add `sideEffects: false` to all packages and disable source map generation to improve tree-shaking and reduce published package size.
+- Updated dependencies [648008e]
+  - @polkadot-apps/keys@0.3.4
+  - @polkadot-apps/logger@0.1.5
+
 ## 0.2.7
 
 ### Patch Changes

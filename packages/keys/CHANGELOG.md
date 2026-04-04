@@ -1,5 +1,15 @@
 # @polkadot-apps/keys
 
+## 0.3.4
+
+### Patch Changes
+
+- 648008e: Add `sideEffects: false` to all packages and disable source map generation to improve tree-shaking and reduce published package size.
+- Updated dependencies [648008e]
+  - @polkadot-apps/address@0.3.3
+  - @polkadot-apps/crypto@0.3.4
+  - @polkadot-apps/storage@0.2.4
+
 ## 0.3.3
 
 ### Patch Changes

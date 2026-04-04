@@ -1,5 +1,18 @@
 # @polkadot-apps/bulletin
 
+## 0.4.2
+
+### Patch Changes
+
+- 648008e: Restructure descriptors into per-chain papi builds. Each chain now has its own `.papi/polkadot-api.json` config and generates into `chains/<name>/generated/dist/`. Consumers import via subpath exports (e.g., `import { bulletin } from "@polkadot-apps/descriptors/bulletin"`) which only bundles that chain's metadata. The barrel import is removed. chain-client lazy-loads descriptors per environment via dynamic imports.
+- Updated dependencies [648008e]
+- Updated dependencies [648008e]
+  - @polkadot-apps/host@0.2.3
+  - @polkadot-apps/logger@0.1.5
+  - @polkadot-apps/tx@0.2.8
+  - @polkadot-apps/descriptors@1.0.0
+  - @polkadot-apps/chain-client@0.3.7
+
 ## 0.4.1
 
 ### Patch Changes
