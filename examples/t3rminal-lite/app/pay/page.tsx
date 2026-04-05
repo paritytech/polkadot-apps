@@ -6,7 +6,8 @@ import { submitAndWatch } from "@polkadot-apps/tx";
 import type { TxStatus } from "@polkadot-apps/tx";
 import { getSignerManager, destroySignerManager } from "@/lib/wallet";
 import { getApi, cleanup } from "@/lib/chain";
-import { formatPlanck, parseToPlanck, generateId } from "@/lib/types";
+import { formatPlanck, parseToPlanck } from "@polkadot-apps/utils";
+import { generateId } from "@/lib/types";
 import type { Transaction } from "@/lib/types";
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected";

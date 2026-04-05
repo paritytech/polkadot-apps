@@ -34,6 +34,9 @@ START
 ├─ Need encryption/decryption?
 │  YES → @polkadot-apps/crypto
 │
+├─ Need byte encoding (hex, UTF-8) or token formatting (planck)?
+│  YES → @polkadot-apps/utils
+│
 ├─ Need persistent key-value storage (browser/host)?
 │  YES → @polkadot-apps/storage
 │
@@ -62,6 +65,7 @@ polkadot-api
 @polkadot-apps/tx
 @polkadot-apps/signer
 @polkadot-apps/address
+@polkadot-apps/utils
 polkadot-api
 ```
 
@@ -90,6 +94,7 @@ polkadot-api
 @polkadot-apps/statement-store
 @polkadot-apps/address
 @polkadot-apps/crypto
+@polkadot-apps/utils
 @polkadot-apps/keys
 @polkadot-apps/storage
 @polkadot-apps/logger
@@ -101,10 +106,11 @@ polkadot-api
 ```
 address ─────────────────────────── (leaf)
 crypto ──────────────────────────── (leaf)
+utils ───────────────────────────── (leaf, depends on logger)
 logger ──────────────────────────── (leaf)
 host ────────────────────────────── (leaf)
 storage ← host, logger
-keys ← address, crypto, storage
+keys ← address, crypto, utils, storage
 tx ← keys, logger
 signer ← address, keys, logger
 chain-client ← descriptors, host

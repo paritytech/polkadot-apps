@@ -2,20 +2,22 @@
 name: polkadot-utilities
 description: >
   Use when working with Polkadot address encoding, SS58, H160, EVM address conversion,
-  cryptographic encryption (AES, ChaCha, NaCl, HKDF), key-value storage, or structured
-  logging in @polkadot-apps packages. Covers address, crypto, storage, and logger utilities.
+  cryptographic encryption (AES, ChaCha, NaCl, HKDF), byte encoding/decoding, token
+  formatting (planck), key-value storage, or structured logging in @polkadot-apps packages.
+  Covers address, crypto, utils, storage, and logger utilities.
 ---
 
 # Polkadot Utility Packages
 
-Four leaf packages provide foundational utilities across the monorepo. All are pure TypeScript, framework-agnostic, and published under the `@polkadot-apps/` scope.
+Five leaf packages provide foundational utilities across the monorepo. All are pure TypeScript, framework-agnostic, and published under the `@polkadot-apps/` scope.
 
 ## Decision Guide
 
 | Need | Package | Import |
 |------|---------|--------|
 | Encode/decode SS58 addresses, validate addresses, convert between SS58 and H160 EVM addresses | `address` | `@polkadot-apps/address` |
-| Symmetric encryption (AES-GCM, ChaCha20), key derivation (HKDF), asymmetric encryption (NaCl box), encoding helpers | `crypto` | `@polkadot-apps/crypto` |
+| Symmetric encryption (AES-GCM, ChaCha20), key derivation (HKDF), asymmetric encryption (NaCl box), random bytes | `crypto` | `@polkadot-apps/crypto` |
+| Byte encoding/decoding (hex, UTF-8, concat), token formatting (planck to human-readable and back) | `utils` | `@polkadot-apps/utils` |
 | Persistent key-value storage that auto-detects browser localStorage vs host container backend | `storage` | `@polkadot-apps/storage` |
 | Structured logging with levels, namespaces, and pluggable handlers | `logger` | `@polkadot-apps/logger` |
 
@@ -76,6 +78,26 @@ const sealed = sealedBoxEncrypt(message, recipient.publicKey);
 const opened = sealedBoxDecrypt(sealed, recipient.secretKey);
 ```
 
+## Quick Start: Utils
+
+```ts
+import { bytesToHex, hexToBytes, utf8ToBytes, concatBytes } from "@polkadot-apps/utils";
+
+// Byte encoding
+const hex = bytesToHex(new Uint8Array([0xab, 0xcd])); // "abcd"
+const bytes = hexToBytes("abcd");
+const text = utf8ToBytes("hello");
+const combined = concatBytes(header, payload);
+
+// Token formatting (planck ↔ human-readable)
+import { formatPlanck, parseToPlanck } from "@polkadot-apps/utils";
+
+formatPlanck(10_000_000_000n);   // "1.0" (DOT, 10 decimals)
+formatPlanck(15_000_000_000n);   // "1.5"
+parseToPlanck("1.5");             // 15_000_000_000n
+parseToPlanck("1.0", 12);        // 1_000_000_000_000n (KSM)
+```
+
 ## Quick Start: Storage
 
 ```ts
@@ -126,6 +148,13 @@ configure({
 - **Using `chachaEncrypt` for high-volume random nonces.** ChaCha20-Poly1305 has a 12-byte nonce (safe for ~2^32 encryptions per key). Use `xchachaEncrypt` (24-byte nonce) for high-volume scenarios.
 - **Forgetting that all encrypt functions require exactly 32-byte keys.** Passing a 16-byte or 64-byte key throws. Use `deriveKey()` to derive a 32-byte key from arbitrary material.
 - **Confusing `sealedBoxEncrypt` with `boxEncrypt`.** Sealed box is for anonymous senders (ephemeral keypair). Box is for identified senders (both parties known).
+- **Importing encoding utilities from crypto.** `bytesToHex`, `hexToBytes`, `utf8ToBytes`, and `concatBytes` have moved to `@polkadot-apps/utils`. Only `randomBytes` remains in crypto.
+
+### Utils
+
+- **Passing a `0x`-prefixed string to `hexToBytes`.** The implementation expects raw hex without a prefix. Strip it first: `hexToBytes(hex.slice(2))`.
+- **Using `formatPlanck` with the wrong `decimals` for a chain.** DOT uses 10, KSM uses 12, many parachains use 18. Always check the chain's token metadata.
+- **Assuming `parseToPlanck` rounds excess decimals.** It truncates, not rounds.
 
 ### Storage
 
@@ -141,6 +170,7 @@ configure({
 ## Reference Files
 
 - [Address API](references/address-api.md) - SS58, H160, display utilities
-- [Crypto API](references/crypto-api.md) - AES-GCM, ChaCha20, HKDF, NaCl, encoding
+- [Crypto API](references/crypto-api.md) - AES-GCM, ChaCha20, HKDF, NaCl, randomBytes
+- [Utils API](references/utils-api.md) - Encoding (hex, UTF-8, concat), token formatting (planck)
 - [Storage API](references/storage-api.md) - KvStore creation and types
 - [Logger API](references/logger-api.md) - configure, createLogger, types

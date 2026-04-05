@@ -32,7 +32,7 @@ The `skills/` directory contains skills that enable AI coding assistants to buil
 | `polkadot-statement-store` | statement-store | "pub/sub", "statement store", "topics" |
 | `polkadot-utilities` | address, crypto, storage, logger | "SS58", "encrypt", "key-value store" |
 
-See [`examples/multi-chain-explorer/`](examples/multi-chain-explorer/) for a sample app built with these packages.
+See `examples/multi-chain-explorer/` for a sample app built with these packages.
 
 ### Using the Skills
 

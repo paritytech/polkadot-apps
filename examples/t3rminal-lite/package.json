@@ -13,6 +13,7 @@
         "@polkadot-apps/chain-client": "workspace:*",
         "@polkadot-apps/signer": "workspace:*",
         "@polkadot-apps/tx": "workspace:*",
+        "@polkadot-apps/utils": "workspace:*",
         "next": "^15.3.1",
         "polkadot-api": "catalog:",
         "qrcode": "^1.5.4",

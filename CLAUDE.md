@@ -45,7 +45,7 @@ AI coding assistants (Claude Code, Copilot, Gemini, Codex) use the skills in `sk
 | `polkadot-transactions` | tx, signer, keys |
 | `polkadot-bulletin` | bulletin |
 | `polkadot-statement-store` | statement-store |
-| `polkadot-utilities` | address, crypto, storage, logger |
+| `polkadot-utilities` | address, crypto, storage, logger, utils |
 
 ## Examples
 

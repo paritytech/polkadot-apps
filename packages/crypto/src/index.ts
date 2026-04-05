@@ -3,7 +3,7 @@
  *
  * Provides symmetric encryption (AES-256-GCM, ChaCha20-Poly1305, XChaCha20-Poly1305),
  * key derivation (HKDF-SHA256), asymmetric encryption (NaCl box / sealed box),
- * and encoding utilities. All functions are synchronous and framework-agnostic.
+ * and cryptographic random bytes. All functions are synchronous and framework-agnostic.
  *
  * @packageDocumentation
  */
