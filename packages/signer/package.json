@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/signer",
     "description": "Multi-provider signer manager for Polkadot — Host API, browser extensions, and dev accounts",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",

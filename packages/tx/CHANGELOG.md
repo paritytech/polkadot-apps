@@ -1,5 +1,12 @@
 # @polkadot-apps/tx
 
+## 0.2.9
+
+### Patch Changes
+
+- Updated dependencies [b9a8385]
+  - @polkadot-apps/keys@0.3.5
+
 ## 0.2.8
 
 ### Patch Changes

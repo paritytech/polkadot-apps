@@ -1,5 +1,12 @@
 # @polkadot-apps/signer
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [b9a8385]
+  - @polkadot-apps/keys@0.3.5
+
 ## 0.1.3
 
 ### Patch Changes
