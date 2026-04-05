@@ -552,9 +552,7 @@ const signKeyPair = nacl.sign.keyPair();
 
 ---
 
-## Encoding Utilities
-
-All re-exported from `@noble/hashes/utils`.
+## Utilities
 
 ### randomBytes
 
@@ -569,65 +567,8 @@ import { randomBytes } from "@polkadot-apps/crypto";
 const key = randomBytes(32);
 ```
 
----
-
-### bytesToHex
-
-Convert a `Uint8Array` to its lowercase hexadecimal string representation (no `0x` prefix).
-
-```ts
-function bytesToHex(bytes: Uint8Array): string
-```
-
-```ts
-import { bytesToHex } from "@polkadot-apps/crypto";
-bytesToHex(new Uint8Array([0xab, 0xcd])); // "abcd"
-```
-
----
-
-### hexToBytes
-
-Decode a hexadecimal string into a `Uint8Array` (no `0x` prefix expected).
-
-```ts
-function hexToBytes(hex: string): Uint8Array
-```
-
-```ts
-import { hexToBytes } from "@polkadot-apps/crypto";
-hexToBytes("abcd"); // Uint8Array [0xab, 0xcd]
-```
-
----
-
-### utf8ToBytes
-
-Encode a UTF-8 string into a `Uint8Array`.
-
-```ts
-function utf8ToBytes(str: string): Uint8Array
-```
-
-```ts
-import { utf8ToBytes } from "@polkadot-apps/crypto";
-utf8ToBytes("hello"); // Uint8Array [104, 101, 108, 108, 111]
-```
-
----
-
-### concatBytes
-
-Concatenate multiple `Uint8Array` instances into a single `Uint8Array`.
-
-```ts
-function concatBytes(...arrays: Uint8Array[]): Uint8Array
-```
-
-```ts
-import { concatBytes } from "@polkadot-apps/crypto";
-const combined = concatBytes(header, payload, footer);
-```
+> **Migration note:** `bytesToHex`, `hexToBytes`, `utf8ToBytes`, and `concatBytes` have moved to
+> `@polkadot-apps/utils`. See the [Utils API reference](utils-api.md).
 
 ---
 

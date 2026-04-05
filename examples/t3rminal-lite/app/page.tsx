@@ -5,7 +5,7 @@ import { truncateAddress } from "@polkadot-apps/address";
 import type { SignerAccount } from "@polkadot-apps/signer";
 import { getSignerManager, destroySignerManager } from "@/lib/wallet";
 import { getBalance, cleanup } from "@/lib/chain";
-import { formatPlanck } from "@/lib/types";
+import { formatPlanck } from "@polkadot-apps/utils";
 import type { Transaction } from "@/lib/types";
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected";

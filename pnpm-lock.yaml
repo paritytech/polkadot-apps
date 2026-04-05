@@ -136,6 +136,9 @@ importers:
       '@polkadot-apps/tx':
         specifier: workspace:*
         version: link:../../packages/tx
+      '@polkadot-apps/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       next:
         specifier: ^15.3.1
         version: 15.5.14(@babel/core@7.29.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -285,6 +288,9 @@ importers:
       '@polkadot-apps/storage':
         specifier: workspace:*
         version: link:../storage
+      '@polkadot-apps/utils':
+        specifier: workspace:*
+        version: link:../utils
       '@polkadot-labs/hdkd':
         specifier: 'catalog:'
         version: 0.0.26
@@ -379,6 +385,19 @@ importers:
       polkadot-api:
         specifier: 'catalog:'
         version: 1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  packages/utils:
+    dependencies:
+      '@noble/hashes':
+        specifier: 'catalog:'
+        version: 2.0.1
+      '@polkadot-apps/logger':
+        specifier: workspace:*
+        version: link:../logger
     devDependencies:
       typescript:
         specifier: 'catalog:'

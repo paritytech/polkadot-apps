@@ -1,7 +1,7 @@
 {
-    "name": "@polkadot-apps/keys",
-    "description": "Hierarchical key derivation and session key management for Polkadot accounts",
-    "version": "0.3.4",
+    "name": "@polkadot-apps/utils",
+    "description": "Encoding utilities and token formatting for the @polkadot-apps ecosystem",
+    "version": "0.1.0",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -22,13 +22,8 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
-        "@polkadot-apps/address": "workspace:*",
-        "@polkadot-apps/crypto": "workspace:*",
-        "@polkadot-apps/utils": "workspace:*",
-        "@polkadot-apps/storage": "workspace:*",
-        "@polkadot-labs/hdkd": "catalog:",
-        "@polkadot-labs/hdkd-helpers": "catalog:",
-        "polkadot-api": "catalog:"
+        "@noble/hashes": "catalog:",
+        "@polkadot-apps/logger": "workspace:*"
     },
     "devDependencies": {
         "typescript": "catalog:"
