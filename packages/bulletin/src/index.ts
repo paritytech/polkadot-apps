@@ -1,3 +1,4 @@
+export { checkAuthorization } from "./authorization.js";
 export { BulletinClient } from "./client.js";
 export {
     computeCid,
@@ -12,6 +13,7 @@ export { queryBytes, queryJson } from "./query.js";
 export { resolveUploadStrategy } from "./resolve-signer.js";
 export { upload, batchUpload } from "./upload.js";
 export type {
+    AuthorizationStatus,
     BulletinApi,
     Environment,
     UploadOptions,

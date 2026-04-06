@@ -1,6 +1,7 @@
 import { getChainAPI } from "@polkadot-apps/chain-client";
 import type { PolkadotSigner } from "polkadot-api";
 
+import { checkAuthorization } from "./authorization.js";
 import {
     type CidCodec,
     type HashAlgorithm,
@@ -13,6 +14,7 @@ import { executeQuery } from "./query.js";
 import { resolveQueryStrategy, type QueryStrategy } from "./resolve-query.js";
 import { batchUpload, upload } from "./upload.js";
 import type {
+    AuthorizationStatus,
     BatchUploadItem,
     BatchUploadOptions,
     BatchUploadResult,
@@ -152,6 +154,21 @@ export class BulletinClient {
     gatewayUrl(cid: string): string {
         return gatewayUrl(cid, this.gateway);
     }
+
+    /**
+     * Check whether an account is authorized to store data on the Bulletin Chain.
+     *
+     * Use as a pre-flight check before {@link upload} to provide clear UX
+     * instead of letting the transaction fail mid-execution.
+     *
+     * @param address - SS58-encoded account address to check.
+     * @returns Authorization status with remaining quota.
+     *
+     * @see {@link checkAuthorization} for the standalone function equivalent.
+     */
+    async checkAuthorization(address: string): Promise<AuthorizationStatus> {
+        return checkAuthorization(this.api, address);
+    }
 }
 
 if (import.meta.vitest) {
@@ -252,6 +269,27 @@ if (import.meta.vitest) {
             } finally {
                 vi.unstubAllGlobals();
             }
+        });
+
+        test("checkAuthorization delegates to standalone", async () => {
+            const authMockApi = {
+                ...mockApi,
+                query: {
+                    TransactionStorage: {
+                        Authorizations: {
+                            getValue: vi.fn().mockResolvedValue({
+                                extent: { transactions: 5, bytes: 2000n },
+                                expiration: 100,
+                            }),
+                        },
+                    },
+                },
+            } as unknown as BulletinApi;
+            const client = BulletinClient.from(authMockApi, GATEWAY);
+            const status = await client.checkAuthorization("5GrwvaEF...");
+            expect(status.authorized).toBe(true);
+            expect(status.remainingTransactions).toBe(5);
+            expect(status.remainingBytes).toBe(2000n);
         });
     });
 }

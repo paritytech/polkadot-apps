@@ -109,6 +109,21 @@ const results = await client.batchUpload([
 ]);
 ```
 
+#### `client.checkAuthorization(address)`
+
+Pre-flight check: query whether an account is authorized to store data. Use before `upload()` to provide clear UX.
+
+```ts
+async checkAuthorization(address: string): Promise<AuthorizationStatus>
+```
+
+```ts
+const auth = await client.checkAuthorization(myAddress);
+if (!auth.authorized) { /* not authorized */ }
+if (auth.remainingBytes < BigInt(fileBytes.length)) { /* insufficient quota */ }
+// auth.remainingTransactions, auth.remainingBytes, auth.expiration
+```
+
 #### `client.fetchBytes(cid, options?)`
 
 Fetch raw bytes by CID. Auto-resolves query path (host lookup or gateway).
@@ -208,6 +223,27 @@ const results = await batchUpload(api, [
     console.log(`${completed}/${total}: ${current.label}`);
   },
 });
+```
+
+### Authorization
+
+#### `checkAuthorization(api, address)`
+
+Pre-flight check: query whether an account is authorized to store data on the Bulletin Chain.
+
+```ts
+async function checkAuthorization(
+  api: BulletinApi,
+  address: string,
+): Promise<AuthorizationStatus>
+```
+
+Returns `{ authorized, remainingTransactions, remainingBytes, expiration }`.
+
+```ts
+import { checkAuthorization } from "@polkadot-apps/bulletin";
+
+const auth = await checkAuthorization(api, address);
 ```
 
 ### CID
