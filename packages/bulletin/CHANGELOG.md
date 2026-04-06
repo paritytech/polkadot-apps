@@ -1,5 +1,11 @@
 # @polkadot-apps/bulletin
 
+## 0.6.0
+
+### Minor Changes
+
+- e41ea54: Add `checkAuthorization` for pre-flight authorization checks before uploading to the Bulletin Chain. Queries `TransactionStorage.Authorizations` and returns the raw quota (remaining transactions, bytes, expiration block), enabling dApps to show "not authorized" or "insufficient quota" instead of failing mid-transaction.
+
 ## 0.5.1
 
 ### Patch Changes
