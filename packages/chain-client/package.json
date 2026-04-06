@@ -27,14 +27,6 @@
         "@polkadot-api/sdk-ink": "catalog:",
         "polkadot-api": "catalog:"
     },
-    "peerDependencies": {
-        "@novasamatech/product-sdk": "catalog:"
-    },
-    "peerDependenciesMeta": {
-        "@novasamatech/product-sdk": {
-            "optional": true
-        }
-    },
     "devDependencies": {
         "typescript": "catalog:"
     }
