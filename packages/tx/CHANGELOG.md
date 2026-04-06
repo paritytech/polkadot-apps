@@ -1,5 +1,11 @@
 # @polkadot-apps/tx
 
+## 0.2.11
+
+### Patch Changes
+
+- @polkadot-apps/keys@0.3.7
+
 ## 0.2.10
 
 ### Patch Changes
