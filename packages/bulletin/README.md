@@ -160,6 +160,24 @@ Fetch and parse JSON by CID. Auto-resolves the query path (same as `fetchBytes`)
 const metadata = await bulletin.fetchJson<{ name: string }>("bafk...");
 ```
 
+#### `bulletin.checkAuthorization(address)`
+
+Check whether an account is authorized to store data. Use as a pre-flight check before `upload()` to show "not authorized" or "insufficient quota" instead of letting the transaction fail.
+
+```ts
+const auth = await bulletin.checkAuthorization(myAddress);
+if (!auth.authorized) {
+    console.error("Account is not authorized for bulletin storage");
+} else if (auth.remainingBytes < BigInt(fileBytes.length)) {
+    console.error(`Insufficient quota: ${auth.remainingBytes} bytes remaining`);
+}
+```
+
+**Parameters:**
+- `address` — SS58-encoded account address
+
+**Returns:** `AuthorizationStatus` with `authorized`, `remainingTransactions`, `remainingBytes`, `expiration`.
+
 #### `bulletin.cidExists(cid)`
 
 Check if a CID exists on the gateway (HEAD request). Returns `false` on any error or timeout.
@@ -198,7 +216,8 @@ The same operations are available as standalone functions for lower-level usage:
 
 ```ts
 import {
-    upload, batchUpload, computeCid, cidToPreimageKey, hashToCid,
+    upload, batchUpload, checkAuthorization,
+    computeCid, cidToPreimageKey, hashToCid,
     HashAlgorithm, CidCodec,
     fetchBytes, fetchJson, cidExists,
     queryBytes, queryJson, resolveQueryStrategy,
@@ -213,6 +232,16 @@ Upload data using an explicit `BulletinApi` instance.
 #### `batchUpload(api, items, signer?, options?)`
 
 Batch upload using an explicit `BulletinApi` instance.
+
+#### `checkAuthorization(api, address)`
+
+Check whether an account is authorized to store data. Standalone equivalent of `bulletin.checkAuthorization()`.
+
+```ts
+import { checkAuthorization } from "@polkadot-apps/bulletin";
+
+const auth = await checkAuthorization(api, address);
+```
 
 #### `computeCid(data)`
 
@@ -305,6 +334,17 @@ console.log(strategy.kind); // "host-lookup" or "gateway"
 ```
 
 ## Types
+
+### `AuthorizationStatus`
+
+```ts
+interface AuthorizationStatus {
+    authorized: boolean;           // Whether an authorization entry exists
+    remainingTransactions: number; // Remaining tx slots (0 if not authorized)
+    remainingBytes: bigint;        // Remaining bytes (0n if not authorized)
+    expiration: number;            // Expiration block number (0 if not authorized)
+}
+```
 
 ### `UploadResult`
 

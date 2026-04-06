@@ -128,11 +128,25 @@ const exists = await client.cidExists(cid);
 // Build gateway URL
 const url = client.gatewayUrl(cid);
 // e.g., "https://paseo-ipfs.polkadot.io/ipfs/bafk..."
+
+// Pre-flight authorization check before upload
+const auth = await client.checkAuthorization(address);
+if (!auth.authorized) { /* show "not authorized" */ }
+if (auth.remainingBytes < BigInt(fileBytes.length)) { /* show "insufficient quota" */ }
 ```
 
 ## Standalone Functions
 
 For advanced use cases where you manage the API and gateway yourself, all operations are available as standalone functions.
+
+### Authorization
+
+```ts
+import { checkAuthorization } from "@polkadot-apps/bulletin";
+
+const auth = await checkAuthorization(api, address);
+// auth.authorized, auth.remainingTransactions, auth.remainingBytes, auth.expiration
+```
 
 ### Upload Functions
 
