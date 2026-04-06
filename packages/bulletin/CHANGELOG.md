@@ -1,5 +1,11 @@
 # @polkadot-apps/bulletin
 
+## 0.5.0
+
+### Minor Changes
+
+- 474a0b8: Add `hashToCid` function to reconstruct a CIDv1 from a `0x`-prefixed hex hash — the reverse of `cidToPreimageKey`. Supports all hash algorithms (blake2b-256, sha2-256, keccak-256) and codecs (raw, dag-pb, dag-cbor) used by the Bulletin Chain. Also exports `HashAlgorithm` and `CidCodec` constants, and broadens `cidToPreimageKey` to accept any supported hash algorithm.
+
 ## 0.4.4
 
 ### Patch Changes
