@@ -144,7 +144,8 @@ if (import.meta.vitest) {
         hostProviderAvailable: true,
     }));
 
-    vi.mock("@polkadot-apps/host", () => ({
+    vi.mock("@polkadot-apps/host", async (importOriginal) => ({
+        ...(await importOriginal<typeof import("@polkadot-apps/host")>()),
         getHostProvider: async (...args: unknown[]) => {
             state.hostProviderCalls.push(args);
             if (!state.hostProviderAvailable) return null;
