@@ -21,12 +21,15 @@ pnpm add @novasamatech/product-sdk
 ## Quick Start
 
 ```typescript
-import { isInsideContainer, getHostLocalStorage } from "@polkadot-apps/host";
+import { isInsideContainer, getHostLocalStorage, getHostProvider } from "@polkadot-apps/host";
 
 if (await isInsideContainer()) {
   const storage = await getHostLocalStorage();
   await storage?.writeString("last-visit", new Date().toISOString());
 }
+
+// Get a host-routed chain provider (returns null outside a container)
+const provider = await getHostProvider("0xabc...", wsProvider) ?? wsProvider;
 ```
 
 ## Container Detection
@@ -76,12 +79,33 @@ if (storage) {
 }
 ```
 
+## Host Provider
+
+When running inside a Polkadot container, `getHostProvider` wraps chain connections through the host's shared connection pool, enabling efficient routing and resource sharing.
+
+```typescript
+import { getHostProvider } from "@polkadot-apps/host";
+import { getWsProvider } from "polkadot-api/ws-provider/web";
+
+const ws = getWsProvider("wss://rpc.example.com");
+const provider = await getHostProvider("0xabc...", ws);
+
+if (provider) {
+  // Inside container — connections route through the host
+  const client = createClient(provider);
+} else {
+  // Outside container — use WebSocket directly
+  const client = createClient(ws);
+}
+```
+
 ## API
 
 | Function | Signature | Description |
 |---|---|---|
 | `isInsideContainer` | `() => Promise<boolean>` | Detect if running inside the Polkadot Desktop/Mobile container. Uses product-sdk as the primary signal, with manual fallbacks. |
 | `getHostLocalStorage` | `() => Promise<HostLocalStorage \| null>` | Get the host localStorage bridge when inside a container. Returns `null` outside a container. |
+| `getHostProvider` | `(genesisHash, fallback?) => Promise<JsonRpcProvider \| null>` | Get a host-routed PAPI provider. Returns `null` when product-sdk is unavailable. |
 
 ## Types
 

@@ -1,3 +1,5 @@
+import type { JsonRpcProvider } from "polkadot-api/ws-provider/web";
+
 import type { HostLocalStorage } from "./types.js";
 
 /**
@@ -27,6 +29,39 @@ export async function getHostLocalStorage(): Promise<HostLocalStorage | null> {
     try {
         const sdk = await import("@novasamatech/product-sdk");
         return sdk.hostLocalStorage;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Get a PAPI-compatible JSON-RPC provider that routes through the host connection.
+ *
+ * When running inside a Polkadot container, this wraps the chain connection via the
+ * host's `createPapiProvider`, enabling shared connections and efficient routing.
+ * Returns `null` when `@novasamatech/product-sdk` is unavailable (standalone environments).
+ *
+ * @param genesisHash - Genesis hash of the target chain (`0x`-prefixed hex string).
+ * @param fallback    - Optional fallback provider (e.g., WebSocket). Passed to the host
+ *   provider, which uses it when the host doesn't support the requested chain.
+ * @returns A host-routed `JsonRpcProvider`, or `null` if product-sdk is unavailable.
+ *
+ * @example
+ * ```ts
+ * import { getHostProvider } from "@polkadot-apps/host";
+ * import { getWsProvider } from "polkadot-api/ws-provider/web";
+ *
+ * const ws = getWsProvider("wss://rpc.example.com");
+ * const provider = await getHostProvider("0xabc...", ws) ?? ws;
+ * ```
+ */
+export async function getHostProvider(
+    genesisHash: `0x${string}`,
+    fallback?: JsonRpcProvider,
+): Promise<JsonRpcProvider | null> {
+    try {
+        const sdk = await import("@novasamatech/product-sdk");
+        return sdk.createPapiProvider(genesisHash, fallback);
     } catch {
         return null;
     }
@@ -149,5 +184,44 @@ if (import.meta.vitest) {
             vi.doUnmock("@novasamatech/product-sdk");
             vi.unstubAllGlobals();
         }
+    });
+
+    test("getHostProvider returns provider when product-sdk available", async () => {
+        const fakeProvider = (() => {}) as unknown as JsonRpcProvider;
+        vi.doMock("@novasamatech/product-sdk", () => ({
+            createPapiProvider: (...args: unknown[]) => {
+                expect(args[0]).toBe("0xabc");
+                expect(args[1]).toBe(undefined);
+                return fakeProvider;
+            },
+        }));
+        try {
+            const result = await getHostProvider("0xabc");
+            expect(result).toBe(fakeProvider);
+        } finally {
+            vi.doUnmock("@novasamatech/product-sdk");
+        }
+    });
+
+    test("getHostProvider passes fallback to createPapiProvider", async () => {
+        const fakeFallback = (() => {}) as unknown as JsonRpcProvider;
+        const fakeHostProvider = (() => {}) as unknown as JsonRpcProvider;
+        vi.doMock("@novasamatech/product-sdk", () => ({
+            createPapiProvider: (_genesis: string, fallback: unknown) => {
+                expect(fallback).toBe(fakeFallback);
+                return fakeHostProvider;
+            },
+        }));
+        try {
+            const result = await getHostProvider("0xdef", fakeFallback);
+            expect(result).toBe(fakeHostProvider);
+        } finally {
+            vi.doUnmock("@novasamatech/product-sdk");
+        }
+    });
+
+    test("getHostProvider returns null when product-sdk unavailable", async () => {
+        const result = await getHostProvider("0xabc");
+        expect(result).toBeNull();
     });
 }

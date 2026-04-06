@@ -85,7 +85,7 @@ Get the typed chain API for a given environment. Returns asset hub, bulletin, in
 - **Lazy loading:** Descriptors are imported dynamically -- only the chains needed for the requested environment are loaded.
 
 **Connection strategy:**
-1. Uses host routing (via `@novasamatech/product-sdk`) when inside a container.
+1. Uses host routing (via `@polkadot-apps/host`) when inside a container.
 2. Falls back to direct WebSocket RPC outside a container.
 
 ```ts
@@ -161,8 +161,8 @@ async function createProvider(genesisHash: string, meta: ChainMeta): Promise<Jso
 
 Creates a papi-compatible JSON-RPC provider for a chain:
 1. Builds a standalone fallback provider (RPC or light client based on `meta.mode`).
-2. Wraps with `@novasamatech/product-sdk`'s `createPapiProvider` if available (routes through host).
-3. If product-sdk is not installed, uses the fallback directly.
+2. Wraps with `@polkadot-apps/host`'s `getHostProvider` if available (routes through host).
+3. If host provider is unavailable, uses the fallback directly.
 
 ### HMR Cache (`hmr.ts`)
 

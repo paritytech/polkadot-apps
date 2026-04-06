@@ -28,7 +28,7 @@ destroyAll();
 |---|---|
 | `@polkadot-apps/chain-client` | High-level connection manager. Creates typed APIs for all chains in an environment. |
 | `@polkadot-apps/descriptors` | Pre-generated papi descriptors. Subpath imports per chain. |
-| `@polkadot-apps/host` | Container detection (Polkadot Browser / Polkadot Desktop). Re-exported by chain-client. |
+| `@polkadot-apps/host` | Container detection, host-routed providers, and storage (Polkadot Browser / Polkadot Desktop). Re-exported by chain-client. |
 
 ## Environments
 

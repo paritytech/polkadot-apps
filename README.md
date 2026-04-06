@@ -11,7 +11,7 @@ Reusable TypeScript components for rapidly developing applications within the Po
 | [`@polkadot-apps/chain-client`](https://www.npmjs.com/package/@polkadot-apps/chain-client) | Multi-chain Polkadot API client with typed access to Asset Hub, Bulletin, and Individuality chains |
 | [`@polkadot-apps/crypto`](https://www.npmjs.com/package/@polkadot-apps/crypto) | Cryptographic primitives — symmetric encryption, key derivation, and NaCl operations |
 | [`@polkadot-apps/descriptors`](https://www.npmjs.com/package/@polkadot-apps/descriptors) | Pre-generated Polkadot API descriptors for Asset Hub, Bulletin, and Individuality chains |
-| [`@polkadot-apps/host`](https://www.npmjs.com/package/@polkadot-apps/host) | Host container detection and storage access for Polkadot Desktop and Mobile environments |
+| [`@polkadot-apps/host`](https://www.npmjs.com/package/@polkadot-apps/host) | Host container detection, provider routing, and storage access for Polkadot Desktop and Mobile environments |
 | [`@polkadot-apps/keys`](https://www.npmjs.com/package/@polkadot-apps/keys) | Hierarchical key derivation and session key management for Polkadot accounts |
 | [`@polkadot-apps/logger`](https://www.npmjs.com/package/@polkadot-apps/logger) | Structured, namespace-filtered logging for the @polkadot-apps ecosystem |
 | [`@polkadot-apps/signer`](https://www.npmjs.com/package/@polkadot-apps/signer) | Multi-provider signer manager — Host API, browser extensions, and dev accounts |

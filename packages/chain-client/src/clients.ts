@@ -131,7 +131,7 @@ const envCache = new Map<Environment, Promise<ChainAPI<Environment>>>();
  * Get the typed chain API for a given environment.
  *
  * Returns asset hub, bulletin, individuality, and contracts — fully typed from descriptors.
- * Connections use host routing (via product-sdk) when inside a container,
+ * Connections use host routing (via `@polkadot-apps/host`) when inside a container,
  * falling back to direct RPC.
  *
  * @example
