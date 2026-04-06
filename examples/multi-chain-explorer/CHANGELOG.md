@@ -1,5 +1,12 @@
 # multi-chain-explorer
 
+## 0.0.2
+
+### Patch Changes
+
+- @polkadot-apps/tx@0.2.10
+- @polkadot-apps/bulletin@0.4.4
+
 ## 0.0.1
 
 ### Patch Changes

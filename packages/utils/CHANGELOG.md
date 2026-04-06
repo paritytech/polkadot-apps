@@ -1,5 +1,11 @@
 # @polkadot-apps/utils
 
+## 0.2.1
+
+### Patch Changes
+
+- 562a36f: Initial npm publish for @polkadot-apps/utils
+
 ## 0.2.0
 
 ### Minor Changes
