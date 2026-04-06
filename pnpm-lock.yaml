@@ -192,9 +192,6 @@ importers:
 
   packages/bulletin:
     dependencies:
-      '@noble/hashes':
-        specifier: 'catalog:'
-        version: 2.0.1
       '@polkadot-apps/chain-client':
         specifier: workspace:*
         version: link:../chain-client
@@ -210,6 +207,9 @@ importers:
       '@polkadot-apps/tx':
         specifier: workspace:*
         version: link:../tx
+      '@polkadot-apps/utils':
+        specifier: workspace:*
+        version: link:../utils
       multiformats:
         specifier: 'catalog:'
         version: 13.4.2
@@ -335,9 +335,6 @@ importers:
 
   packages/statement-store:
     dependencies:
-      '@noble/hashes':
-        specifier: 'catalog:'
-        version: 2.0.1
       '@polkadot-apps/chain-client':
         specifier: workspace:*
         version: link:../chain-client
@@ -347,6 +344,9 @@ importers:
       '@polkadot-apps/logger':
         specifier: workspace:*
         version: link:../logger
+      '@polkadot-apps/utils':
+        specifier: workspace:*
+        version: link:../utils
       polkadot-api:
         specifier: 'catalog:'
         version: 1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)

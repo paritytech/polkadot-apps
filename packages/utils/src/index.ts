@@ -8,4 +8,5 @@
  * @packageDocumentation
  */
 export * from "./encoding.js";
+export * from "./hashing.js";
 export * from "./planck.js";

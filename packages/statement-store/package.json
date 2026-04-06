@@ -24,7 +24,7 @@
         "@polkadot-apps/chain-client": "workspace:*",
         "@polkadot-apps/descriptors": "workspace:*",
         "@polkadot-apps/logger": "workspace:*",
-        "@noble/hashes": "catalog:",
+        "@polkadot-apps/utils": "workspace:*",
         "polkadot-api": "catalog:"
     },
     "devDependencies": {

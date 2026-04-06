@@ -9,6 +9,10 @@ Package: `@polkadot-apps/utils`
   - [hexToBytes](#hextobytes)
   - [utf8ToBytes](#utf8tobytes)
   - [concatBytes](#concatbytes)
+- [Hashing](#hashing)
+  - [blake2b256](#blake2b256)
+  - [sha256](#sha256)
+  - [keccak256](#keccak256)
 - [Token Formatting](#token-formatting)
   - [formatPlanck](#formatplanck)
   - [parseToPlanck](#parsetoplanck)
@@ -75,6 +79,55 @@ function concatBytes(...arrays: Uint8Array[]): Uint8Array
 ```ts
 import { concatBytes } from "@polkadot-apps/utils";
 const combined = concatBytes(header, payload, footer);
+```
+
+---
+
+## Hashing
+
+Deterministic 32-byte hash functions. Thin wrappers over `@noble/hashes` — consumers don't need to add `@noble/hashes` as a direct dependency.
+
+### blake2b256
+
+Compute a 32-byte BLAKE2b-256 hash. Default hash algorithm for the Polkadot ecosystem and the Bulletin Chain.
+
+```ts
+function blake2b256(data: Uint8Array): Uint8Array
+```
+
+```ts
+import { blake2b256 } from "@polkadot-apps/utils";
+const hash = blake2b256(new TextEncoder().encode("hello")); // 32 bytes
+```
+
+---
+
+### sha256
+
+Compute a 32-byte SHA2-256 hash. Used by bulletin-deploy and supported by the Bulletin Chain.
+
+```ts
+function sha256(data: Uint8Array): Uint8Array
+```
+
+```ts
+import { sha256 } from "@polkadot-apps/utils";
+const hash = sha256(new TextEncoder().encode("hello")); // 32 bytes
+```
+
+---
+
+### keccak256
+
+Compute a 32-byte Keccak-256 hash. Used for Ethereum-compatible operations and supported by the Bulletin Chain.
+
+```ts
+function keccak256(data: Uint8Array): Uint8Array
+```
+
+```ts
+import { keccak256 } from "@polkadot-apps/utils";
+const hash = keccak256(new TextEncoder().encode("hello")); // 32 bytes
 ```
 
 ---
