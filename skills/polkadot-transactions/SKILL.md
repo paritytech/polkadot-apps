@@ -104,6 +104,54 @@ const result = await submitAndWatch(tx, signer, {
 // result: TxResult { txHash, ok, block: { hash, number, index }, events, dispatchError? }
 ```
 
+### 3b. (Optional) Batch Multiple Transactions
+
+Submit multiple transactions as a single atomic batch — one signing prompt, one fee.
+
+```ts
+import { batchSubmitAndWatch } from "@polkadot-apps/tx";
+
+// Build individual transactions from a PAPI typed API
+// NOTE: Pass the chain-specific TypedApi (e.g., api.assetHub), not the ChainAPI wrapper.
+// When using @polkadot-apps/chain-client: api = await getChainAPI("paseo"), then use api.assetHub.
+const tx1 = api.assetHub.tx.Balances.transfer_keep_alive({ dest: addr1, value: 1_000n });
+const tx2 = api.assetHub.tx.Balances.transfer_keep_alive({ dest: addr2, value: 2_000n });
+const tx3 = api.assetHub.tx.System.remark({ remark: Binary.fromText("hello") });
+
+// Submit as atomic batch — pass the same TypedApi that built the transactions
+const result = await batchSubmitAndWatch([tx1, tx2, tx3], api.assetHub, signer, {
+  onStatus: (status: TxStatus) => updateUI(status),
+});
+```
+
+Three batch modes corresponding to Substrate's Utility pallet:
+
+| Mode | Behavior |
+|------|----------|
+| `"batch_all"` (default) | Atomic. Reverts all calls if any single call fails. |
+| `"batch"` | Best-effort. Stops at first failure but earlier successful calls are not reverted. |
+| `"force_batch"` | Like `batch` but continues after failures (never aborts early). |
+
+```ts
+// Non-atomic: some calls may fail while others succeed
+const result = await batchSubmitAndWatch(calls, api, signer, { mode: "batch" });
+```
+
+Calls can be PAPI transactions, Ink SDK `AsyncTransaction` wrappers, or raw decoded calls — mixed freely in the same array:
+
+```ts
+// Contract dry-run → batch pattern
+const [dryRun1, dryRun2] = await Promise.all([
+  contract.query("updateDoc", { origin, data: args1 }),
+  contract.query("grantAccess", { origin, data: args2 }),
+]);
+const tx1 = extractTransaction(dryRun1);
+const tx2 = extractTransaction(dryRun2);
+
+// api.assetHub is the TypedApi for the chain where the contract lives
+const result = await batchSubmitAndWatch([tx1, tx2], api.assetHub, signer);
+```
+
 ### 4. (Optional) Retry Transient Failures
 
 ```ts
@@ -116,9 +164,18 @@ const result = await withRetry(
 ```
 
 `withRetry` only retries transient errors (network disconnects, RPC failures). It does NOT retry:
+- `TxBatchError` (batch construction failure like empty calls)
 - `TxDispatchError` (on-chain failure like insufficient balance)
 - `TxSigningRejectedError` (user rejected in wallet)
 - `TxTimeoutError` (already waited full duration)
+
+Works with `batchSubmitAndWatch` too:
+```ts
+const result = await withRetry(
+  () => batchSubmitAndWatch(calls, api, signer),
+  { maxAttempts: 3 },
+);
+```
 
 ### 5. (Optional) Ensure Account Mapping for EVM Contracts
 
@@ -136,7 +193,7 @@ All tx errors extend `TxError`. Catch them hierarchically:
 ```ts
 import {
   TxError, TxTimeoutError, TxDispatchError,
-  TxSigningRejectedError, TxDryRunError,
+  TxSigningRejectedError, TxDryRunError, TxBatchError,
 } from "@polkadot-apps/tx";
 
 try {
@@ -144,6 +201,8 @@ try {
 } catch (e) {
   if (e instanceof TxSigningRejectedError) {
     // User rejected signing in wallet
+  } else if (e instanceof TxBatchError) {
+    // Batch construction failed (e.g., empty calls array)
   } else if (e instanceof TxDispatchError) {
     console.log(e.formatted); // e.g., "Balances.InsufficientBalance"
   } else if (e instanceof TxTimeoutError) {
@@ -312,6 +371,8 @@ const account = seedToAccount(
 5. **Retrying non-retryable errors** - Do not wrap `withRetry` around the full flow if you want to handle dispatch errors specially. `withRetry` already skips non-retryable errors, but your error handling should account for this.
 
 6. **Forgetting account mapping** - EVM contract interactions on Asset Hub require calling `ensureAccountMapped` first. It is idempotent so safe to call every time.
+
+7. **Assuming `batch` mode is atomic** - The default `"batch_all"` mode is atomic, but `"batch"` mode stops at the first failure without reverting earlier calls. With `"force_batch"`, execution continues past failures. In both non-atomic modes, inspect `result.events` for `Utility.ItemFailed` or `Utility.BatchInterrupted` events to detect individual failures.
 
 ## Reference Files
 

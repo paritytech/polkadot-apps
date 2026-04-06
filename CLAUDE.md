@@ -51,7 +51,7 @@ AI coding assistants (Claude Code, Copilot, Gemini, Codex) use the skills in `sk
 
 The `examples/` directory contains sample applications for validation and benchmarking:
 
-- **`examples/multi-chain-explorer/`** — CLI app that queries Paseo chain state, balances, and submits a remark transaction. Run with `pnpm start` from the example directory (after `pnpm build` from root).
+- **`examples/multi-chain-explorer/`** — CLI app that queries Paseo chain state, balances, submits a remark transaction, and demonstrates batch transaction submission. Run with `pnpm start` from the example directory (after `pnpm build` from root).
 - **`examples/t3rminal-lite/`** — Next.js web app demonstrating wallet connection, address display, and transaction submission. Run with `pnpm dev` from the example directory.
 
 ## Reference Repos

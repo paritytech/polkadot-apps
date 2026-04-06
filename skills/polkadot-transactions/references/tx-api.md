@@ -31,6 +31,39 @@ function submitAndWatch(
 
 ---
 
+### batchSubmitAndWatch
+
+Batch multiple transactions into a single Substrate Utility batch and submit with lifecycle tracking.
+
+```ts
+function batchSubmitAndWatch(
+  calls: BatchableCall[],
+  api: BatchApi,
+  signer: PolkadotSigner,
+  options?: BatchSubmitOptions,
+): Promise<TxResult>
+```
+
+**Parameters:**
+- `calls` - Array of transactions, AsyncTransactions, or raw decoded calls. Each call's `.decodedCall` is extracted automatically; Ink SDK `AsyncTransaction` wrappers (with `.waited`) are resolved transparently; raw decoded call objects are passed through as-is.
+- `api` - A typed API with `tx.Utility.batch_all/batch/force_batch`. Works structurally with any chain that has the Utility pallet.
+- `signer` - The `PolkadotSigner` to use.
+- `options` - Optional `BatchSubmitOptions` (extends `SubmitOptions` with `mode`).
+
+**Throws:**
+- `TxBatchError` - If `calls` is empty, or if an AsyncTransaction resolves without `.decodedCall`.
+- `TxTimeoutError` - If the batch transaction does not reach the target state within `timeoutMs`.
+- `TxDispatchError` - If the on-chain dispatch fails.
+- `TxSigningRejectedError` - If the user rejects signing in their wallet.
+
+**Behavior:**
+- Default `mode` is `"batch_all"` (atomic, all-or-nothing).
+- All calls are resolved in parallel via `Promise.all` before constructing the batch.
+- Delegates to `submitAndWatch` for the actual submission, so all `SubmitOptions` (waitFor, timeoutMs, mortalityPeriod, onStatus) are forwarded.
+- `TxBatchError` is non-retryable by `withRetry` (deterministic construction failure).
+
+---
+
 ### createDevSigner
 
 Create a `PolkadotSigner` for a standard Substrate dev account.
@@ -110,6 +143,7 @@ function withRetry<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>
 - `options` - Optional `RetryOptions`.
 
 Only retries transient errors (network disconnects, temporary RPC failures). The following are rethrown immediately without retry:
+- `TxBatchError` - Deterministic batch construction failure.
 - `TxDispatchError` - Deterministic on-chain failure.
 - `TxSigningRejectedError` - Explicit user intent.
 - `TxTimeoutError` - Already waited the full duration.
@@ -280,6 +314,16 @@ class TxDryRunError extends TxError {
 
 A dry-run simulation failed before the transaction was submitted on-chain. `revertReason` is the Solidity revert reason if the contract provided one.
 
+### TxBatchError
+
+```ts
+class TxBatchError extends TxError {
+  constructor(message: string)
+}
+```
+
+Error specific to batch transaction construction. Thrown when `calls` is empty or when an AsyncTransaction resolves without a `.decodedCall` property. Non-retryable by `withRetry`.
+
 ### TxAccountMappingError
 
 ```ts
@@ -374,6 +418,7 @@ interface SubmittableTransaction {
     }) => { unsubscribe: () => void };
   };
   waited?: Promise<SubmittableTransaction>;
+  decodedCall?: unknown;
 }
 ```
 
@@ -436,3 +481,43 @@ interface EnsureAccountMappedOptions {
   onStatus?: (status: "checking" | "mapping" | "mapped" | "already-mapped") => void;
 }
 ```
+
+### BatchMode
+
+```ts
+type BatchMode = "batch_all" | "batch" | "force_batch";
+```
+
+Batch execution mode corresponding to Substrate's Utility pallet.
+
+### BatchableCall
+
+```ts
+type BatchableCall = SubmittableTransaction | { decodedCall: unknown } | Record<string, unknown>;
+```
+
+A transaction or decoded call that can be included in a batch. Accepts PAPI transactions (`.decodedCall` extracted), Ink SDK AsyncTransactions (`.waited` resolved), or raw decoded call objects (must be objects, not primitives).
+
+### BatchSubmitOptions
+
+```ts
+interface BatchSubmitOptions extends SubmitOptions {
+  mode?: BatchMode;  // Default: "batch_all" (atomic, all-or-nothing)
+}
+```
+
+### BatchApi
+
+```ts
+interface BatchApi {
+  tx: {
+    Utility: {
+      batch(args: { calls: unknown[] }): SubmittableTransaction;
+      batch_all(args: { calls: unknown[] }): SubmittableTransaction;
+      force_batch(args: { calls: unknown[] }): SubmittableTransaction;
+    };
+  };
+}
+```
+
+Minimal structural type for a PAPI typed API with the Utility pallet. Works with any chain that has the Utility pallet without importing chain-specific descriptors.

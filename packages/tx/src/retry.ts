@@ -1,6 +1,6 @@
 import { createLogger } from "@polkadot-apps/logger";
 
-import { TxDispatchError, TxSigningRejectedError, TxTimeoutError } from "./errors.js";
+import { TxBatchError, TxDispatchError, TxSigningRejectedError, TxTimeoutError } from "./errors.js";
 import type { RetryOptions } from "./types.js";
 
 const log = createLogger("tx:retry");
@@ -12,6 +12,7 @@ function sleep(ms: number): Promise<void> {
 /**
  * Whether an error is deterministic and should not be retried.
  *
+ * - Batch errors are deterministic input validation failures (e.g., empty calls array).
  * - Dispatch errors are on-chain failures (e.g., insufficient balance) that will
  *   produce the same result on retry.
  * - Signing rejections are explicit user intent.
@@ -19,6 +20,7 @@ function sleep(ms: number): Promise<void> {
  */
 function isNonRetryable(error: unknown): boolean {
     return (
+        error instanceof TxBatchError ||
         error instanceof TxDispatchError ||
         error instanceof TxSigningRejectedError ||
         error instanceof TxTimeoutError
@@ -41,9 +43,9 @@ export function calculateDelay(attempt: number, baseDelayMs: number, maxDelayMs:
  * Wrap an async function with retry logic and exponential backoff.
  *
  * Only retries transient errors (network disconnects, temporary RPC failures).
- * Deterministic errors ({@link TxDispatchError}), user rejections
- * ({@link TxSigningRejectedError}), and timeouts ({@link TxTimeoutError}) are
- * rethrown immediately without retry.
+ * Deterministic errors ({@link TxDispatchError}, {@link TxBatchError}), user
+ * rejections ({@link TxSigningRejectedError}), and timeouts ({@link TxTimeoutError})
+ * are rethrown immediately without retry.
  *
  * @param fn - The async function to retry.
  * @param options - Retry configuration.
@@ -159,6 +161,20 @@ if (import.meta.vitest) {
                     { maxAttempts: 3, baseDelayMs: 1 },
                 ),
             ).rejects.toThrow(TxSigningRejectedError);
+            expect(calls).toBe(1);
+        });
+
+        test("does NOT retry TxBatchError", async () => {
+            let calls = 0;
+            await expect(
+                withRetry(
+                    () => {
+                        calls++;
+                        return Promise.reject(new TxBatchError("Cannot batch zero calls"));
+                    },
+                    { maxAttempts: 3, baseDelayMs: 1 },
+                ),
+            ).rejects.toThrow(TxBatchError);
             expect(calls).toBe(1);
         });
 
