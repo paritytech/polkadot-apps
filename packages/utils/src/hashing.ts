@@ -1,5 +1,6 @@
 import { blake2b } from "@noble/hashes/blake2.js";
 import { sha256 as _sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex as _bytesToHex } from "@noble/hashes/utils.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 
 /**
@@ -125,6 +126,13 @@ if (import.meta.vitest) {
             const data = new TextEncoder().encode("cross-check");
             expect(sha256(data)).not.toEqual(blake2b256(data));
         });
+
+        test("matches known SHA-256 test vector", () => {
+            const hash = sha256(new TextEncoder().encode("hello"));
+            expect(_bytesToHex(hash)).toBe(
+                "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+            );
+        });
     });
 
     describe("keccak256", () => {
@@ -154,6 +162,13 @@ if (import.meta.vitest) {
             const data = new TextEncoder().encode("cross-check");
             expect(keccak256(data)).not.toEqual(sha256(data));
             expect(keccak256(data)).not.toEqual(blake2b256(data));
+        });
+
+        test("matches known Keccak-256 test vector", () => {
+            const hash = keccak256(new TextEncoder().encode("hello"));
+            expect(_bytesToHex(hash)).toBe(
+                "1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8",
+            );
         });
     });
 }
