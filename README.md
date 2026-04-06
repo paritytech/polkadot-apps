@@ -18,6 +18,7 @@ Reusable TypeScript components for rapidly developing applications within the Po
 | [`@polkadot-apps/statement-store`](https://www.npmjs.com/package/@polkadot-apps/statement-store) | Publish/subscribe client for the Polkadot Statement Store with topic-based routing |
 | [`@polkadot-apps/storage`](https://www.npmjs.com/package/@polkadot-apps/storage) | Key-value storage abstraction with automatic host/browser backend detection |
 | [`@polkadot-apps/tx`](https://www.npmjs.com/package/@polkadot-apps/tx) | Transaction submission, lifecycle watching, and dev signers for Polkadot chains |
+| [`@polkadot-apps/utils`](https://www.npmjs.com/package/@polkadot-apps/utils) | Encoding utilities and token formatting for the @polkadot-apps ecosystem |
 
 ## Skills for AI Agents
 
@@ -30,9 +31,12 @@ The `skills/` directory contains skills that enable AI coding assistants to buil
 | `polkadot-transactions` | tx, signer, keys | "submit transaction", "sign", "dev signer" |
 | `polkadot-bulletin` | bulletin | "upload data", "Bulletin Chain", "CID" |
 | `polkadot-statement-store` | statement-store | "pub/sub", "statement store", "topics" |
-| `polkadot-utilities` | address, crypto, storage, logger | "SS58", "encrypt", "key-value store" |
+| `polkadot-utilities` | address, crypto, utils, storage, logger | "SS58", "encrypt", "format token", "key-value store" |
 
-See `examples/multi-chain-explorer/` for a sample app built with these packages.
+See the `examples/` directory for sample apps built with these packages:
+
+- **`examples/multi-chain-explorer/`** — CLI app that queries Paseo chain state, balances, and submits a remark transaction.
+- **`examples/t3rminal-lite/`** — Next.js web app demonstrating wallet connection, address display, and transaction submission.
 
 ### Using the Skills
 
