@@ -1,7 +1,13 @@
 import { getChainAPI } from "@polkadot-apps/chain-client";
 import type { PolkadotSigner } from "polkadot-api";
 
-import { computeCid } from "./cid.js";
+import {
+    type CidCodec,
+    type HashAlgorithm,
+    cidToPreimageKey,
+    computeCid,
+    hashToCid,
+} from "./cid.js";
 import { cidExists, getGateway, gatewayUrl } from "./gateway.js";
 import { executeQuery } from "./query.js";
 import { resolveQueryStrategy, type QueryStrategy } from "./resolve-query.js";
@@ -72,6 +78,18 @@ export class BulletinClient {
     /** Compute CID without uploading. Static — no instance needed. */
     static computeCid(data: Uint8Array): string {
         return computeCid(data);
+    }
+
+    /**
+     * Reconstruct a CID from a `0x`-prefixed hex hash. Static — no instance needed.
+     *
+     * Useful for converting on-chain hashes back to CIDs for IPFS gateway lookups.
+     * Pass optional hash algorithm and codec to match the on-chain CID configuration.
+     *
+     * @see {@link hashToCid} for full documentation.
+     */
+    static hashToCid(hexHash: `0x${string}`, hashCode?: HashAlgorithm, codec?: CidCodec): string {
+        return hashToCid(hexHash, hashCode, codec);
     }
 
     /**
@@ -177,6 +195,13 @@ if (import.meta.vitest) {
             const data = new TextEncoder().encode("hello");
             const cid = BulletinClient.computeCid(data);
             expect(cid).toBe(computeCid(data));
+        });
+
+        test("hashToCid() is static and delegates to standalone", () => {
+            const data = new TextEncoder().encode("hello");
+            const cid = computeCid(data);
+            const key = cidToPreimageKey(cid);
+            expect(BulletinClient.hashToCid(key)).toBe(cid);
         });
 
         test("gatewayUrl() returns gateway + cid", () => {

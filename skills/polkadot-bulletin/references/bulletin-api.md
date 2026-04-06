@@ -55,6 +55,22 @@ static computeCid(data: Uint8Array): string
 const cid = BulletinClient.computeCid(new TextEncoder().encode("data"));
 ```
 
+#### `BulletinClient.hashToCid(hexHash, hashCode?, codec?)`
+
+Reconstruct a CID from an on-chain hex hash. Static -- no instance needed. Supports all Bulletin Chain hash algorithms and codecs.
+
+```ts
+static hashToCid(hexHash: `0x${string}`, hashCode?: HashAlgorithm, codec?: CidCodec): string
+```
+
+```ts
+import { HashAlgorithm } from "@polkadot-apps/bulletin";
+
+const cid = BulletinClient.hashToCid("0x1a2b3c...");
+const sha256Cid = BulletinClient.hashToCid("0x1a2b3c...", HashAlgorithm.Sha2_256);
+const url = client.gatewayUrl(cid); // IPFS gateway link
+```
+
 ### Instance Methods
 
 #### `client.upload(data, signer?, options?)`
@@ -213,19 +229,64 @@ const cid = computeCid(new TextEncoder().encode("hello bulletin"));
 
 #### `cidToPreimageKey(cid)`
 
-Extract the blake2b-256 digest from a CIDv1 string and return it as a `0x`-prefixed hex string (the preimage key format used by the host API).
+Extract the content hash digest from a CIDv1 string and return it as a `0x`-prefixed hex string (the preimage key format used by the host API). Accepts any hash algorithm supported by the Bulletin Chain (blake2b-256, sha2-256, keccak-256).
 
 ```ts
 function cidToPreimageKey(cid: string): `0x${string}`
 ```
 
-- Throws if the CID is not CIDv1 or does not use blake2b-256.
+- Throws if the CID is not CIDv1 or uses an unsupported hash algorithm.
 
 ```ts
 import { cidToPreimageKey } from "@polkadot-apps/bulletin";
 
 const key = cidToPreimageKey(cid);
 // "0x" + 64 hex characters
+```
+
+#### `hashToCid(hexHash, hashCode?, codec?)`
+
+Reconstruct a CIDv1 from a `0x`-prefixed 32-byte hex hash — the reverse of `cidToPreimageKey`. Use when converting on-chain hashes to IPFS gateway URLs.
+
+Supports all hash algorithms and codecs used by the Bulletin Chain. Defaults to blake2b-256 + raw (matching `computeCid`).
+
+```ts
+function hashToCid(
+  hexHash: `0x${string}`,
+  hashCode?: HashAlgorithm,  // default: HashAlgorithm.Blake2b256
+  codec?: CidCodec,          // default: CidCodec.Raw
+): string
+```
+
+- Throws if `hexHash` is not exactly 66 characters, or if hash/codec is unsupported.
+
+```ts
+import { hashToCid, HashAlgorithm, CidCodec, gatewayUrl, getGateway } from "@polkadot-apps/bulletin";
+
+// Default (blake2b-256, raw)
+const cid = hashToCid("0x1a2b3c...");
+
+// SHA2-256 content (e.g., from bulletin-deploy)
+const cid2 = hashToCid("0x1a2b3c...", HashAlgorithm.Sha2_256);
+
+// DAG-PB manifest
+const cid3 = hashToCid(manifestHash, HashAlgorithm.Blake2b256, CidCodec.DagPb);
+
+const url = gatewayUrl(cid, getGateway("paseo"));
+```
+
+#### `HashAlgorithm` / `CidCodec`
+
+Constants for hash algorithms and codecs supported by the Bulletin Chain:
+
+```ts
+HashAlgorithm.Blake2b256  // 0xb220 — default
+HashAlgorithm.Sha2_256    // 0x12   — bulletin-deploy default
+HashAlgorithm.Keccak256   // 0x1b   — Ethereum compat
+
+CidCodec.Raw     // 0x55 — single-chunk data (default)
+CidCodec.DagPb   // 0x70 — multi-chunk manifests
+CidCodec.DagCbor // 0x71 — DAG-CBOR encoding
 ```
 
 ### Gateway

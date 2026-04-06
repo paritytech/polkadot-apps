@@ -119,6 +119,9 @@ const bytes2 = await client.fetchBytes(cid, {
 // Compute CID without uploading (static, no instance needed)
 const cid = BulletinClient.computeCid(new TextEncoder().encode("data"));
 
+// Reconstruct CID from on-chain hex hash (static, no instance needed)
+const cidFromHash = BulletinClient.hashToCid("0x1a2b3c...");
+
 // Check if CID exists on the gateway
 const exists = await client.cidExists(cid);
 
@@ -155,10 +158,16 @@ const results = await batchUpload(api, items, signer, {
 ### CID Functions
 
 ```ts
-import { computeCid, cidToPreimageKey } from "@polkadot-apps/bulletin";
+import { computeCid, cidToPreimageKey, hashToCid, HashAlgorithm, CidCodec } from "@polkadot-apps/bulletin";
 
 const cid = computeCid(new TextEncoder().encode("hello"));
 const hexKey = cidToPreimageKey(cid); // "0x..." (64-char hex)
+const reconstructed = hashToCid(hexKey); // back to CID from on-chain hash
+
+// SHA2-256 content (e.g., stored via bulletin-deploy)
+const sha256Cid = hashToCid(hexKey, HashAlgorithm.Sha2_256);
+// DAG-PB manifest
+const manifestCid = hashToCid(hexKey, HashAlgorithm.Blake2b256, CidCodec.DagPb);
 ```
 
 ### Gateway Functions
