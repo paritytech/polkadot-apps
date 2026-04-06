@@ -36,7 +36,7 @@ AI coding assistants (Claude Code, Copilot, Gemini, Codex) use the skills in `sk
 - **Changing a package's public API** → update the matching skill's `references/` files with new signatures.
 - **Adding a new package** → add it to the appropriate skill (or create a new one) and update `skills/polkadot-app-builder/references/package-selector.md`.
 - **Changing supported chains/environments** → update `skills/polkadot-app-builder/references/chains.md` and `skills/polkadot-chain-connection/references/descriptors-guide.md`.
-- **Modifying `examples/multi-chain-explorer/`** → ensure skills still match.
+- **Modifying examples** → ensure skills still match.
 
 | Skill | Packages Covered |
 |-------|-----------------|
@@ -45,13 +45,14 @@ AI coding assistants (Claude Code, Copilot, Gemini, Codex) use the skills in `sk
 | `polkadot-transactions` | tx, signer, keys |
 | `polkadot-bulletin` | bulletin |
 | `polkadot-statement-store` | statement-store |
-| `polkadot-utilities` | address, crypto, storage, logger, utils |
+| `polkadot-utilities` | address, crypto, utils, storage, logger |
 
 ## Examples
 
 The `examples/` directory contains sample applications for validation and benchmarking:
 
 - **`examples/multi-chain-explorer/`** — CLI app that queries Paseo chain state, balances, and submits a remark transaction. Run with `pnpm start` from the example directory (after `pnpm build` from root).
+- **`examples/t3rminal-lite/`** — Next.js web app demonstrating wallet connection, address display, and transaction submission. Run with `pnpm dev` from the example directory.
 
 ## Reference Repos
 
