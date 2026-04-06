@@ -1,5 +1,11 @@
 # @polkadot-apps/keys
 
+## 0.3.8
+
+### Patch Changes
+
+- @polkadot-apps/storage@0.2.5
+
 ## 0.3.7
 
 ### Patch Changes

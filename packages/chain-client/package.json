@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/chain-client",
     "description": "Multi-chain Polkadot API client with typed access to Asset Hub, Bulletin, and Individuality chains",
-    "version": "0.3.7",
+    "version": "0.3.8",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",

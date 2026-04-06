@@ -1,5 +1,11 @@
 # @polkadot-apps/host
 
+## 0.3.0
+
+### Minor Changes
+
+- c286f9b: Add `getHostProvider` to `@polkadot-apps/host` — wraps product-sdk's `createPapiProvider` so apps can get host-routed chain connections without importing `@novasamatech/product-sdk` directly. Migrated chain-client to use this wrapper, removing its direct product-sdk dependency.
+
 ## 0.2.3
 
 ### Patch Changes

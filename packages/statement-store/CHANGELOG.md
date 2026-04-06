@@ -1,5 +1,12 @@
 # @polkadot-apps/statement-store
 
+## 0.2.9
+
+### Patch Changes
+
+- Updated dependencies [c286f9b]
+  - @polkadot-apps/chain-client@0.3.8
+
 ## 0.2.8
 
 ### Patch Changes
