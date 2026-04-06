@@ -17,7 +17,7 @@ Five leaf packages provide foundational utilities across the monorepo. All are p
 |------|---------|--------|
 | Encode/decode SS58 addresses, validate addresses, convert between SS58 and H160 EVM addresses | `address` | `@polkadot-apps/address` |
 | Symmetric encryption (AES-GCM, ChaCha20), key derivation (HKDF), asymmetric encryption (NaCl box), random bytes | `crypto` | `@polkadot-apps/crypto` |
-| Byte encoding/decoding (hex, UTF-8, concat), token formatting (planck to human-readable and back) | `utils` | `@polkadot-apps/utils` |
+| Byte encoding/decoding (hex, UTF-8, concat), hashing (blake2b-256, sha2-256, keccak-256), token formatting (planck to human-readable and back) | `utils` | `@polkadot-apps/utils` |
 | Persistent key-value storage that auto-detects browser localStorage vs host container backend | `storage` | `@polkadot-apps/storage` |
 | Structured logging with levels, namespaces, and pluggable handlers | `logger` | `@polkadot-apps/logger` |
 
@@ -88,6 +88,13 @@ const hex = bytesToHex(new Uint8Array([0xab, 0xcd])); // "abcd"
 const bytes = hexToBytes("abcd");
 const text = utf8ToBytes("hello");
 const combined = concatBytes(header, payload);
+
+// Hashing (32-byte output, all deterministic)
+import { blake2b256, sha256, keccak256 } from "@polkadot-apps/utils";
+
+const hash = blake2b256(new TextEncoder().encode("hello")); // Polkadot default
+const sha = sha256(data);     // bulletin-deploy default
+const kek = keccak256(data);  // Ethereum compat
 
 // Token formatting (planck ↔ human-readable)
 import { formatPlanck, parseToPlanck } from "@polkadot-apps/utils";
@@ -171,6 +178,6 @@ configure({
 
 - [Address API](references/address-api.md) - SS58, H160, display utilities
 - [Crypto API](references/crypto-api.md) - AES-GCM, ChaCha20, HKDF, NaCl, randomBytes
-- [Utils API](references/utils-api.md) - Encoding (hex, UTF-8, concat), token formatting (planck)
+- [Utils API](references/utils-api.md) - Encoding (hex, UTF-8, concat), hashing (blake2b-256, sha2-256, keccak-256), token formatting (planck)
 - [Storage API](references/storage-api.md) - KvStore creation and types
 - [Logger API](references/logger-api.md) - configure, createLogger, types

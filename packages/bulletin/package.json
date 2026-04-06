@@ -27,7 +27,7 @@
         "@polkadot-apps/host": "workspace:*",
         "@polkadot-apps/logger": "workspace:*",
         "@polkadot-apps/tx": "workspace:*",
-        "@noble/hashes": "catalog:",
+        "@polkadot-apps/utils": "workspace:*",
         "multiformats": "catalog:",
         "polkadot-api": "catalog:"
     },

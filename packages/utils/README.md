@@ -23,6 +23,23 @@ const text = utf8ToBytes("hello"); // Uint8Array [104, 101, 108, 108, 111]
 const combined = concatBytes(header, payload);
 ```
 
+### Hashing
+
+Deterministic 32-byte hash functions used across the Polkadot ecosystem.
+
+```typescript
+import { blake2b256, sha256, keccak256, bytesToHex } from "@polkadot-apps/utils";
+
+const hash = blake2b256(new TextEncoder().encode("hello"));
+console.log(bytesToHex(hash)); // 64-char hex string
+
+// SHA2-256 (bulletin-deploy default)
+const sha = sha256(data);
+
+// Keccak-256 (Ethereum compatibility)
+const kek = keccak256(data);
+```
+
 ### Token formatting
 
 Convert between raw planck values (the smallest indivisible token unit on Substrate chains) and human-readable decimal strings.
@@ -55,6 +72,14 @@ parseToPlanck("1.0", 12);             // 1_000_000_000_000n
 | `hexToBytes` | `(hex: string)` | `Uint8Array` (no `0x` prefix expected) |
 | `utf8ToBytes` | `(str: string)` | `Uint8Array` |
 | `concatBytes` | `(...arrays: Uint8Array[])` | `Uint8Array` |
+
+### Hashing
+
+| Function | Signature | Returns | Description |
+|---|---|---|---|
+| `blake2b256` | `(data: Uint8Array)` | `Uint8Array` (32 bytes) | BLAKE2b-256 — Polkadot default |
+| `sha256` | `(data: Uint8Array)` | `Uint8Array` (32 bytes) | SHA2-256 — bulletin-deploy default |
+| `keccak256` | `(data: Uint8Array)` | `Uint8Array` (32 bytes) | Keccak-256 — Ethereum compatibility |
 
 ### Token formatting
 

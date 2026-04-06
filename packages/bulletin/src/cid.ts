@@ -1,5 +1,4 @@
-import { blake2b } from "@noble/hashes/blake2.js";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+import { blake2b256, bytesToHex, hexToBytes } from "@polkadot-apps/utils";
 import { createLogger } from "@polkadot-apps/logger";
 import { CID } from "multiformats/cid";
 import * as Digest from "multiformats/hashes/digest";
@@ -50,7 +49,7 @@ const EXPECTED_HEX_LENGTH = 66; // "0x" + 64 hex chars = 32 bytes
  * Deterministic: same input always produces the same CID.
  */
 export function computeCid(data: Uint8Array): string {
-    const hash = blake2b(data, { dkLen: 32 });
+    const hash = blake2b256(data);
     return CID.createV1(CidCodec.Raw, Digest.create(HashAlgorithm.Blake2b256, hash)).toString();
 }
 
@@ -203,7 +202,7 @@ if (import.meta.vitest) {
             const data = new TextEncoder().encode("test");
             const cid = computeCid(data);
             const key = cidToPreimageKey(cid);
-            const hash = blake2b(data, { dkLen: 32 });
+            const hash = blake2b256(data);
             const expected = `0x${bytesToHex(hash)}`;
             expect(key).toBe(expected);
         });
