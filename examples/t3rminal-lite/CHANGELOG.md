@@ -1,5 +1,12 @@
 # t3rminal-lite
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [5e3beb5]
+  - @polkadot-apps/tx@0.3.0
+
 ## 0.0.4
 
 ### Patch Changes

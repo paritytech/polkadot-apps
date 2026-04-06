@@ -1,5 +1,11 @@
 # @polkadot-apps/tx
 
+## 0.3.0
+
+### Minor Changes
+
+- 5e3beb5: Add `batchSubmitAndWatch` for submitting multiple transactions as a single Substrate Utility batch. Supports `batch_all` (atomic, default), `batch` (best-effort), and `force_batch` modes. Handles Ink SDK AsyncTransaction wrappers and raw decoded calls transparently.
+
 ## 0.2.12
 
 ### Patch Changes
