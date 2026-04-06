@@ -48,9 +48,7 @@ export async function checkAuthorization(
 ): Promise<AuthorizationStatus> {
     let auth;
     try {
-        auth = await api.query.TransactionStorage.Authorizations.getValue(
-            Enum("Account", address),
-        );
+        auth = await api.query.TransactionStorage.Authorizations.getValue(Enum("Account", address));
     } catch (error) {
         log.error("checkAuthorization: query failed", { address, error });
         throw new Error(`Failed to check authorization for ${address}`, { cause: error });
@@ -160,11 +158,12 @@ if (import.meta.vitest) {
                 },
             } as unknown as BulletinApi;
 
-            const err = await checkAuthorization(api, "5GrwvaEF...").catch((e: Error) => e);
+            const err = await checkAuthorization(api, "5GrwvaEF...").catch((e: unknown) => e);
             expect(err).toBeInstanceOf(Error);
-            expect(err.message).toBe("Failed to check authorization for 5GrwvaEF...");
-            expect(err.cause).toBeInstanceOf(Error);
-            expect((err.cause as Error).message).toBe("RPC connection lost");
+            const error = err as Error;
+            expect(error.message).toBe("Failed to check authorization for 5GrwvaEF...");
+            expect(error.cause).toBeInstanceOf(Error);
+            expect((error.cause as Error).message).toBe("RPC connection lost");
         });
 
         test("passes correct Enum key to the query", async () => {
