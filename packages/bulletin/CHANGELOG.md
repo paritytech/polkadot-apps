@@ -1,5 +1,11 @@
 # @polkadot-apps/bulletin
 
+## 0.6.3
+
+### Patch Changes
+
+- @polkadot-apps/tx@0.3.1
+
 ## 0.6.2
 
 ### Patch Changes

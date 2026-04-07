@@ -1,5 +1,14 @@
 # t3rminal-lite
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [f047507]
+  - @polkadot-apps/address@0.4.0
+  - @polkadot-apps/signer@0.2.0
+  - @polkadot-apps/tx@0.3.1
+
 ## 0.0.5
 
 ### Patch Changes
