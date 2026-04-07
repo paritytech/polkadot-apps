@@ -22,6 +22,15 @@ START
 │  └─ Need key derivation or session keys?
 │     YES → @polkadot-apps/keys
 │
+├─ Need to interact with smart contracts (Solidity/ink! on Asset Hub)?
+│  YES → @polkadot-apps/contracts
+│  │
+│  ├─ Have a cdm.json manifest?
+│  │  YES → ContractManager (fully-typed handles via codegen)
+│  │
+│  └─ Just have an address + ABI?
+│     YES → createContract (same ergonomics, no manifest)
+│
 ├─ Need decentralized data storage (files, JSON, blobs)?
 │  YES → @polkadot-apps/bulletin
 │
@@ -69,6 +78,14 @@ polkadot-api
 polkadot-api
 ```
 
+### Contract dApp (interact with smart contracts)
+```
+@polkadot-apps/chain-client
+@polkadot-apps/contracts
+@polkadot-apps/signer
+polkadot-api
+```
+
 ### Data Storage App (upload/download files)
 ```
 @polkadot-apps/chain-client
@@ -88,6 +105,7 @@ polkadot-api
 ### Full-Featured App (everything)
 ```
 @polkadot-apps/chain-client
+@polkadot-apps/contracts
 @polkadot-apps/tx
 @polkadot-apps/signer
 @polkadot-apps/bulletin
@@ -114,6 +132,7 @@ keys ← address, crypto, utils, storage
 tx ← keys, logger
 signer ← address, keys, logger
 chain-client ← descriptors, host
+contracts ← tx, signer, keys, logger
 bulletin ← chain-client, descriptors, host, logger, tx
 statement-store ← chain-client, descriptors, logger
 ```

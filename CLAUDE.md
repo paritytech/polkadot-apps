@@ -51,6 +51,7 @@ AI coding assistants (Claude Code, Copilot, Gemini, Codex) use the skills in `sk
 |-------|-----------------|
 | `polkadot-app-builder` | Orchestrator — routes to domain skills, scaffolds projects |
 | `polkadot-chain-connection` | chain-client, descriptors, host |
+| `polkadot-contracts` | contracts |
 | `polkadot-transactions` | tx, signer, keys |
 | `polkadot-bulletin` | bulletin |
 | `polkadot-statement-store` | statement-store |

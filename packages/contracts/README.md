@@ -8,12 +8,6 @@ Typed contract interactions for Solidity and ink! smart contracts on Polkadot As
 pnpm add @polkadot-apps/contracts
 ```
 
-**Peer dependency**: `polkadot-api` must be installed in your project.
-
-```bash
-pnpm add polkadot-api
-```
-
 ## Quick start
 
 ```typescript

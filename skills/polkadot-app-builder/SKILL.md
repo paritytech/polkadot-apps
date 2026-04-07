@@ -49,6 +49,7 @@ polkadot-api                   # Core runtime (peer dep of descriptors)
 
 | Feature | Package | Skill |
 |---------|---------|-------|
+| Smart contracts (Solidity/ink!) | `@polkadot-apps/contracts` | polkadot-contracts |
 | Submit transactions | `@polkadot-apps/tx` | polkadot-transactions |
 | Wallet connection (Talisman, Polkadot.js, Host API) | `@polkadot-apps/signer` | polkadot-transactions |
 | Key derivation | `@polkadot-apps/keys` | polkadot-transactions |
