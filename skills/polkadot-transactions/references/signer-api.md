@@ -391,7 +391,7 @@ function isExtensionError(e: SignerError): e is ExtensionNotFoundError | Extensi
 
 ```ts
 interface SignerAccount {
-  address: string;                    // SS58 address (prefix 42 by default)
+  address: SS58String;                // SS58 address (prefix 42 by default)
   h160Address: `0x${string}`;        // H160 EVM address
   publicKey: Uint8Array;              // Raw public key (32 bytes)
   name: string | null;                // Human-readable name if available

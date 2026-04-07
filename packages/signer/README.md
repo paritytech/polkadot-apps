@@ -268,7 +268,7 @@ type ConnectionStatus = "disconnected" | "connecting" | "connected";
 type ProviderType = "host" | "extension" | "dev";
 
 interface SignerAccount {
-  address: string;
+  address: SS58String;
   h160Address: `0x${string}`;
   publicKey: Uint8Array;
   name: string | null;

@@ -81,7 +81,7 @@ const { publicKey, prefix } = ss58Decode("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCP
 Encode raw public key bytes into an SS58 address with the given prefix. Defaults to prefix 42 (generic Substrate).
 
 ```ts
-function ss58Encode(publicKey: Uint8Array, prefix?: number): string
+function ss58Encode(publicKey: Uint8Array, prefix?: number): SS58String
 ```
 
 **Parameters:**
@@ -104,7 +104,7 @@ const polkadot = ss58Encode(publicKeyBytes, 0);   // Polkadot prefix
 Re-encode an SS58 address with a different network prefix. Returns `null` if the input is not a valid SS58 address.
 
 ```ts
-function normalizeSs58(address: string, prefix?: number): string | null
+function normalizeSs58(address: string, prefix?: number): SS58String | null
 ```
 
 **Parameters:**
@@ -128,7 +128,7 @@ normalizeSs58("garbage"); // null
 Convert any SS58 address to generic Substrate format (prefix 42). Returns `null` if the input is invalid.
 
 ```ts
-function toGenericSs58(address: string): string | null
+function toGenericSs58(address: string): SS58String | null
 ```
 
 **Parameters:**
@@ -149,7 +149,7 @@ const generic = toGenericSs58(polkadotAddress); // "5Grwva..."
 Convert any SS58 address to Polkadot format (prefix 0). Returns `null` if the input is invalid.
 
 ```ts
-function toPolkadotSs58(address: string): string | null
+function toPolkadotSs58(address: string): SS58String | null
 ```
 
 **Parameters:**
@@ -170,7 +170,7 @@ const polkadot = toPolkadotSs58("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQ
 Encode an SS58 address from a 32-byte public key using polkadot-api's AccountId codec. Inverse of `accountIdBytes()`.
 
 ```ts
-function accountIdFromBytes(publicKey: Uint8Array, prefix?: number): string
+function accountIdFromBytes(publicKey: Uint8Array, prefix?: number): SS58String
 ```
 
 **Parameters:**
@@ -267,7 +267,7 @@ const evm = ss58ToH160("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY");
 Convert an H160 EVM address to its corresponding SS58 address. Constructs an "EVM-derived" AccountId32 by padding the H160 with `0xEE` bytes. These accounts are implicitly mapped in pallet-revive.
 
 ```ts
-function h160ToSs58(evmAddress: string, prefix?: number): string
+function h160ToSs58(evmAddress: string, prefix?: number): SS58String
 ```
 
 **Parameters:**

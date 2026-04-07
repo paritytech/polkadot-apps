@@ -203,7 +203,7 @@ interface DerivedAccount {
   /** Public key (32 bytes). Sr25519 or Ed25519 depending on key type. */
   publicKey: Uint8Array;
   /** SS58 address (generic prefix 42 by default). */
-  ss58Address: string;
+  ss58Address: SS58String;
   /** H160 EVM address derived via keccak256(publicKey). */
   h160Address: `0x${string}`;
   /** PolkadotSigner for signing extrinsics. */
