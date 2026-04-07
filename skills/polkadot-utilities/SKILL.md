@@ -97,12 +97,22 @@ const sha = sha256(data);     // bulletin-deploy default
 const kek = keccak256(data);  // Ethereum compat
 
 // Token formatting (planck ↔ human-readable)
-import { formatPlanck, parseToPlanck } from "@polkadot-apps/utils";
+import { formatPlanck, parseToPlanck, formatBalance } from "@polkadot-apps/utils";
 
 formatPlanck(10_000_000_000n);   // "1.0" (DOT, 10 decimals)
 formatPlanck(15_000_000_000n);   // "1.5"
 parseToPlanck("1.5");             // 15_000_000_000n
 parseToPlanck("1.0", 12);        // 1_000_000_000_000n (KSM)
+
+// Display formatting (locale-aware with symbol)
+formatBalance(10_000_000_000_000n, { symbol: "DOT" }); // "1,000 DOT"
+formatBalance(15_000_000_000n, { maxDecimals: 2, symbol: "DOT" }); // "1.5 DOT"
+
+// Balance querying (typed wrapper for System.Account)
+import { getBalance } from "@polkadot-apps/utils";
+
+const balance = await getBalance(api.assetHub, aliceAddress);
+console.log(formatBalance(balance.free, { symbol: "DOT" })); // "1,000.5 DOT"
 ```
 
 ## Quick Start: Storage

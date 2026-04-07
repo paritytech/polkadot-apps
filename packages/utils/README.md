@@ -62,6 +62,37 @@ formatPlanck(1_000_000_000_000n, 12); // "1.0"
 parseToPlanck("1.0", 12);             // 1_000_000_000_000n
 ```
 
+### Display formatting
+
+Format planck values for display with locale-aware thousand separators, configurable decimal precision, and optional token symbol.
+
+```typescript
+import { formatBalance } from "@polkadot-apps/utils";
+
+formatBalance(10_000_000_000n);                              // "1"
+formatBalance(15_000_000_000n, { symbol: "DOT" });           // "1.5 DOT"
+formatBalance(10_000_000_000_000n, { symbol: "DOT" });       // "1,000 DOT"
+formatBalance(12_345_678_900n, { maxDecimals: 2 });          // "1.23"
+formatBalance(0n, { symbol: "DOT" });                        // "0 DOT"
+
+// Custom chain decimals and locale
+formatBalance(1_000_000_000_000n, { decimals: 12, symbol: "KSM", locale: "de-DE" });
+```
+
+Unlike the `Number()` approach used in some apps, `formatBalance` preserves full BigInt precision for balances of any size.
+
+### Balance querying
+
+Query on-chain balances with a typed convenience wrapper. Works with any PAPI typed API via structural typing — no extra dependencies.
+
+```typescript
+import { getBalance, formatBalance } from "@polkadot-apps/utils";
+
+const balance = await getBalance(api.assetHub, aliceAddress);
+console.log(formatBalance(balance.free, { symbol: "DOT" }));       // "1,000.5 DOT"
+console.log(formatBalance(balance.reserved, { symbol: "DOT" }));   // "50 DOT"
+```
+
 ## API
 
 ### Encoding
@@ -87,6 +118,13 @@ parseToPlanck("1.0", 12);             // 1_000_000_000_000n
 |---|---|---|
 | `formatPlanck` | `(planck: bigint, decimals?: number)` | `string` |
 | `parseToPlanck` | `(amount: string, decimals?: number)` | `bigint` |
+| `formatBalance` | `(planck: bigint, options?: FormatBalanceOptions)` | `string` |
+
+### Balance querying
+
+| Function | Signature | Returns |
+|---|---|---|
+| `getBalance` | `(api: BalanceApi, address: string)` | `Promise<AccountBalance>` |
 
 **`formatPlanck(planck, decimals = 10)`**
 
@@ -102,11 +140,25 @@ Parse a decimal string into its planck bigint representation. If the fractional 
 - Throws `Error` if `amount` is empty or contains invalid characters.
 - Throws `RangeError` if `amount` is negative or `decimals` is invalid.
 
+**`formatBalance(planck, options?)`**
+
+Format a planck value for display with locale-aware thousand separators. Builds on `formatPlanck` for BigInt precision.
+
+Options: `{ decimals?: number, maxDecimals?: number, symbol?: string, locale?: string }`. Defaults: `decimals = 10`, `maxDecimals = 4`, no symbol, user's locale.
+
+- Throws `RangeError` if `planck < 0n` or `decimals` is invalid (delegated to `formatPlanck`).
+
+**`getBalance(api, address): Promise<AccountBalance>`**
+
+Query the free, reserved, and frozen balances for an address. Returns `{ free: bigint, reserved: bigint, frozen: bigint }`. Uses structural typing — works with any PAPI typed API that has `System.Account`.
+
 ## Common mistakes
 
 - **Passing a `0x`-prefixed string to `hexToBytes`.** The `@noble/hashes` implementation expects raw hex without a prefix. Strip it first: `hexToBytes(hex.slice(2))`.
 - **Using `formatPlanck` with the wrong `decimals` for a chain.** DOT uses 10, KSM uses 12, many parachains use 18. Always check the chain's token metadata.
 - **Assuming `parseToPlanck` rounds excess decimals.** It truncates, not rounds. `parseToPlanck("1.999999999999", 10)` gives the same result as `parseToPlanck("1.9999999999", 10)`.
+- **Using `Number()` to format large balances.** `Number(raw) / 10**decimals` loses precision for values > 2^53 planck (~900 DOT). Use `formatBalance` which preserves full BigInt precision.
+- **Passing the ChainAPI wrapper to `getBalance`.** Pass the chain-specific TypedApi (e.g., `api.assetHub`), not the multi-chain `ChainAPI` object.
 
 ## License
 

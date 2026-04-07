@@ -111,6 +111,9 @@ importers:
       '@polkadot-apps/tx':
         specifier: workspace:*
         version: link:../../packages/tx
+      '@polkadot-apps/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       polkadot-api:
         specifier: 'catalog:'
         version: 1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)

@@ -122,6 +122,75 @@ export function parseToPlanck(amount: string, decimals: number = 10): bigint {
     return whole + fraction;
 }
 
+/** Options for {@link formatBalance}. */
+export interface FormatBalanceOptions {
+    /** Token decimals. Default: 10 (DOT). */
+    decimals?: number;
+    /** Maximum fraction digits to display. Default: 4. */
+    maxDecimals?: number;
+    /** Token symbol to append (e.g., `"DOT"`, `"PAS"`). Omitted by default. */
+    symbol?: string;
+    /** BCP 47 locale tag for grouping and decimal separators (e.g., `"en-US"` → `","` grouping + `"."` decimal, `"de-DE"` → `"."` grouping + `","` decimal). Default: user's locale. */
+    locale?: string;
+}
+
+/**
+ * Format a planck value for display with locale-aware thousand separators,
+ * decimal truncation, and an optional token symbol.
+ *
+ * Builds on {@link formatPlanck} for BigInt-safe conversion, then applies
+ * presentation formatting. Unlike {@link formatPlanck}, trailing `.0` is
+ * omitted — display values show `"1,000"` not `"1,000.0"`.
+ *
+ * @param planck - The raw planck value as a bigint. Must be non-negative.
+ * @param options - Formatting options.
+ * @returns A display-ready string (e.g. `"1,000.5 DOT"`).
+ * @throws {RangeError} If `planck` is negative or `decimals` is invalid (delegated to {@link formatPlanck}).
+ *
+ * @example
+ * ```ts
+ * import { formatBalance } from "@polkadot-apps/utils";
+ *
+ * formatBalance(10_000_000_000n);                              // "1"
+ * formatBalance(15_000_000_000n, { symbol: "DOT" });           // "1.5 DOT"
+ * formatBalance(10_000_000_000_000n, { symbol: "DOT" });       // "1,000 DOT"
+ * formatBalance(12_345_678_900n, { maxDecimals: 2 });          // "1.23"
+ * formatBalance(0n, { symbol: "DOT" });                        // "0 DOT"
+ * ```
+ */
+export function formatBalance(planck: bigint, options?: FormatBalanceOptions): string {
+    const decimals = options?.decimals ?? 10;
+    const maxDecimals = options?.maxDecimals ?? 4;
+    const symbol = options?.symbol;
+    const locale = options?.locale;
+
+    if (maxDecimals < 0 || !Number.isInteger(maxDecimals)) {
+        throw new RangeError(`maxDecimals must be a non-negative integer, got ${maxDecimals}`);
+    }
+
+    const raw = formatPlanck(planck, decimals);
+    const dotIndex = raw.indexOf(".");
+    const wholePart = dotIndex === -1 ? raw : raw.slice(0, dotIndex);
+    const fractionPart = dotIndex === -1 ? "" : raw.slice(dotIndex + 1);
+
+    const formatter = new Intl.NumberFormat(locale, { useGrouping: true });
+
+    // Format whole part with locale-aware grouping (BigInt overload avoids precision loss)
+    const formattedWhole = formatter.format(BigInt(wholePart));
+
+    // Extract the locale's decimal separator (e.g., "." for en-US, "," for de-DE)
+    const decimalSep = formatter.formatToParts(1.1).find((p) => p.type === "decimal")?.value ?? ".";
+
+    // Truncate fraction to maxDecimals, trim trailing zeros
+    const truncated = fractionPart.slice(0, maxDecimals);
+    const trimmed = truncated.replace(/0+$/, "");
+
+    const fractionSuffix = trimmed ? `${decimalSep}${trimmed}` : "";
+    const symbolSuffix = symbol ? ` ${symbol}` : "";
+
+    return `${formattedWhole}${fractionSuffix}${symbolSuffix}`;
+}
+
 if (import.meta.vitest) {
     const { describe, test, expect } = import.meta.vitest;
 
@@ -230,6 +299,83 @@ if (import.meta.vitest) {
             const original = 12_345_678_901n;
             const formatted = formatPlanck(original);
             expect(parseToPlanck(formatted)).toBe(original);
+        });
+    });
+
+    describe("formatBalance", () => {
+        test("formats with default options (no symbol, max 4 decimals)", () => {
+            expect(formatBalance(15_000_000_000n)).toBe("1.5");
+            expect(formatBalance(12_345_678_900n)).toBe("1.2345");
+        });
+
+        test("applies thousand separators", () => {
+            expect(formatBalance(10_000_000_000_000n, { locale: "en-US" })).toBe("1,000");
+            expect(formatBalance(1_234_567_000_000_000n, { locale: "en-US", symbol: "DOT" })).toBe(
+                "123,456.7 DOT",
+            );
+        });
+
+        test("truncates fraction to maxDecimals", () => {
+            expect(formatBalance(12_345_678_900n, { maxDecimals: 2 })).toBe("1.23");
+            expect(formatBalance(12_345_678_900n, { maxDecimals: 8 })).toBe("1.23456789");
+        });
+
+        test("appends symbol", () => {
+            expect(formatBalance(15_000_000_000n, { symbol: "DOT" })).toBe("1.5 DOT");
+            expect(formatBalance(15_000_000_000n, { symbol: "PAS" })).toBe("1.5 PAS");
+        });
+
+        test("omits fraction when all zeros after truncation", () => {
+            expect(formatBalance(10_000_000_000n)).toBe("1");
+            expect(formatBalance(20_000_000_000n, { symbol: "DOT" })).toBe("2 DOT");
+        });
+
+        test("respects maxDecimals: 0", () => {
+            expect(formatBalance(15_000_000_000n, { maxDecimals: 0 })).toBe("1");
+            expect(formatBalance(19_999_999_999n, { maxDecimals: 0, symbol: "DOT" })).toBe("1 DOT");
+        });
+
+        test("handles zero", () => {
+            expect(formatBalance(0n)).toBe("0");
+            expect(formatBalance(0n, { symbol: "DOT" })).toBe("0 DOT");
+        });
+
+        test("handles sub-unit amounts", () => {
+            // 1 planck is below 4-decimal display threshold → shows "0"
+            expect(formatBalance(1n)).toBe("0");
+            // 0.0001 DOT is exactly at the threshold
+            expect(formatBalance(1_000_000n)).toBe("0.0001");
+            // With more maxDecimals, sub-unit amounts become visible
+            expect(formatBalance(1n, { maxDecimals: 10 })).toBe("0.0000000001");
+        });
+
+        test("uses locale-correct decimal separator", () => {
+            // German uses . for grouping and , for decimal
+            expect(formatBalance(15_000_000_000n, { locale: "de-DE" })).toBe("1,5");
+            expect(formatBalance(10_000_000_000_000n, { locale: "de-DE" })).toBe("1.000");
+            // With fraction
+            expect(formatBalance(10_005_000_000_000n, { locale: "de-DE" })).toBe("1.000,5");
+        });
+
+        test("preserves BigInt precision for large amounts", () => {
+            // 2^53 + 1 in planck — would lose precision with Number()
+            const largePlanck = 90_071_992_547_409_920_000n; // ~9 billion DOT
+            const result = formatBalance(largePlanck, { locale: "en-US", symbol: "DOT" });
+            expect(result).toContain("9,007,199,254");
+            expect(result).toContain("DOT");
+        });
+
+        test("throws on negative planck (delegates to formatPlanck)", () => {
+            expect(() => formatBalance(-1n)).toThrow(RangeError);
+        });
+
+        test("throws on invalid decimals (delegates to formatPlanck)", () => {
+            expect(() => formatBalance(0n, { decimals: -1 })).toThrow(RangeError);
+        });
+
+        test("throws on invalid maxDecimals", () => {
+            expect(() => formatBalance(0n, { maxDecimals: -1 })).toThrow(RangeError);
+            expect(() => formatBalance(0n, { maxDecimals: 1.5 })).toThrow(RangeError);
         });
     });
 }
