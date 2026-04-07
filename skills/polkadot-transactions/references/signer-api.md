@@ -1,5 +1,7 @@
 # @polkadot-apps/signer API Reference
 
+> **`SS58String`** is a branded `string` type from `@polkadot-apps/address` (re-exported from `@polkadot-api/substrate-bindings`). `SignerAccount.address` uses this type.
+
 ## SignerManager
 
 Core orchestrator for signer management. Manages account discovery and signer creation across multiple providers (Host API, browser extensions, dev accounts). Framework-agnostic -- use `subscribe()` to integrate with React, Vue, or any framework.

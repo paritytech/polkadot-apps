@@ -11,5 +11,5 @@ Return types of `ss58Encode`, `normalizeSs58`, `toGenericSs58`, `toPolkadotSs58`
 
 `DerivedAccount.ss58Address` and `SignerAccount.address` are now `SS58String`.
 
-Input parameters (`isValidSs58`, `ss58Decode`, `accountIdBytes`, `selectAccount`)
-remain `string` for ergonomic use at validation boundaries.
+Input parameters (`isValidSs58`, `ss58Decode`, `accountIdBytes` in address;
+`selectAccount` in signer) remain `string` for ergonomic use at validation boundaries.

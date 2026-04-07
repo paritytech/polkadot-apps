@@ -1,5 +1,7 @@
 # @polkadot-apps/keys API Reference
 
+> **`SS58String`** is a branded `string` type from `@polkadot-apps/address` (re-exported from `@polkadot-api/substrate-bindings`). `DerivedAccount.ss58Address` uses this type.
+
 ## KeyManager
 
 Hierarchical key manager. Holds a 32-byte master key in memory and derives child keys via HKDF-SHA256. Does not persist anything -- persistence is the consumer's responsibility.

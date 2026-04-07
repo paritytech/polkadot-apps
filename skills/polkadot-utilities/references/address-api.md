@@ -26,6 +26,8 @@ Package: `@polkadot-apps/address`
 
 ---
 
+> **`SS58String`** is a branded `string` type re-exported from `@polkadot-api/substrate-bindings`. Functions that produce validated SS58 addresses return `SS58String`; functions that accept user input take plain `string`. Import it with `import type { SS58String } from "@polkadot-apps/address"`.
+
 ## SS58 Functions
 
 ### isValidSs58
