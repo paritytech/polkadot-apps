@@ -1,5 +1,10 @@
 export { ContractManager, createContract } from "./manager.js";
 export { generateContractTypes } from "./codegen.js";
+export {
+    ContractError,
+    ContractSignerMissingError,
+    ContractNotFoundError,
+} from "./errors.js";
 export type {
     CdmJson,
     CdmJsonTarget,

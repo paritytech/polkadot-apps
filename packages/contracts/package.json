@@ -29,6 +29,7 @@
     "dependencies": {
         "@polkadot-api/sdk-ink": "catalog:",
         "@polkadot-apps/keys": "workspace:*",
+        "@polkadot-apps/logger": "workspace:*",
         "@polkadot-apps/tx": "workspace:*",
         "@polkadot-labs/hdkd-helpers": "catalog:",
         "polkadot-api": "catalog:"

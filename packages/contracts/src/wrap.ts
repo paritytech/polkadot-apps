@@ -1,9 +1,19 @@
 import type { PolkadotSigner, SS58String } from "polkadot-api";
 import { submitAndWatch } from "@polkadot-apps/tx";
-import type { TxResult } from "@polkadot-apps/tx";
 import { seedToAccount } from "@polkadot-apps/keys";
+import { createLogger } from "@polkadot-apps/logger";
 import { DEV_PHRASE } from "@polkadot-labs/hdkd-helpers";
-import type { AbiEntry, ContractDefaults, QueryOptions, QueryResult, TxOptions } from "./types.js";
+import { ContractSignerMissingError } from "./errors.js";
+import type {
+    AbiEntry,
+    Contract,
+    ContractDef,
+    ContractDefaults,
+    QueryOptions,
+    TxOptions,
+} from "./types.js";
+
+const log = createLogger("contracts");
 
 // The ink SDK contract type — kept as `any` to avoid coupling to internal SDK shapes.
 type InkContract = any;
@@ -68,7 +78,10 @@ function resolveOrigin(
     const sourceAddr = defaults.signerSource?.getState().selectedAccount?.address;
     if (sourceAddr) return sourceAddr as SS58String;
     if (defaults.origin) return defaults.origin;
-    if (forQuery) return QUERY_FALLBACK_ORIGIN;
+    if (forQuery) {
+        log.warn("No origin configured — using dev fallback (Alice) for query dry-run");
+        return QUERY_FALLBACK_ORIGIN;
+    }
     return undefined;
 }
 
@@ -94,13 +107,7 @@ export function wrapContract(
     inkContract: InkContract,
     abi: AbiEntry[],
     defaults: ContractDefaults,
-): Record<
-    string,
-    {
-        query: (...args: any[]) => Promise<QueryResult<any>>;
-        tx: (...args: any[]) => Promise<TxResult>;
-    }
-> {
+): Contract<ContractDef> {
     const methodArgs = buildMethodArgMap(abi);
 
     return new Proxy({} as any, {
@@ -138,9 +145,7 @@ export function wrapContract(
                     const data = positionalToNamed(argNames, positionalArgs);
                     const signer = resolveSigner(defaults, overrides?.signer);
                     if (!signer) {
-                        throw new Error(
-                            "No signer available. Pass { signer }, set defaultSigner, or provide a signerSource.",
-                        );
+                        throw new ContractSignerMissingError();
                     }
 
                     const origin = resolveOrigin(defaults, overrides?.origin);

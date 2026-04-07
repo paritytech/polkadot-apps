@@ -1,4 +1,4 @@
-import type { PolkadotSigner, SS58String } from "polkadot-api";
+import type { HexString, PolkadotSigner, SS58String } from "polkadot-api";
 import type { SubmitOptions, TxResult, Weight } from "@polkadot-apps/tx";
 
 // Re-export from the tx package — single source of truth.
@@ -15,7 +15,7 @@ export interface CdmJsonTarget {
 
 export interface CdmJsonContract {
     version: number;
-    address: string;
+    address: HexString;
     abi: AbiEntry[];
     metadataCid: string;
 }
@@ -138,12 +138,31 @@ export interface ContractManagerOptions extends ContractOptions {
     targetHash?: string;
 }
 
-/** A typed contract handle where each method exposes `.query()` and `.tx()`. */
+/**
+ * A typed contract handle where each ABI method exposes `.query()` and `.tx()`.
+ *
+ * Both accept the method's positional arguments followed by an optional
+ * options object as the last argument.
+ */
 export type Contract<C extends ContractDef> = {
     [K in keyof C["methods"]]: {
+        /**
+         * Dry-run the method (read-only). Does not submit a transaction or
+         * cost gas. Returns the decoded response and estimated gas required.
+         *
+         * Origin is resolved from: explicit `{ origin }` option → signerSource →
+         * defaultOrigin → dev fallback (Alice).
+         */
         query: (
             ...args: [...C["methods"][K]["args"], opts?: QueryOptions]
         ) => Promise<QueryResult<C["methods"][K]["response"]>>;
+        /**
+         * Sign, submit, and watch the method as an on-chain transaction.
+         * Resolves at best-block by default (configurable via `waitFor`).
+         *
+         * Signer is resolved from: explicit `{ signer }` option → signerSource →
+         * defaultSigner. Throws {@link ContractSignerMissingError} if none available.
+         */
         tx: (...args: [...C["methods"][K]["args"], opts?: TxOptions]) => Promise<TxResult>;
     };
 };

@@ -1,6 +1,7 @@
 import type { HexString } from "polkadot-api";
 import type { InkSdk } from "@polkadot-api/sdk-ink";
 import { wrapContract } from "./wrap.js";
+import { ContractNotFoundError } from "./errors.js";
 import type {
     AbiEntry,
     CdmJson,
@@ -72,9 +73,7 @@ export class ContractManager {
     private getContractData(library: string): CdmJsonContract {
         const contractsForTarget = this.cdmJson.contracts?.[this.targetHash];
         if (!contractsForTarget || !(library in contractsForTarget)) {
-            throw new Error(
-                `Contract "${library}" not found in cdm.json for target ${this.targetHash}`,
-            );
+            throw new ContractNotFoundError(library, this.targetHash);
         }
         return contractsForTarget[library];
     }
@@ -93,13 +92,13 @@ export class ContractManager {
     getContract(library: string): Contract<ContractDef> {
         const data = this.getContractData(library);
         const descriptor = { abi: data.abi };
-        const inkContract = this.inkSdk.getContract(descriptor as any, data.address as HexString);
-        return wrapContract(inkContract, data.abi, this.defaults) as Contract<ContractDef>;
+        const inkContract = this.inkSdk.getContract(descriptor as any, data.address);
+        return wrapContract(inkContract, data.abi, this.defaults);
     }
 
     /** Get the on-chain address of an installed contract. */
     getAddress(library: string): HexString {
-        return this.getContractData(library).address as HexString;
+        return this.getContractData(library).address;
     }
 }
 
@@ -128,7 +127,7 @@ export function createContract(
         origin: options?.defaultOrigin,
         signer: options?.defaultSigner,
     };
-    return wrapContract(inkContract, abi, defaults) as Contract<ContractDef>;
+    return wrapContract(inkContract, abi, defaults);
 }
 
 if (import.meta.vitest) {
