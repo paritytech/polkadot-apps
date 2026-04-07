@@ -14,7 +14,7 @@ pnpm add @polkadot-apps/chain-client
 pnpm add polkadot-api
 ```
 
-**Optional peer dependency**: `@novasamatech/product-sdk` is required only when running inside a Polkadot Desktop/Mobile container to route connections through the Host API.
+**Host routing**: When running inside a Polkadot Desktop/Mobile container, connections are automatically routed through the host via `@polkadot-apps/host`.
 
 ## Quick start
 
@@ -47,7 +47,7 @@ const contract = api.contracts.getContract(descriptor, contractAddress);
 
 Connections are established automatically based on the runtime environment:
 
-- **Inside a container** (Polkadot Desktop/Mobile): routes through the Host API via `@novasamatech/product-sdk`.
+- **Inside a container** (Polkadot Desktop/Mobile): routes through the Host API via `@polkadot-apps/host`.
 - **Outside a container** (standalone browser or Node.js): connects directly over WebSocket RPC.
 
 Detect the environment programmatically:

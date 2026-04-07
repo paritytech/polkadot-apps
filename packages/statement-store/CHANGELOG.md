@@ -1,5 +1,20 @@
 # @polkadot-apps/statement-store
 
+## 0.2.9
+
+### Patch Changes
+
+- Updated dependencies [c286f9b]
+  - @polkadot-apps/chain-client@0.3.8
+
+## 0.2.8
+
+### Patch Changes
+
+- 8bbabe6: Add `blake2b256`, `sha256`, and `keccak256` hash functions to `@polkadot-apps/utils`. Consumers no longer need `@noble/hashes` as a direct dependency for hashing. Migrated bulletin and statement-store to use the new centralized exports.
+- Updated dependencies [8bbabe6]
+  - @polkadot-apps/utils@0.3.0
+
 ## 0.2.7
 
 ### Patch Changes

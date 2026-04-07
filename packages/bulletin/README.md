@@ -160,6 +160,24 @@ Fetch and parse JSON by CID. Auto-resolves the query path (same as `fetchBytes`)
 const metadata = await bulletin.fetchJson<{ name: string }>("bafk...");
 ```
 
+#### `bulletin.checkAuthorization(address)`
+
+Check whether an account is authorized to store data. Use as a pre-flight check before `upload()` to show "not authorized" or "insufficient quota" instead of letting the transaction fail.
+
+```ts
+const auth = await bulletin.checkAuthorization(myAddress);
+if (!auth.authorized) {
+    console.error("Account is not authorized for bulletin storage");
+} else if (auth.remainingBytes < BigInt(fileBytes.length)) {
+    console.error(`Insufficient quota: ${auth.remainingBytes} bytes remaining`);
+}
+```
+
+**Parameters:**
+- `address` — SS58-encoded account address
+
+**Returns:** `AuthorizationStatus` with `authorized`, `remainingTransactions`, `remainingBytes`, `expiration`.
+
 #### `bulletin.cidExists(cid)`
 
 Check if a CID exists on the gateway (HEAD request). Returns `false` on any error or timeout.
@@ -176,13 +194,31 @@ Compute the CID for data without uploading. Static method — no client instance
 const cid = BulletinClient.computeCid(new TextEncoder().encode("hello"));
 ```
 
+#### `BulletinClient.hashToCid(hexHash, hashCode?, codec?)`
+
+Reconstruct a CID from a `0x`-prefixed hex hash stored on-chain. Static method — no client instance needed. Supports all hash algorithms and codecs used by the Bulletin Chain.
+
+```ts
+import { HashAlgorithm, CidCodec } from "@polkadot-apps/bulletin";
+
+// Default (blake2b-256, raw)
+const cid = BulletinClient.hashToCid("0x1a2b3c...");
+
+// SHA2-256 content from bulletin-deploy
+const cid2 = BulletinClient.hashToCid("0x1a2b3c...", HashAlgorithm.Sha2_256);
+
+const url = bulletin.gatewayUrl(cid);
+```
+
 ### Standalone functions
 
 The same operations are available as standalone functions for lower-level usage:
 
 ```ts
 import {
-    upload, batchUpload, computeCid, cidToPreimageKey,
+    upload, batchUpload, checkAuthorization,
+    computeCid, cidToPreimageKey, hashToCid,
+    HashAlgorithm, CidCodec,
     fetchBytes, fetchJson, cidExists,
     queryBytes, queryJson, resolveQueryStrategy,
     getGateway, gatewayUrl,
@@ -196,6 +232,16 @@ Upload data using an explicit `BulletinApi` instance.
 #### `batchUpload(api, items, signer?, options?)`
 
 Batch upload using an explicit `BulletinApi` instance.
+
+#### `checkAuthorization(api, address)`
+
+Check whether an account is authorized to store data. Standalone equivalent of `bulletin.checkAuthorization()`.
+
+```ts
+import { checkAuthorization } from "@polkadot-apps/bulletin";
+
+const auth = await checkAuthorization(api, address);
+```
 
 #### `computeCid(data)`
 
@@ -226,7 +272,7 @@ Fetch and parse JSON with auto-resolved query strategy.
 
 #### `cidToPreimageKey(cid)`
 
-Extract the blake2b-256 digest from a CIDv1 string and return it as a `0x`-prefixed hex string — the preimage key format used by the host API.
+Extract the content hash digest from a CIDv1 string and return it as a `0x`-prefixed hex string — the preimage key format used by the host API. Accepts any hash algorithm supported by the Bulletin Chain (blake2b-256, sha2-256, keccak-256).
 
 ```ts
 import { computeCid, cidToPreimageKey } from "@polkadot-apps/bulletin";
@@ -234,6 +280,47 @@ import { computeCid, cidToPreimageKey } from "@polkadot-apps/bulletin";
 const cid = computeCid(data);
 const key = cidToPreimageKey(cid); // "0x1a2b3c..."
 ```
+
+#### `hashToCid(hexHash, hashCode?, codec?)`
+
+Reconstruct a CIDv1 from a `0x`-prefixed hex hash — the reverse of `cidToPreimageKey`. Use this when you have on-chain hashes and need to build IPFS gateway URLs.
+
+The Bulletin Chain supports multiple hash algorithms and codecs — pass the values that match the on-chain `TransactionInfo` to get the correct CID. Defaults to blake2b-256 + raw (matching `computeCid`).
+
+```ts
+import { hashToCid, HashAlgorithm, CidCodec, gatewayUrl, getGateway } from "@polkadot-apps/bulletin";
+
+// Default (blake2b-256, raw) — matches computeCid output
+const cid = hashToCid(onChainHash);
+
+// SHA2-256 content stored via bulletin-deploy
+const cid2 = hashToCid(onChainHash, HashAlgorithm.Sha2_256);
+
+// DAG-PB manifest with blake2b-256
+const cid3 = hashToCid(manifestHash, HashAlgorithm.Blake2b256, CidCodec.DagPb);
+
+const url = gatewayUrl(cid, getGateway("paseo"));
+```
+
+#### `HashAlgorithm`
+
+Hash algorithms supported by the Bulletin Chain (multihash codes):
+
+| Constant | Value | Description |
+|---|---|---|
+| `HashAlgorithm.Blake2b256` | `0xb220` | Default for polkadot-apps and chain SDK |
+| `HashAlgorithm.Sha2_256` | `0x12` | Default for bulletin-deploy |
+| `HashAlgorithm.Keccak256` | `0x1b` | Ethereum compatibility |
+
+#### `CidCodec`
+
+CID codecs supported by the Bulletin Chain (multicodec codes):
+
+| Constant | Value | Description |
+|---|---|---|
+| `CidCodec.Raw` | `0x55` | Raw binary — default for single-chunk data |
+| `CidCodec.DagPb` | `0x70` | DAG-PB — multi-chunk manifests / directories |
+| `CidCodec.DagCbor` | `0x71` | DAG-CBOR — alternative DAG encoding |
 
 #### `resolveQueryStrategy()`
 
@@ -247,6 +334,17 @@ console.log(strategy.kind); // "host-lookup" or "gateway"
 ```
 
 ## Types
+
+### `AuthorizationStatus`
+
+```ts
+interface AuthorizationStatus {
+    authorized: boolean;           // Whether an authorization entry exists
+    remainingTransactions: number; // Remaining tx slots (0 if not authorized)
+    remainingBytes: bigint;        // Remaining bytes (0n if not authorized)
+    expiration: number;            // Expiration block number (0 if not authorized)
+}
+```
 
 ### `UploadResult`
 

@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/keys",
     "description": "Hierarchical key derivation and session key management for Polkadot accounts",
-    "version": "0.3.4",
+    "version": "0.3.8",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -24,6 +24,7 @@
     "dependencies": {
         "@polkadot-apps/address": "workspace:*",
         "@polkadot-apps/crypto": "workspace:*",
+        "@polkadot-apps/utils": "workspace:*",
         "@polkadot-apps/storage": "workspace:*",
         "@polkadot-labs/hdkd": "catalog:",
         "@polkadot-labs/hdkd-helpers": "catalog:",

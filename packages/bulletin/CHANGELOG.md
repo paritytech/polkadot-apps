@@ -1,5 +1,54 @@
 # @polkadot-apps/bulletin
 
+## 0.6.2
+
+### Patch Changes
+
+- Updated dependencies [5e3beb5]
+  - @polkadot-apps/tx@0.3.0
+
+## 0.6.1
+
+### Patch Changes
+
+- Updated dependencies [c286f9b]
+  - @polkadot-apps/host@0.3.0
+  - @polkadot-apps/chain-client@0.3.8
+  - @polkadot-apps/tx@0.2.12
+
+## 0.6.0
+
+### Minor Changes
+
+- e41ea54: Add `checkAuthorization` for pre-flight authorization checks before uploading to the Bulletin Chain. Queries `TransactionStorage.Authorizations` and returns the raw quota (remaining transactions, bytes, expiration block), enabling dApps to show "not authorized" or "insufficient quota" instead of failing mid-transaction.
+
+## 0.5.1
+
+### Patch Changes
+
+- 8bbabe6: Add `blake2b256`, `sha256`, and `keccak256` hash functions to `@polkadot-apps/utils`. Consumers no longer need `@noble/hashes` as a direct dependency for hashing. Migrated bulletin and statement-store to use the new centralized exports.
+- Updated dependencies [8bbabe6]
+  - @polkadot-apps/utils@0.3.0
+  - @polkadot-apps/tx@0.2.11
+
+## 0.5.0
+
+### Minor Changes
+
+- 474a0b8: Add `hashToCid` function to reconstruct a CIDv1 from a `0x`-prefixed hex hash — the reverse of `cidToPreimageKey`. Supports all hash algorithms (blake2b-256, sha2-256, keccak-256) and codecs (raw, dag-pb, dag-cbor) used by the Bulletin Chain. Also exports `HashAlgorithm` and `CidCodec` constants, and broadens `cidToPreimageKey` to accept any supported hash algorithm.
+
+## 0.4.4
+
+### Patch Changes
+
+- @polkadot-apps/tx@0.2.10
+
+## 0.4.3
+
+### Patch Changes
+
+- @polkadot-apps/tx@0.2.9
+
 ## 0.4.2
 
 ### Patch Changes

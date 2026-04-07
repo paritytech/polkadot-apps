@@ -1,4 +1,4 @@
-import { blake2b } from "@noble/hashes/blake2.js";
+import { blake2b256 } from "@polkadot-apps/utils";
 
 import type { ChannelHash, SerializedTopicFilter, TopicFilter, TopicHash } from "./types.js";
 
@@ -20,7 +20,7 @@ import type { ChannelHash, SerializedTopicFilter, TopicFilter, TopicHash } from 
  */
 export function createTopic(name: string): TopicHash {
     const bytes = new TextEncoder().encode(name);
-    return blake2b(bytes, { dkLen: 32 }) as TopicHash;
+    return blake2b256(bytes) as TopicHash;
 }
 
 /**
@@ -39,7 +39,7 @@ export function createTopic(name: string): TopicHash {
  */
 export function createChannel(name: string): ChannelHash {
     const bytes = new TextEncoder().encode(name);
-    return blake2b(bytes, { dkLen: 32 }) as ChannelHash;
+    return blake2b256(bytes) as ChannelHash;
 }
 
 /**

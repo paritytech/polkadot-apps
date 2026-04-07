@@ -75,6 +75,56 @@ export interface SubmittableTransaction {
     };
     /** Present on Ink SDK AsyncTransaction wrappers. */
     waited?: Promise<SubmittableTransaction>;
+    /** The decoded call data. Present on PAPI transactions. */
+    decodedCall?: unknown;
+}
+
+/** Batch execution mode corresponding to Substrate's Utility pallet. */
+export type BatchMode = "batch_all" | "batch" | "force_batch";
+
+/**
+ * A transaction or decoded call that can be included in a batch.
+ *
+ * Accepts:
+ * - A {@link SubmittableTransaction} (has `.decodedCall`)
+ * - An Ink SDK AsyncTransaction (has `.waited` that resolves to one with `.decodedCall`)
+ * - A raw decoded call object (passed through as `Record<string, unknown>`)
+ *
+ * The `Record<string, unknown>` variant is intentionally broad because PAPI decoded
+ * calls are chain-specific enum types that cannot be imported without chain descriptors.
+ * Runtime validation in `resolveDecodedCall` rejects null, undefined, and primitives.
+ */
+export type BatchableCall =
+    | SubmittableTransaction
+    | { decodedCall: unknown }
+    | Record<string, unknown>;
+
+/** Options for {@link batchSubmitAndWatch}. Extends {@link SubmitOptions} with batch mode. */
+export interface BatchSubmitOptions extends SubmitOptions {
+    /**
+     * Batch execution mode. Default: `"batch_all"` (atomic, all-or-nothing).
+     *
+     * - `"batch_all"` — Atomic. Reverts all calls if any single call fails.
+     * - `"batch"` — Best-effort. Stops at first failure but earlier successful calls are not reverted.
+     * - `"force_batch"` — Like `batch` but continues executing remaining calls after failures (never aborts early).
+     */
+    mode?: BatchMode;
+}
+
+/**
+ * Minimal structural type for a PAPI typed API with the Utility pallet.
+ *
+ * Structural so it works with any chain that has the Utility pallet, without
+ * importing chain-specific descriptors.
+ */
+export interface BatchApi {
+    tx: {
+        Utility: {
+            batch(args: { calls: unknown[] }): SubmittableTransaction;
+            batch_all(args: { calls: unknown[] }): SubmittableTransaction;
+            force_batch(args: { calls: unknown[] }): SubmittableTransaction;
+        };
+    };
 }
 
 /** PAPI transaction event (discriminated union). */
