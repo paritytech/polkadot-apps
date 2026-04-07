@@ -1,4 +1,8 @@
 import type { PolkadotSigner, SS58String } from "polkadot-api";
+import type { SubmitOptions, TxResult, Weight } from "@polkadot-apps/tx";
+
+// Re-export from the tx package — single source of truth.
+export type { TxResult, SubmitOptions } from "@polkadot-apps/tx";
 
 // ---------------------------------------------------------------------------
 // cdm.json schema
@@ -73,20 +77,12 @@ export interface QueryOptions {
 }
 
 /** Options for transaction calls — passed as the last argument after positional args. */
-export interface TxOptions {
+export interface TxOptions extends SubmitOptions {
     signer?: PolkadotSigner;
     origin?: SS58String;
     value?: bigint;
-    gasLimit?: { ref_time: bigint; proof_size: bigint };
+    gasLimit?: Weight;
     storageDepositLimit?: bigint;
-}
-
-/** Result from a submitted transaction. */
-export interface TxResult {
-    txHash: string;
-    blockHash: string;
-    ok: boolean;
-    events: unknown[];
 }
 
 /**
@@ -113,21 +109,21 @@ export interface ContractDefaults {
     signerSource?: SignerSource;
 }
 
-/** Options for {@link ContractManager} construction. */
-export interface ContractManagerOptions {
-    /** Explicit target hash to select from cdm.json. Defaults to the first target. */
-    targetHash?: string;
+/**
+ * Options for {@link createContract} and base for {@link ContractManagerOptions}.
+ *
+ * Signer resolution order (highest wins):
+ * 1. Explicit override in call options
+ * 2. `signerSource` (current logged-in account)
+ * 3. Static `defaultSigner` / `defaultOrigin`
+ */
+export interface ContractOptions {
     /**
      * Reactive signer source — typically a `SignerManager` from
      * `@polkadot-apps/signer`. When provided, the currently selected
      * account is used as the default signer and origin for all contract
      * interactions. Checked at call time so account switches are
      * reflected immediately.
-     *
-     * Resolution order (highest wins):
-     * 1. Explicit override in call options
-     * 2. `signerSource` (current logged-in account)
-     * 3. Static `defaultSigner` / `defaultOrigin`
      */
     signerSource?: SignerSource;
     /** Static fallback caller address for queries. */
@@ -136,14 +132,10 @@ export interface ContractManagerOptions {
     defaultSigner?: PolkadotSigner;
 }
 
-/** Options for {@link createContract}. */
-export interface ContractOptions {
-    /** Reactive signer source (e.g. `SignerManager`). */
-    signerSource?: SignerSource;
-    /** Static fallback caller address for queries. */
-    defaultOrigin?: SS58String;
-    /** Static fallback signer for transactions. */
-    defaultSigner?: PolkadotSigner;
+/** Options for {@link ContractManager} construction. */
+export interface ContractManagerOptions extends ContractOptions {
+    /** Explicit target hash to select from cdm.json. Defaults to the first target. */
+    targetHash?: string;
 }
 
 /** A typed contract handle where each method exposes `.query()` and `.tx()`. */

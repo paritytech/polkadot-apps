@@ -166,20 +166,40 @@ if (import.meta.vitest) {
         },
     };
 
+    function fakeSendResult(txHash: string, ok: boolean, onSign?: (s: any) => void) {
+        return {
+            waited: Promise.resolve({
+                signSubmitAndWatch: (signer: any) => {
+                    onSign?.(signer);
+                    return {
+                        subscribe: (handlers: {
+                            next: (e: any) => void;
+                            error: (e: Error) => void;
+                        }) => {
+                            handlers.next({ type: "signed", txHash });
+                            handlers.next({
+                                type: "txBestBlocksState",
+                                txHash,
+                                found: true,
+                                ok,
+                                events: [],
+                                block: { hash: "0xblock", number: 1, index: 0 },
+                            });
+                            return { unsubscribe: () => {} };
+                        },
+                    };
+                },
+            }),
+        };
+    }
+
     const fakeInkSdk = {
         getContract: (_descriptor: any, _address: any) => ({
             query: async (_method: string, _args: any) => ({
                 success: true,
                 value: { response: 42, gasRequired: 100n },
             }),
-            send: (_method: string, _args: any) => ({
-                signAndSubmit: async () => ({
-                    txHash: "0xabc",
-                    block: { hash: "0xblock" },
-                    ok: true,
-                    events: [],
-                }),
-            }),
+            send: (_method: string, _args: any) => fakeSendResult("0xabc", true),
         }),
     } as unknown as InkSdk;
 
@@ -271,7 +291,7 @@ if (import.meta.vitest) {
                         queriedMethod = method;
                         return { success: true, value: { response: 99, gasRequired: 200n } };
                     },
-                    send: () => ({ signAndSubmit: async () => ({}) }),
+                    send: () => fakeSendResult("0x1", true),
                 }),
             } as unknown as InkSdk;
 
@@ -293,20 +313,13 @@ if (import.meta.vitest) {
                     query: async () => ({ success: true, value: {} }),
                     send: (method: string) => {
                         sentMethod = method;
-                        return {
-                            signAndSubmit: async () => ({
-                                txHash: "0x1",
-                                block: { hash: "0x2" },
-                                ok: true,
-                                events: [],
-                            }),
-                        };
+                        return fakeSendResult("0x1", true);
                     },
                 }),
             } as unknown as InkSdk;
 
             const mgr = new ContractManager(cdmJson, trackingSdk, {
-                defaultSigner: {} as any,
+                defaultSigner: { publicKey: new Uint8Array(32) } as any,
             });
             const contract = mgr.getContract("@test/counter");
             const result = await contract.increment.tx();
@@ -317,7 +330,7 @@ if (import.meta.vitest) {
         });
 
         test("signerSource provides signer and origin automatically", async () => {
-            const hostSigner = { id: "host" } as any;
+            const hostSigner = { id: "host", publicKey: new Uint8Array(32) } as any;
             let capturedOrigin: string | undefined;
             let capturedSigner: any;
 
@@ -329,17 +342,9 @@ if (import.meta.vitest) {
                     },
                     send: (_: string, args: any) => {
                         capturedOrigin = args.origin;
-                        return {
-                            signAndSubmit: async (s: any) => {
-                                capturedSigner = s;
-                                return {
-                                    txHash: "0x1",
-                                    block: { hash: "0x2" },
-                                    ok: true,
-                                    events: [],
-                                };
-                            },
-                        };
+                        return fakeSendResult("0x1", true, (s) => {
+                            capturedSigner = s;
+                        });
                     },
                 }),
             } as unknown as InkSdk;
@@ -368,7 +373,7 @@ if (import.meta.vitest) {
                         capturedOrigin = args.origin;
                         return { success: true, value: { response: 0 } };
                     },
-                    send: () => ({ signAndSubmit: async () => ({}) }),
+                    send: () => fakeSendResult("0x1", true),
                 }),
             } as unknown as InkSdk;
 
@@ -411,7 +416,7 @@ if (import.meta.vitest) {
         test("wraps raw address + ABI into query/tx handle", async () => {
             let queriedMethod: string | undefined;
             let sentMethod: string | undefined;
-            const fakeSigner = { id: "s" } as any;
+            const fakeSigner = { id: "s", publicKey: new Uint8Array(32) } as any;
 
             const fakeSdk = {
                 getContract: () => ({
@@ -421,14 +426,7 @@ if (import.meta.vitest) {
                     },
                     send: (method: string) => {
                         sentMethod = method;
-                        return {
-                            signAndSubmit: async () => ({
-                                txHash: "0xa",
-                                block: { hash: "0xb" },
-                                ok: true,
-                                events: [],
-                            }),
-                        };
+                        return fakeSendResult("0xa", true);
                     },
                 }),
             } as unknown as InkSdk;
@@ -449,17 +447,15 @@ if (import.meta.vitest) {
 
         test("supports signerSource", async () => {
             let capturedSigner: any;
-            const hostSigner = { id: "host" } as any;
+            const hostSigner = { id: "host", publicKey: new Uint8Array(32) } as any;
 
             const fakeSdk = {
                 getContract: () => ({
                     query: async () => ({ success: true, value: { response: 0 } }),
-                    send: () => ({
-                        signAndSubmit: async (s: any) => {
+                    send: () =>
+                        fakeSendResult("0x1", true, (s) => {
                             capturedSigner = s;
-                            return { txHash: "0x1", block: { hash: "0x2" }, ok: true, events: [] };
-                        },
-                    }),
+                        }),
                 }),
             } as unknown as InkSdk;
 

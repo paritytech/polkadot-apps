@@ -1,12 +1,7 @@
 import type { PolkadotSigner, SS58String } from "polkadot-api";
-import type {
-    AbiEntry,
-    ContractDefaults,
-    QueryOptions,
-    QueryResult,
-    TxOptions,
-    TxResult,
-} from "./types.js";
+import { submitAndWatch } from "@polkadot-apps/tx";
+import type { TxResult } from "@polkadot-apps/tx";
+import type { AbiEntry, ContractDefaults, QueryOptions, QueryResult, TxOptions } from "./types.js";
 
 // The ink SDK contract type — kept as `any` to avoid coupling to internal SDK shapes.
 type InkContract = any;
@@ -144,7 +139,7 @@ export function wrapContract(
                     }
 
                     const origin = resolveOrigin(defaults, overrides?.origin);
-                    const tx = inkContract.send(methodName, {
+                    const inkTx = inkContract.send(methodName, {
                         data,
                         origin: origin ?? "",
                         ...(overrides?.value !== undefined && { value: overrides.value }),
@@ -153,13 +148,12 @@ export function wrapContract(
                             storageDepositLimit: overrides.storageDepositLimit,
                         }),
                     });
-                    const result = await tx.signAndSubmit(signer);
-                    return {
-                        txHash: result.txHash,
-                        blockHash: result.block?.hash ?? "",
-                        ok: result.ok,
-                        events: result.events ?? [],
-                    };
+                    return submitAndWatch(inkTx, signer, {
+                        waitFor: overrides?.waitFor,
+                        timeoutMs: overrides?.timeoutMs,
+                        mortalityPeriod: overrides?.mortalityPeriod,
+                        onStatus: overrides?.onStatus,
+                    });
                 },
             };
         },
@@ -333,6 +327,42 @@ if (import.meta.vitest) {
         });
     });
 
+    /**
+     * Build a fake ink SDK `send()` return value that works with `submitAndWatch`.
+     * submitAndWatch resolves `.waited`, then calls `.signSubmitAndWatch()` which
+     * returns an observable. We simulate a successful best-block inclusion.
+     */
+    function fakeSendResult(
+        txResult: { txHash: string; ok: boolean; events?: unknown[] },
+        onSign?: (signer: any) => void,
+    ) {
+        return {
+            waited: Promise.resolve({
+                signSubmitAndWatch: (signer: any) => {
+                    onSign?.(signer);
+                    return {
+                        subscribe: (handlers: {
+                            next: (e: any) => void;
+                            error: (e: Error) => void;
+                        }) => {
+                            // Emit signed → best-block sequence
+                            handlers.next({ type: "signed", txHash: txResult.txHash });
+                            handlers.next({
+                                type: "txBestBlocksState",
+                                txHash: txResult.txHash,
+                                found: true,
+                                ok: txResult.ok,
+                                events: txResult.events ?? [],
+                                block: { hash: "0xblock", number: 1, index: 0 },
+                            });
+                            return { unsubscribe: () => {} };
+                        },
+                    };
+                },
+            }),
+        };
+    }
+
     describe("wrapContract", () => {
         const abi: AbiEntry[] = [
             {
@@ -429,51 +459,38 @@ if (import.meta.vitest) {
             expect(result.value).toBeUndefined();
         });
 
-        test("tx calls inkContract.send then signAndSubmit", async () => {
+        test("tx calls submitAndWatch via inkContract.send", async () => {
             let sendCapture: any;
             const fakeInk = {
                 send: (method: string, args: any) => {
                     sendCapture = { method, args };
-                    return {
-                        signAndSubmit: async () => ({
-                            txHash: "0xabc",
-                            block: { hash: "0xblock" },
-                            ok: true,
-                            events: [{ type: "ok" }],
-                        }),
-                    };
+                    return fakeSendResult({ txHash: "0xabc", ok: true, events: [{ type: "ok" }] });
                 },
             };
-            const fakeSigner = {} as any;
+            const fakeSigner = { publicKey: new Uint8Array(32) } as any;
             const wrapped = wrapContract(fakeInk, abi, { signer: fakeSigner });
 
             const result = await wrapped.increment.tx();
             expect(sendCapture.method).toBe("increment");
-            expect(result).toEqual({
-                txHash: "0xabc",
-                blockHash: "0xblock",
-                ok: true,
-                events: [{ type: "ok" }],
-            });
+            expect(result.txHash).toBe("0xabc");
+            expect(result.ok).toBe(true);
+            expect(result.block.hash).toBe("0xblock");
         });
 
         test("tx passes positional args and overrides", async () => {
             let sendCapture: any;
             let signerCapture: any;
-            const overrideSigner = { id: "override" } as any;
+            const overrideSigner = { publicKey: new Uint8Array(32) } as any;
             const fakeInk = {
                 send: (_: string, args: any) => {
                     sendCapture = args;
-                    return {
-                        signAndSubmit: async (s: any) => {
-                            signerCapture = s;
-                            return { txHash: "0x1", block: { hash: "0x2" }, ok: true, events: [] };
-                        },
-                    };
+                    return fakeSendResult({ txHash: "0x1", ok: true }, (s) => {
+                        signerCapture = s;
+                    });
                 },
             };
             const wrapped = wrapContract(fakeInk, abi, {
-                signer: { id: "default" } as any,
+                signer: { publicKey: new Uint8Array(32) } as any,
                 origin: "5Default" as any,
             });
 
@@ -489,7 +506,7 @@ if (import.meta.vitest) {
         });
 
         test("tx throws without signer", async () => {
-            const fakeInk = { send: () => ({ signAndSubmit: async () => ({}) }) };
+            const fakeInk = { send: () => fakeSendResult({ txHash: "0x1", ok: true }) };
             const wrapped = wrapContract(fakeInk, abi, {});
 
             await expect(wrapped.increment.tx()).rejects.toThrow(/No signer/);
@@ -527,15 +544,13 @@ if (import.meta.vitest) {
         });
 
         test("tx uses signerSource signer when no static default", async () => {
-            const sourceSigner = { id: "host-signer" } as any;
+            const sourceSigner = { id: "host-signer", publicKey: new Uint8Array(32) } as any;
             let signerUsed: any;
             const fakeInk = {
-                send: () => ({
-                    signAndSubmit: async (s: any) => {
+                send: () =>
+                    fakeSendResult({ txHash: "0x1", ok: true }, (s) => {
                         signerUsed = s;
-                        return { txHash: "0x1", block: { hash: "0x2" }, ok: true, events: [] };
-                    },
-                }),
+                    }),
             };
             const wrapped = wrapContract(fakeInk, abi, {
                 signerSource: {

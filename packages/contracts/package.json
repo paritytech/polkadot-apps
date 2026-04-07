@@ -28,6 +28,7 @@
     },
     "dependencies": {
         "@polkadot-api/sdk-ink": "catalog:",
+        "@polkadot-apps/tx": "workspace:*",
         "polkadot-api": "catalog:"
     },
     "devDependencies": {
