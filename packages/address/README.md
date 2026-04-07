@@ -173,11 +173,11 @@ addressesEqual(
 |---|---|---|
 | `isValidSs58` | `(address: string) => boolean` | Validate an SS58 address. |
 | `ss58Decode` | `(address: string) => { publicKey: Uint8Array; prefix: number }` | Decode SS58 to public key and network prefix. |
-| `ss58Encode` | `(publicKey: Uint8Array, prefix?: number) => string` | Encode a public key to SS58. Default prefix is 42 (generic Substrate). |
-| `normalizeSs58` | `(address: string, prefix?: number) => string \| null` | Re-encode an SS58 address with a different prefix. Returns `null` on invalid input. |
-| `toGenericSs58` | `(address: string) => string \| null` | Convert to generic Substrate format (prefix 42). |
-| `toPolkadotSs58` | `(address: string) => string \| null` | Convert to Polkadot mainnet format (prefix 0). |
-| `accountIdFromBytes` | `(publicKey: Uint8Array, prefix?: number) => string` | Encode a 32-byte public key to SS58. |
+| `ss58Encode` | `(publicKey: Uint8Array, prefix?: number) => SS58String` | Encode a public key to SS58. Default prefix is 42 (generic Substrate). |
+| `normalizeSs58` | `(address: string, prefix?: number) => SS58String \| null` | Re-encode an SS58 address with a different prefix. Returns `null` on invalid input. |
+| `toGenericSs58` | `(address: string) => SS58String \| null` | Convert to generic Substrate format (prefix 42). |
+| `toPolkadotSs58` | `(address: string) => SS58String \| null` | Convert to Polkadot mainnet format (prefix 0). |
+| `accountIdFromBytes` | `(publicKey: Uint8Array, prefix?: number) => SS58String` | Encode a 32-byte public key to SS58. |
 | `accountIdBytes` | `(address: string) => Uint8Array` | Decode an SS58 address to a 32-byte AccountId. |
 
 ### H160 / EVM
@@ -186,7 +186,7 @@ addressesEqual(
 |---|---|---|
 | `deriveH160` | `(publicKey: Uint8Array) => string` | Derive an H160 EVM address from a public key. Uses keccak256 for native accounts; strips 0xEE padding for EVM-derived accounts. |
 | `ss58ToH160` | `(address: string) => string` | Convert an SS58 address to H160. |
-| `h160ToSs58` | `(evmAddress: string, prefix?: number) => string` | Convert an H160 address to SS58. Pads with 0xEE. |
+| `h160ToSs58` | `(evmAddress: string, prefix?: number) => SS58String` | Convert an H160 address to SS58. Pads with 0xEE. |
 | `toH160` | `(address: string) => string` | Convert any address (SS58 or H160) to H160. |
 | `isValidH160` | `(address: string) => boolean` | Validate an H160 address. |
 

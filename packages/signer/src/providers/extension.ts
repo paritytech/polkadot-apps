@@ -1,6 +1,6 @@
 import type { InjectedExtension, InjectedPolkadotAccount } from "polkadot-api/pjs-signer";
 
-import { deriveH160 } from "@polkadot-apps/address";
+import { deriveH160, type SS58String } from "@polkadot-apps/address";
 import { createLogger } from "@polkadot-apps/logger";
 import { sleep } from "../sleep.js";
 
@@ -187,7 +187,7 @@ function mapAccounts(ext: InjectedExtension): SignerAccount[] {
 
 function mapInjectedAccounts(accounts: InjectedPolkadotAccount[]): SignerAccount[] {
     return accounts.map((acct) => ({
-        address: acct.address,
+        address: acct.address as SS58String,
         h160Address: deriveH160(acct.polkadotSigner.publicKey),
         publicKey: acct.polkadotSigner.publicKey,
         name: acct.name ?? null,

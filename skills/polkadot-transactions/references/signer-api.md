@@ -1,5 +1,7 @@
 # @polkadot-apps/signer API Reference
 
+> **`SS58String`** is a branded `string` type from `@polkadot-apps/address` (re-exported from `@polkadot-api/substrate-bindings`). `SignerAccount.address` uses this type.
+
 ## SignerManager
 
 Core orchestrator for signer management. Manages account discovery and signer creation across multiple providers (Host API, browser extensions, dev accounts). Framework-agnostic -- use `subscribe()` to integrate with React, Vue, or any framework.
@@ -391,7 +393,7 @@ function isExtensionError(e: SignerError): e is ExtensionNotFoundError | Extensi
 
 ```ts
 interface SignerAccount {
-  address: string;                    // SS58 address (prefix 42 by default)
+  address: SS58String;                // SS58 address (prefix 42 by default)
   h160Address: `0x${string}`;        // H160 EVM address
   publicKey: Uint8Array;              // Raw public key (32 bytes)
   name: string | null;                // Human-readable name if available

@@ -35,7 +35,7 @@ export function ss58Decode(address: string): { publicKey: Uint8Array; prefix: nu
  * Encode raw public key bytes into an SS58 address with the given prefix.
  * Defaults to prefix 42 (generic Substrate).
  */
-export function ss58Encode(publicKey: Uint8Array, prefix: number = GENERIC_PREFIX): string {
+export function ss58Encode(publicKey: Uint8Array, prefix: number = GENERIC_PREFIX): SS58String {
     return fromBufferToBase58(prefix)(publicKey);
 }
 
@@ -43,7 +43,7 @@ export function ss58Encode(publicKey: Uint8Array, prefix: number = GENERIC_PREFI
  * Re-encode an SS58 address with a different network prefix.
  * Returns null if the input is not a valid SS58 address.
  */
-export function normalizeSs58(address: string, prefix: number = GENERIC_PREFIX): string | null {
+export function normalizeSs58(address: string, prefix: number = GENERIC_PREFIX): SS58String | null {
     try {
         const { publicKey } = ss58Decode(address);
         return ss58Encode(publicKey, prefix);
@@ -56,7 +56,7 @@ export function normalizeSs58(address: string, prefix: number = GENERIC_PREFIX):
  * Convert any SS58 address to generic Substrate format (prefix 42).
  * Returns null if the input is invalid.
  */
-export function toGenericSs58(address: string): string | null {
+export function toGenericSs58(address: string): SS58String | null {
     return normalizeSs58(address, GENERIC_PREFIX);
 }
 
@@ -64,7 +64,7 @@ export function toGenericSs58(address: string): string | null {
  * Convert any SS58 address to Polkadot format (prefix 0).
  * Returns null if the input is invalid.
  */
-export function toPolkadotSs58(address: string): string | null {
+export function toPolkadotSs58(address: string): SS58String | null {
     return normalizeSs58(address, POLKADOT_PREFIX);
 }
 
@@ -72,7 +72,10 @@ export function toPolkadotSs58(address: string): string | null {
  * Encode an SS58 address from a 32-byte public key using polkadot-api's AccountId codec.
  * This is the inverse of `accountIdBytes()`.
  */
-export function accountIdFromBytes(publicKey: Uint8Array, prefix: number = GENERIC_PREFIX): string {
+export function accountIdFromBytes(
+    publicKey: Uint8Array,
+    prefix: number = GENERIC_PREFIX,
+): SS58String {
     return AccountId(prefix).dec(publicKey);
 }
 
@@ -81,7 +84,7 @@ export function accountIdFromBytes(publicKey: Uint8Array, prefix: number = GENER
  * This is the inverse of `accountIdFromBytes()`.
  */
 export function accountIdBytes(address: string): Uint8Array {
-    return AccountId().enc(address);
+    return AccountId().enc(address as SS58String);
 }
 
 if (import.meta.vitest) {
