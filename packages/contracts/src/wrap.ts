@@ -2,7 +2,7 @@ import type { PolkadotSigner, SS58String } from "polkadot-api";
 import { submitAndWatch } from "@polkadot-apps/tx";
 import { seedToAccount } from "@polkadot-apps/keys";
 import { createLogger } from "@polkadot-apps/logger";
-import { DEV_PHRASE } from "@polkadot-labs/hdkd-helpers";
+import { DEV_PHRASE, ss58Address } from "@polkadot-labs/hdkd-helpers";
 import { ContractSignerMissingError } from "./errors.js";
 import type {
     AbiEntry,
@@ -15,7 +15,13 @@ import type {
 
 const log = createLogger("contracts");
 
-// The ink SDK contract type — kept as `any` to avoid coupling to internal SDK shapes.
+/**
+ * Ink SDK contract instance returned by `inkSdk.getContract()`.
+ *
+ * Typed as `any` because we call `.query()` / `.send()` with runtime method
+ * names — the SDK's `ContractSdk<D>` requires compile-time descriptor
+ * knowledge that runtime ABIs can't provide.
+ */
 type InkContract = any;
 
 /** Extract method name → ordered parameter names from the ABI. */
@@ -92,10 +98,7 @@ function resolveSigner(
     defaults: ContractDefaults,
     override?: PolkadotSigner,
 ): PolkadotSigner | undefined {
-    if (override) return override;
-    const sourceSigner = defaults.signerSource?.getSigner();
-    if (sourceSigner) return sourceSigner;
-    return defaults.signer;
+    return override ?? defaults.signerSource?.getSigner() ?? defaults.signer;
 }
 
 /**
@@ -148,10 +151,12 @@ export function wrapContract(
                         throw new ContractSignerMissingError();
                     }
 
-                    const origin = resolveOrigin(defaults, overrides?.origin);
+                    const origin =
+                        resolveOrigin(defaults, overrides?.origin) ??
+                        (ss58Address(signer.publicKey) as SS58String);
                     const inkTx = inkContract.send(methodName, {
                         data,
-                        origin: origin ?? "",
+                        origin,
                         ...(overrides?.value !== undefined && { value: overrides.value }),
                         ...(overrides?.gasLimit && { gasLimit: overrides.gasLimit }),
                         ...(overrides?.storageDepositLimit !== undefined && {
