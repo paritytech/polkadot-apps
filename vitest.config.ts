@@ -10,7 +10,7 @@ function ignoreCoverageBlocks(): Plugin {
     return {
         name: "ignore-coverage-blocks",
         transform(code, id) {
-            if (!id.includes("packages/")) return;
+            if (!id.includes("packages/") && !id.includes("apps/")) return;
             let result = code;
 
             // Exclude in-source test blocks
@@ -37,8 +37,8 @@ export default defineConfig({
     plugins: [ignoreCoverageBlocks()],
     test: {
         globals: true,
-        includeSource: ["packages/*/src/**/*.ts"],
-        include: ["packages/**/tests/**/*.test.ts"],
+        includeSource: ["packages/*/src/**/*.ts", "apps/*/src/**/*.ts"],
+        include: ["packages/**/tests/**/*.test.ts", "apps/**/tests/**/*.test.ts"],
         exclude: ["**/node_modules/**", "**/dist/**"],
         reporters: "verbose",
         environment: "node",
@@ -46,7 +46,7 @@ export default defineConfig({
             provider: "istanbul",
             reporter: ["text", "json-summary", "json"],
             reportsDirectory: "./coverage",
-            include: ["packages/*/src/**/*.ts"],
+            include: ["packages/*/src/**/*.ts", "apps/*/src/**/*.ts"],
             exclude: [
                 "**/node_modules/**",
                 "**/dist/**",

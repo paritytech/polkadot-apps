@@ -1,7 +1,14 @@
 {
     "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
     "files": {
-        "include": ["packages/**/*.ts", "packages/**/*.tsx", "packages/**/*.json"],
+        "include": [
+            "packages/**/*.ts",
+            "packages/**/*.tsx",
+            "packages/**/*.json",
+            "apps/**/*.ts",
+            "apps/**/*.tsx",
+            "apps/**/*.json"
+        ],
         "ignore": [
             "**/node_modules/**",
             "**/dist/**",

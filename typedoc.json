@@ -1,6 +1,6 @@
 {
     "$schema": "https://typedoc.org/schema.json",
-    "entryPoints": ["packages/*"],
+    "entryPoints": ["packages/*", "apps/*"],
     "entryPointStrategy": "packages",
     "out": "docs",
     "name": "Polkadot Apps",
