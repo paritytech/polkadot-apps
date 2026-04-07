@@ -11,7 +11,7 @@ export class ContractSignerMissingError extends ContractError {
     constructor() {
         super(
             "No signer available. Pass { signer } in call options, " +
-                "set defaultSigner, or provide a signerSource.",
+                "set defaultSigner, or provide a signerManager.",
         );
         this.name = "ContractSignerMissingError";
     }
@@ -50,7 +50,7 @@ if (import.meta.vitest) {
         test("message mentions signer options", () => {
             const err = new ContractSignerMissingError();
             expect(err.message).toContain("signer");
-            expect(err.message).toContain("signerSource");
+            expect(err.message).toContain("signerManager");
             expect(err.name).toBe("ContractSignerMissingError");
         });
     });
