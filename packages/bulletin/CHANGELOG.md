@@ -1,5 +1,13 @@
 # @polkadot-apps/bulletin
 
+## 0.6.4
+
+### Patch Changes
+
+- Updated dependencies [6fe9c11]
+  - @polkadot-apps/utils@0.4.0
+  - @polkadot-apps/tx@0.3.2
+
 ## 0.6.3
 
 ### Patch Changes

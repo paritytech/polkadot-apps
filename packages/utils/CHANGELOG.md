@@ -1,5 +1,11 @@
 # @polkadot-apps/utils
 
+## 0.4.0
+
+### Minor Changes
+
+- 6fe9c11: Add `formatBalance` for locale-aware display formatting with thousand separators, decimal truncation, and optional token symbol. Add `getBalance` typed convenience wrapper for System.Account balance queries.
+
 ## 0.3.0
 
 ### Minor Changes

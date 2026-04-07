@@ -1,5 +1,12 @@
 # @polkadot-apps/statement-store
 
+## 0.2.10
+
+### Patch Changes
+
+- Updated dependencies [6fe9c11]
+  - @polkadot-apps/utils@0.4.0
+
 ## 0.2.9
 
 ### Patch Changes

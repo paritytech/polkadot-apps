@@ -1,5 +1,12 @@
 # @polkadot-apps/keys
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [6fe9c11]
+  - @polkadot-apps/utils@0.4.0
+
 ## 0.4.0
 
 ### Minor Changes

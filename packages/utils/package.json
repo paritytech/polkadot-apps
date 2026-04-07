@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/utils",
     "description": "Encoding utilities and token formatting for the @polkadot-apps ecosystem",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",

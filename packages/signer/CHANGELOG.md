@@ -1,5 +1,11 @@
 # @polkadot-apps/signer
 
+## 0.2.1
+
+### Patch Changes
+
+- @polkadot-apps/keys@0.4.1
+
 ## 0.2.0
 
 ### Minor Changes
