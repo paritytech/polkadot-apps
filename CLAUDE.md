@@ -29,6 +29,15 @@ Follow the contributor guidelines in `README.md`.
 - Each chain lives in `packages/descriptors/chains/<name>/` with its own `.papi/polkadot-api.json` config. `pnpm generate-descriptors` fetches metadata and runs `papi generate` per chain.
 - Adding a new chain: (1) add `papi add` in `scripts/generate.sh`, (2) create `chains/<name>/` with `.papi/polkadot-api.json` and `package.json`, (3) add chain to `CHAINS` in `scripts/build.sh`, (4) add subpath export in `package.json`.
 
+## Contracts
+
+- `@polkadot-apps/contracts` provides typed contract interactions on Asset Hub (Ink!/PolkaVM and Solidity). Contracts are defined via a `cdm.json` manifest or raw ABI arrays.
+- Key exports: `ContractManager` (loads contracts from cdm.json, resolves targets), `createContract` (standalone single-contract handle from an ABI + address), `generateContractTypes` (codegen that maps Solidity ABI types to TypeScript).
+- Integrates with `@polkadot-apps/chain-client` via `api.contracts` (an `InkSdk` instance) and `@polkadot-apps/signer` via `SignerManager` for automatic signer/origin resolution.
+- Each contract method exposes `.query()` (dry-run) and `.tx()` (submit transaction). Signer resolution order: explicit call option > `signerManager` > static `defaultSigner`.
+- The `@polkadot-apps/contracts/codegen` subpath export provides `generateContractTypes` separately for build-time use without pulling in runtime dependencies.
+- The `Contracts` interface in `types.ts` is augmentable via module augmentation — codegen extends it so `getContract()` returns fully-typed handles.
+
 ## Skills
 
 AI coding assistants (Claude Code, Copilot, Gemini, Codex) use the skills in `skills/` to build apps with `@polkadot-apps` packages end-to-end. **When modifying packages, update the corresponding skills:**
@@ -42,6 +51,7 @@ AI coding assistants (Claude Code, Copilot, Gemini, Codex) use the skills in `sk
 |-------|-----------------|
 | `polkadot-app-builder` | Orchestrator — routes to domain skills, scaffolds projects |
 | `polkadot-chain-connection` | chain-client, descriptors, host |
+| `polkadot-contracts` | contracts |
 | `polkadot-transactions` | tx, signer, keys |
 | `polkadot-bulletin` | bulletin |
 | `polkadot-statement-store` | statement-store |

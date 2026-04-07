@@ -9,6 +9,7 @@ Reusable TypeScript components for rapidly developing applications within the Po
 | [`@polkadot-apps/address`](https://www.npmjs.com/package/@polkadot-apps/address) | Substrate and EVM address utilities — SS58/H160 encoding, validation, and conversion |
 | [`@polkadot-apps/bulletin`](https://www.npmjs.com/package/@polkadot-apps/bulletin) | TypeScript SDK for uploading and retrieving data on the Polkadot Bulletin Chain |
 | [`@polkadot-apps/chain-client`](https://www.npmjs.com/package/@polkadot-apps/chain-client) | Multi-chain Polkadot API client with typed access to Asset Hub, Bulletin, and Individuality chains |
+| [`@polkadot-apps/contracts`](https://www.npmjs.com/package/@polkadot-apps/contracts) | Typed contract interactions for Solidity and ink! contracts on Polkadot |
 | [`@polkadot-apps/crypto`](https://www.npmjs.com/package/@polkadot-apps/crypto) | Cryptographic primitives — symmetric encryption, key derivation, and NaCl operations |
 | [`@polkadot-apps/descriptors`](https://www.npmjs.com/package/@polkadot-apps/descriptors) | Pre-generated Polkadot API descriptors for Asset Hub, Bulletin, and Individuality chains |
 | [`@polkadot-apps/host`](https://www.npmjs.com/package/@polkadot-apps/host) | Host container detection, provider routing, and storage access for Polkadot Desktop and Mobile environments |
