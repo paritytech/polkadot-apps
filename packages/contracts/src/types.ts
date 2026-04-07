@@ -1,5 +1,6 @@
 import type { HexString, PolkadotSigner, SS58String } from "polkadot-api";
 import type { SubmitOptions, TxResult, Weight } from "@polkadot-apps/tx";
+import type { SignerManager } from "@polkadot-apps/signer";
 
 // Re-export from the tx package — single source of truth.
 export type { TxResult, SubmitOptions } from "@polkadot-apps/tx";
@@ -85,28 +86,11 @@ export interface TxOptions extends SubmitOptions {
     storageDepositLimit?: bigint;
 }
 
-/**
- * Reactive signer source — provides the currently logged-in account's
- * signer and address.
- *
- * {@link SignerManager} from `@polkadot-apps/signer` satisfies this
- * interface structurally — no import required.
- *
- * Resolved at **call time** so account switches are picked up
- * automatically without re-creating contracts.
- */
-export interface SignerSource {
-    /** Get the PolkadotSigner for the currently selected account. */
-    getSigner(): PolkadotSigner | null;
-    /** Get the current state including the selected account's address. */
-    getState(): { selectedAccount: { address: string } | null };
-}
-
 /** Mutable defaults shared across all contract handles from a manager. */
 export interface ContractDefaults {
     origin?: SS58String;
     signer?: PolkadotSigner;
-    signerSource?: SignerSource;
+    signerManager?: SignerManager;
 }
 
 /**
@@ -114,18 +98,17 @@ export interface ContractDefaults {
  *
  * Signer resolution order (highest wins):
  * 1. Explicit override in call options
- * 2. `signerSource` (current logged-in account)
+ * 2. `signerManager` (current logged-in account)
  * 3. Static `defaultSigner` / `defaultOrigin`
  */
 export interface ContractOptions {
     /**
-     * Reactive signer source — typically a `SignerManager` from
-     * `@polkadot-apps/signer`. When provided, the currently selected
-     * account is used as the default signer and origin for all contract
-     * interactions. Checked at call time so account switches are
-     * reflected immediately.
+     * Signer manager from `@polkadot-apps/signer`. When provided, the
+     * currently selected account is used as the default signer and origin
+     * for all contract interactions. Resolved at call time so account
+     * switches are reflected immediately.
      */
-    signerSource?: SignerSource;
+    signerManager?: SignerManager;
     /** Static fallback caller address for queries. */
     defaultOrigin?: SS58String;
     /** Static fallback signer for transactions. */
@@ -150,7 +133,7 @@ export type Contract<C extends ContractDef> = {
          * Dry-run the method (read-only). Does not submit a transaction or
          * cost gas. Returns the decoded response and estimated gas required.
          *
-         * Origin is resolved from: explicit `{ origin }` option → signerSource →
+         * Origin is resolved from: explicit `{ origin }` option → signerManager →
          * defaultOrigin → dev fallback (Alice).
          */
         query: (
@@ -160,7 +143,7 @@ export type Contract<C extends ContractDef> = {
          * Sign, submit, and watch the method as an on-chain transaction.
          * Resolves at best-block by default (configurable via `waitFor`).
          *
-         * Signer is resolved from: explicit `{ signer }` option → signerSource →
+         * Signer is resolved from: explicit `{ signer }` option → signerManager →
          * defaultSigner. Throws {@link ContractSignerMissingError} if none available.
          */
         tx: (...args: [...C["methods"][K]["args"], opts?: TxOptions]) => Promise<TxResult>;

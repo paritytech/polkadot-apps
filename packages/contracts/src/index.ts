@@ -21,5 +21,4 @@ export type {
     ContractDefaults,
     ContractManagerOptions,
     ContractOptions,
-    SignerSource,
 } from "./types.js";

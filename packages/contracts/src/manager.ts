@@ -17,7 +17,7 @@ import type {
 /**
  * Manages typed contract interactions backed by a `cdm.json` manifest.
  *
- * Pass a `signerSource` (e.g. a `SignerManager` from `@polkadot-apps/signer`)
+ * Pass a `signerManager` (e.g. a `SignerManager` from `@polkadot-apps/signer`)
  * so the currently logged-in account is used automatically — no manual
  * signer/origin wiring needed.
  *
@@ -29,7 +29,7 @@ import type {
  *
  * const api = await getChainAPI("paseo");
  * const manager = new ContractManager(cdmJson, api.contracts, {
- *     signerSource: signerManager, // from @polkadot-apps/signer
+ *     signerManager: signerManager, // from @polkadot-apps/signer
  * });
  *
  * // Uses the host's logged-in account automatically
@@ -57,15 +57,16 @@ export class ContractManager {
         }
 
         this.defaults = {
-            signerSource: options?.signerSource,
+            signerManager: options?.signerManager,
             origin: options?.defaultOrigin,
             signer: options?.defaultSigner,
         };
     }
 
-    /** Update the default origin, signer, or signerSource used by all contract handles. */
+    /** Update the default origin, signer, or signerManager used by all contract handles. */
     setDefaults(defaults: ContractDefaults): void {
-        if (defaults.signerSource !== undefined) this.defaults.signerSource = defaults.signerSource;
+        if (defaults.signerManager !== undefined)
+            this.defaults.signerManager = defaults.signerManager;
         if (defaults.origin !== undefined) this.defaults.origin = defaults.origin;
         if (defaults.signer !== undefined) this.defaults.signer = defaults.signer;
     }
@@ -109,7 +110,7 @@ export class ContractManager {
  * ```ts
  * const api = await getChainAPI("paseo");
  * const counter = createContract(api.contracts, "0xC472...", abi, {
- *     signerSource: signerManager,
+ *     signerManager: signerManager,
  * });
  * await counter.getCount.query();
  * await counter.increment.tx();
@@ -123,7 +124,7 @@ export function createContract(
 ): Contract<ContractDef> {
     const inkContract = inkSdk.getContract({ abi } as any, address);
     const defaults: ContractDefaults = {
-        signerSource: options?.signerSource,
+        signerManager: options?.signerManager,
         origin: options?.defaultOrigin,
         signer: options?.defaultSigner,
     };
@@ -132,6 +133,18 @@ export function createContract(
 
 if (import.meta.vitest) {
     const { test, expect, describe } = import.meta.vitest;
+
+    function mockSigner(opts: {
+        address?: string | null;
+        signer?: any;
+    }): import("@polkadot-apps/signer").SignerManager {
+        return {
+            getSigner: () => opts.signer ?? null,
+            getState: () => ({
+                selectedAccount: opts.address ? ({ address: opts.address } as any) : null,
+            }),
+        } as any;
+    }
 
     const cdmJson: CdmJson = {
         targets: {
@@ -328,7 +341,7 @@ if (import.meta.vitest) {
             expect(result.ok).toBe(true);
         });
 
-        test("signerSource provides signer and origin automatically", async () => {
+        test("signerManager provides signer and origin automatically", async () => {
             const hostSigner = { id: "host", publicKey: new Uint8Array(32) } as any;
             let capturedOrigin: string | undefined;
             let capturedSigner: any;
@@ -349,10 +362,7 @@ if (import.meta.vitest) {
             } as unknown as InkSdk;
 
             const mgr = new ContractManager(cdmJson, trackingSdk, {
-                signerSource: {
-                    getSigner: () => hostSigner,
-                    getState: () => ({ selectedAccount: { address: "5HostUser" } }),
-                },
+                signerManager: mockSigner({ address: "5HostUser", signer: hostSigner }),
             });
             const contract = mgr.getContract("@test/counter");
 
@@ -364,7 +374,7 @@ if (import.meta.vitest) {
             expect(capturedOrigin).toBe("5HostUser");
         });
 
-        test("signerSource can be set after construction via setDefaults", async () => {
+        test("signerManager can be set after construction via setDefaults", async () => {
             let capturedOrigin: string | undefined;
             const trackingSdk = {
                 getContract: () => ({
@@ -383,10 +393,7 @@ if (import.meta.vitest) {
 
             // Add signer source
             mgr.setDefaults({
-                signerSource: {
-                    getSigner: () => ({}) as any,
-                    getState: () => ({ selectedAccount: { address: "5Late" } }),
-                },
+                signerManager: mockSigner({ address: "5Late", signer: {} }),
             });
             const contract2 = mgr.getContract("@test/counter");
             await contract2.getCount.query();
@@ -444,7 +451,7 @@ if (import.meta.vitest) {
             expect(tr.ok).toBe(true);
         });
 
-        test("supports signerSource", async () => {
+        test("supports signerManager", async () => {
             let capturedSigner: any;
             const hostSigner = { id: "host", publicKey: new Uint8Array(32) } as any;
 
@@ -459,10 +466,7 @@ if (import.meta.vitest) {
             } as unknown as InkSdk;
 
             const contract = createContract(fakeSdk, "0xABC" as any, abi, {
-                signerSource: {
-                    getSigner: () => hostSigner,
-                    getState: () => ({ selectedAccount: { address: "5Host" } }),
-                },
+                signerManager: mockSigner({ address: "5Host", signer: hostSigner }),
             });
 
             await contract.increment.tx();

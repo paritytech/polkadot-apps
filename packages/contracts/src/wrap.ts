@@ -67,12 +67,12 @@ function extractOverrides<T>(
  * affects gas estimation and is safe to stub.
  *
  * This is a development convenience. In production, the origin is resolved
- * from the signerSource (logged-in account) or an explicit defaultOrigin.
+ * from the signerManager (logged-in account) or an explicit defaultOrigin.
  */
 const QUERY_FALLBACK_ORIGIN = seedToAccount(DEV_PHRASE, "//Alice").ss58Address as SS58String;
 
 /**
- * Resolve the origin address: explicit override → signerSource → static default.
+ * Resolve the origin address: explicit override → signerManager → static default.
  * For queries, pass `forQuery: true` to enable the dev-address fallback.
  */
 function resolveOrigin(
@@ -81,7 +81,7 @@ function resolveOrigin(
     forQuery?: boolean,
 ): SS58String | undefined {
     if (override) return override;
-    const sourceAddr = defaults.signerSource?.getState().selectedAccount?.address;
+    const sourceAddr = defaults.signerManager?.getState().selectedAccount?.address;
     if (sourceAddr) return sourceAddr as SS58String;
     if (defaults.origin) return defaults.origin;
     if (forQuery) {
@@ -92,13 +92,13 @@ function resolveOrigin(
 }
 
 /**
- * Resolve the signer: explicit override → signerSource → static default.
+ * Resolve the signer: explicit override → signerManager → static default.
  */
 function resolveSigner(
     defaults: ContractDefaults,
     override?: PolkadotSigner,
 ): PolkadotSigner | undefined {
-    return override ?? defaults.signerSource?.getSigner() ?? defaults.signer;
+    return override ?? defaults.signerManager?.getSigner() ?? defaults.signer;
 }
 
 /**
@@ -251,25 +251,32 @@ if (import.meta.vitest) {
         });
     });
 
+    /** Build a partial SignerManager mock for tests. */
+    function mockSigner(opts: {
+        address?: string | null;
+        signer?: any;
+    }): import("@polkadot-apps/signer").SignerManager {
+        return {
+            getSigner: () => opts.signer ?? null,
+            getState: () => ({
+                selectedAccount: opts.address ? ({ address: opts.address } as any) : null,
+            }),
+        } as any;
+    }
+
     describe("resolveOrigin", () => {
         test("explicit override wins", () => {
             const defaults: ContractDefaults = {
                 origin: "5Static" as SS58String,
-                signerSource: {
-                    getSigner: () => null,
-                    getState: () => ({ selectedAccount: { address: "5Source" } }),
-                },
+                signerManager: mockSigner({ address: "5Source" }),
             };
             expect(resolveOrigin(defaults, "5Override" as SS58String)).toBe("5Override");
         });
 
-        test("signerSource wins over static default", () => {
+        test("signerManager wins over static default", () => {
             const defaults: ContractDefaults = {
                 origin: "5Static" as SS58String,
-                signerSource: {
-                    getSigner: () => null,
-                    getState: () => ({ selectedAccount: { address: "5Source" } }),
-                },
+                signerManager: mockSigner({ address: "5Source" }),
             };
             expect(resolveOrigin(defaults)).toBe("5Source");
         });
@@ -283,13 +290,10 @@ if (import.meta.vitest) {
             expect(resolveOrigin({})).toBeUndefined();
         });
 
-        test("skips signerSource when no account selected", () => {
+        test("skips signerManager when no account selected", () => {
             const defaults: ContractDefaults = {
                 origin: "5Static" as SS58String,
-                signerSource: {
-                    getSigner: () => null,
-                    getState: () => ({ selectedAccount: null }),
-                },
+                signerManager: mockSigner({ address: null }),
             };
             expect(resolveOrigin(defaults)).toBe("5Static");
         });
@@ -302,21 +306,15 @@ if (import.meta.vitest) {
         test("explicit override wins", () => {
             const defaults: ContractDefaults = {
                 signer: { id: "static" } as any,
-                signerSource: {
-                    getSigner: () => sourceSigner,
-                    getState: () => ({ selectedAccount: null }),
-                },
+                signerManager: mockSigner({ signer: sourceSigner }),
             };
             expect(resolveSigner(defaults, fakeSigner)).toBe(fakeSigner);
         });
 
-        test("signerSource wins over static default", () => {
+        test("signerManager wins over static default", () => {
             const defaults: ContractDefaults = {
                 signer: { id: "static" } as any,
-                signerSource: {
-                    getSigner: () => sourceSigner,
-                    getState: () => ({ selectedAccount: null }),
-                },
+                signerManager: mockSigner({ signer: sourceSigner }),
             };
             expect(resolveSigner(defaults)).toBe(sourceSigner);
         });
@@ -330,13 +328,10 @@ if (import.meta.vitest) {
             expect(resolveSigner({})).toBeUndefined();
         });
 
-        test("skips signerSource when getSigner returns null", () => {
+        test("skips signerManager when getSigner returns null", () => {
             const defaults: ContractDefaults = {
                 signer: fakeSigner,
-                signerSource: {
-                    getSigner: () => null,
-                    getState: () => ({ selectedAccount: null }),
-                },
+                signerManager: mockSigner({}),
             };
             expect(resolveSigner(defaults)).toBe(fakeSigner);
         });
@@ -539,7 +534,7 @@ if (import.meta.vitest) {
             expect((wrapped as any)[Symbol.iterator]).toBeUndefined();
         });
 
-        test("query uses signerSource origin when no static default", async () => {
+        test("query uses signerManager origin when no static default", async () => {
             let captured: any;
             const fakeInk = {
                 query: async (_: string, args: any) => {
@@ -548,17 +543,14 @@ if (import.meta.vitest) {
                 },
             };
             const wrapped = wrapContract(fakeInk, abi, {
-                signerSource: {
-                    getSigner: () => null,
-                    getState: () => ({ selectedAccount: { address: "5FromSource" } }),
-                },
+                signerManager: mockSigner({ address: "5FromSource" }),
             });
 
             await wrapped.getCount.query();
             expect(captured.origin).toBe("5FromSource");
         });
 
-        test("tx uses signerSource signer when no static default", async () => {
+        test("tx uses signerManager signer when no static default", async () => {
             const sourceSigner = { id: "host-signer", publicKey: new Uint8Array(32) } as any;
             let signerUsed: any;
             const fakeInk = {
@@ -568,19 +560,15 @@ if (import.meta.vitest) {
                     }),
             };
             const wrapped = wrapContract(fakeInk, abi, {
-                signerSource: {
-                    getSigner: () => sourceSigner,
-                    getState: () => ({ selectedAccount: { address: "5Host" } }),
-                },
+                signerManager: mockSigner({ address: "5Host", signer: sourceSigner }),
             });
 
             await wrapped.increment.tx();
             expect(signerUsed).toBe(sourceSigner);
         });
 
-        test("signerSource tracks account changes between calls", async () => {
+        test("signerManager tracks account changes between calls", async () => {
             let currentAccount = "5Alice";
-            let currentSigner = { id: "alice" } as any;
             const origins: string[] = [];
 
             const fakeInk = {
@@ -589,17 +577,16 @@ if (import.meta.vitest) {
                     return { success: true, value: { response: 0 } };
                 },
             };
+            // Use a live mock that reads currentAccount at call time
             const wrapped = wrapContract(fakeInk, abi, {
-                signerSource: {
-                    getSigner: () => currentSigner,
+                signerManager: {
+                    getSigner: () => null,
                     getState: () => ({ selectedAccount: { address: currentAccount } }),
-                },
+                } as any,
             });
 
             await wrapped.getCount.query();
-            // User switches account
             currentAccount = "5Bob";
-            currentSigner = { id: "bob" } as any;
             await wrapped.getCount.query();
 
             expect(origins).toEqual(["5Alice", "5Bob"]);
