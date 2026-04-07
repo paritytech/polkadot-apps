@@ -1,6 +1,6 @@
 {
     "name": "@polkadot-apps/contracts",
-    "description": "Typed contract interactions for CDM-managed contracts on Polkadot Asset Hub",
+    "description": "Typed contract interactions on Polkadot Asset Hub",
     "version": "0.1.0",
     "type": "module",
     "main": "./dist/index.js",
@@ -28,7 +28,9 @@
     },
     "dependencies": {
         "@polkadot-api/sdk-ink": "catalog:",
+        "@polkadot-apps/keys": "workspace:*",
         "@polkadot-apps/tx": "workspace:*",
+        "@polkadot-labs/hdkd-helpers": "catalog:",
         "polkadot-api": "catalog:"
     },
     "devDependencies": {

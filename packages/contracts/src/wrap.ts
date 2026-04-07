@@ -1,6 +1,8 @@
 import type { PolkadotSigner, SS58String } from "polkadot-api";
 import { submitAndWatch } from "@polkadot-apps/tx";
 import type { TxResult } from "@polkadot-apps/tx";
+import { seedToAccount } from "@polkadot-apps/keys";
+import { DEV_PHRASE } from "@polkadot-labs/hdkd-helpers";
 import type { AbiEntry, ContractDefaults, QueryOptions, QueryResult, TxOptions } from "./types.js";
 
 // The ink SDK contract type — kept as `any` to avoid coupling to internal SDK shapes.
@@ -44,11 +46,14 @@ function extractOverrides<T>(
 }
 
 /**
- * Well-known dev address used as fallback origin for read-only queries.
- * Queries are dry-run simulations — the origin only affects gas estimation
- * and is safe to stub when no wallet is connected.
+ * Dev address (Alice) used as fallback origin for read-only queries when no
+ * wallet is connected. Queries are dry-run simulations — the origin only
+ * affects gas estimation and is safe to stub.
+ *
+ * This is a development convenience. In production, the origin is resolved
+ * from the signerSource (logged-in account) or an explicit defaultOrigin.
  */
-const QUERY_FALLBACK_ORIGIN = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" as SS58String; // Alice
+const QUERY_FALLBACK_ORIGIN = seedToAccount(DEV_PHRASE, "//Alice").ss58Address as SS58String;
 
 /**
  * Resolve the origin address: explicit override → signerSource → static default.
