@@ -195,3 +195,99 @@ parseToPlanck("0.0000000001"); // 1n
 parseToPlanck("1.0", 12);     // 1_000_000_000_000n (KSM, 12 decimals)
 parseToPlanck("42", 0);       // 42n
 ```
+
+---
+
+### formatBalance
+
+Format a planck value for display with locale-aware thousand separators, configurable decimal precision, and optional token symbol. Builds on `formatPlanck` for full BigInt precision.
+
+```ts
+function formatBalance(planck: bigint, options?: FormatBalanceOptions): string
+```
+
+**Parameters:**
+- `planck` - The raw planck value. Must be non-negative.
+- `options` - Optional `FormatBalanceOptions`.
+
+**Returns:** A display-ready string (e.g. `"1,000.5 DOT"`).
+
+**Throws:**
+- `RangeError` if `planck < 0n` or `decimals` is invalid (delegated to `formatPlanck`).
+
+```ts
+import { formatBalance } from "@polkadot-apps/utils";
+
+formatBalance(10_000_000_000n);                              // "1"
+formatBalance(15_000_000_000n, { symbol: "DOT" });           // "1.5 DOT"
+formatBalance(10_000_000_000_000n, { symbol: "DOT" });       // "1,000 DOT"
+formatBalance(12_345_678_900n, { maxDecimals: 2 });          // "1.23"
+formatBalance(0n, { symbol: "DOT" });                        // "0 DOT"
+formatBalance(1_000_000_000_000n, { decimals: 12, symbol: "KSM" }); // "1 KSM"
+```
+
+### FormatBalanceOptions
+
+```ts
+interface FormatBalanceOptions {
+  decimals?: number;     // Default: 10 (DOT)
+  maxDecimals?: number;  // Default: 4
+  symbol?: string;       // Token symbol to append (e.g., "DOT")
+  locale?: string;       // BCP 47 locale for thousand separators
+}
+```
+
+---
+
+## Balance Querying
+
+### getBalance
+
+Query the free, reserved, and frozen balances for an on-chain address. Typed convenience wrapper around `System.Account.getValue`.
+
+```ts
+function getBalance(api: BalanceApi, address: string): Promise<AccountBalance>
+```
+
+**Parameters:**
+- `api` - A PAPI typed API with `query.System.Account`. Pass the chain-specific API (e.g., `api.assetHub`), not the multi-chain `ChainAPI` wrapper.
+- `address` - The SS58 address to query.
+
+**Returns:** `AccountBalance` with `free`, `reserved`, and `frozen` fields (all `bigint` in planck).
+
+```ts
+import { getBalance, formatBalance } from "@polkadot-apps/utils";
+
+const balance = await getBalance(api.assetHub, aliceAddress);
+console.log(formatBalance(balance.free, { symbol: "DOT" }));     // "1,000.5 DOT"
+console.log(formatBalance(balance.reserved, { symbol: "DOT" })); // "50 DOT"
+console.log(balance.frozen);                                      // 0n
+```
+
+### AccountBalance
+
+```ts
+interface AccountBalance {
+  free: bigint;      // Available (transferable) balance in planck
+  reserved: bigint;  // Reserved (locked) balance in planck
+  frozen: bigint;    // Frozen (non-transferable) balance in planck
+}
+```
+
+### BalanceApi
+
+```ts
+interface BalanceApi {
+  query: {
+    System: {
+      Account: {
+        getValue(address: string): Promise<{
+          data: { free: bigint; reserved: bigint; frozen: bigint };
+        }>;
+      };
+    };
+  };
+}
+```
+
+Minimal structural type for a PAPI typed API with `System.Account`. Works with any chain without importing chain-specific descriptors.
