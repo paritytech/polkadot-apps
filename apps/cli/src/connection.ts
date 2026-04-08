@@ -1,0 +1,87 @@
+import { getChainAPI, type Environment } from "@polkadot-apps/chain-client";
+import { ContractManager } from "@polkadot-apps/contracts";
+import { CHAINS, DEFAULT_CHAIN } from "./config.js";
+
+// Import as JSON module so bun embeds it in the compiled binary
+import cdmJson from "../cdm.json" with { type: "json" };
+
+// Map config chain names to chain-client Environment
+const CHAIN_TO_ENV: Record<string, Environment> = {
+    paseo: "paseo",
+    polkadot: "polkadot",
+};
+
+function resolveEnvironment(chainName: string): Environment {
+    const env = CHAIN_TO_ENV[chainName];
+    if (!env) {
+        const supported = Object.keys(CHAIN_TO_ENV).join(", ");
+        throw new Error(
+            `Chain "${chainName}" is not yet supported via chain-client. Supported: ${supported}`,
+        );
+    }
+    return env;
+}
+
+export interface Connection {
+    registry: any;
+    ipfsGateway: string;
+    destroy: () => void;
+}
+
+export async function connect(chainName?: string): Promise<Connection> {
+    const name = chainName ?? DEFAULT_CHAIN;
+    const chain = CHAINS[name];
+    if (!chain) {
+        throw new Error(`Unknown chain "${name}". Available: ${Object.keys(CHAINS).join(", ")}`);
+    }
+
+    const env = resolveEnvironment(name);
+    const api = await getChainAPI(env);
+    const manager = new ContractManager(cdmJson, api.contracts);
+    const registry = manager.getContract("@example/playground-registry");
+
+    return {
+        registry,
+        ipfsGateway: chain.ipfsGateway,
+        destroy: () => api.destroy(),
+    };
+}
+
+// IPFS fetch helper
+export async function fetchIpfs<T>(cid: string, gatewayUrl: string): Promise<T> {
+    const sep = gatewayUrl.endsWith("/") ? "" : "/";
+    const res = await fetch(`${gatewayUrl}${sep}${cid}`, { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) throw new Error(`IPFS fetch failed: ${res.statusText}`);
+    return res.json() as Promise<T>;
+}
+
+// Unwrap Substrate Option type
+export function unwrapOption<T>(val: unknown): T | undefined {
+    if (val && typeof val === "object" && "isSome" in val) {
+        const opt = val as { isSome: boolean; value: T };
+        return opt.isSome ? opt.value : undefined;
+    }
+    return val as T;
+}
+
+if (import.meta.vitest) {
+    const { test, expect } = import.meta.vitest;
+
+    test("unwraps Some value", () => {
+        expect(unwrapOption({ isSome: true, value: "hello" })).toBe("hello");
+    });
+
+    test("returns undefined for None", () => {
+        expect(unwrapOption({ isSome: false, value: "" })).toBeUndefined();
+    });
+
+    test("passes through non-Option values", () => {
+        expect(unwrapOption("plain string")).toBe("plain string");
+        expect(unwrapOption(42)).toBe(42);
+        expect(unwrapOption(null)).toBe(null);
+    });
+
+    test("handles undefined input", () => {
+        expect(unwrapOption(undefined)).toBeUndefined();
+    });
+}

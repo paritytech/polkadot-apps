@@ -99,9 +99,27 @@ importers:
 
   apps/cli:
     dependencies:
+      '@polkadot-apps/bulletin':
+        specifier: workspace:*
+        version: link:../../packages/bulletin
+      '@polkadot-apps/chain-client':
+        specifier: workspace:*
+        version: link:../../packages/chain-client
+      '@polkadot-apps/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@polkadot-apps/keys':
+        specifier: workspace:*
+        version: link:../../packages/keys
+      '@polkadot-labs/hdkd-helpers':
+        specifier: 'catalog:'
+        version: 0.0.27
       commander:
         specifier: 'catalog:'
         version: 12.1.0
+      polkadot-api:
+        specifier: 'catalog:'
+        version: 1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
     devDependencies:
       typescript:
         specifier: 'catalog:'
