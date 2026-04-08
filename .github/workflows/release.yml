@@ -40,6 +40,8 @@ jobs:
                   fi
 
             - if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+              uses: oven-sh/setup-bun@v2
+            - if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               uses: pnpm/action-setup@v4
             - if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               uses: actions/setup-node@v4
@@ -124,3 +126,34 @@ jobs:
                   inputs: '${{ format(''{{ "repo": "{0}", "run_id": "{1}" }}'', github.repository, github.run_id) }}'
               env:
                   GITHUB_TOKEN: ${{ secrets.NPM_PUBLISH_AUTOMATION_TOKEN }}
+
+            # Compile CLI binaries for all platforms
+            - name: Compile CLI binaries
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+              run: |
+                  bun build --compile --target=bun-linux-x64 ./apps/cli/src/index.ts --outfile dot-linux-x64
+                  bun build --compile --target=bun-linux-arm64 ./apps/cli/src/index.ts --outfile dot-linux-arm64
+                  bun build --compile --target=bun-darwin-x64 ./apps/cli/src/index.ts --outfile dot-darwin-x64
+                  bun build --compile --target=bun-darwin-arm64 ./apps/cli/src/index.ts --outfile dot-darwin-arm64
+
+            - name: Generate CLI release tag
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+              id: cli_tag
+              run: |
+                  VERSION=$(node -p "require('./apps/cli/package.json').version")
+                  TAG="v${VERSION}"
+                  echo "tag=$TAG" >> $GITHUB_OUTPUT
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+            - name: Create GitHub Release
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ steps.cli_tag.outputs.tag }}
+                  name: Release ${{ steps.cli_tag.outputs.tag }}
+                  files: |
+                      dot-linux-x64
+                      dot-linux-arm64
+                      dot-darwin-x64
+                      dot-darwin-arm64
+                  generate_release_notes: true

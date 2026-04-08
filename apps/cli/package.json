@@ -4,25 +4,17 @@
     "version": "0.0.1",
     "private": true,
     "type": "module",
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
     "bin": {
-        "polkadot-apps": "./dist/index.js"
+        "dot": "./src/index.ts"
     },
-    "exports": {
-        ".": {
-            "source": "./src/index.ts",
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js"
-        }
-    },
-    "files": ["dist"],
-    "sideEffects": false,
     "scripts": {
-        "build": "tsc -p tsconfig.json",
+        "build": "echo 'No build needed - compiled via bun'",
+        "compile": "bun build --compile src/index.ts --outfile dist/dot",
         "clean": "rm -rf dist"
     },
-    "dependencies": {},
+    "dependencies": {
+        "commander": "catalog:"
+    },
     "devDependencies": {
         "typescript": "catalog:"
     }
