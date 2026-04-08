@@ -25,11 +25,9 @@ function hasContracts(): boolean {
 }
 
 function getBuildCommand(): string | undefined {
-    // 1. dot.json "build" field
     const project = loadProjectConfig();
     if (project.build) return project.build;
 
-    // 2. package.json scripts
     const pkg = resolve(process.cwd(), "package.json");
     try {
         const scripts = JSON.parse(readFileSync(pkg, "utf-8")).scripts ?? {};
@@ -53,7 +51,6 @@ interface ContractInfo {
     name: string;
 }
 
-/** Scan Rust source files for #[pvm::contract(cdm = "@org/name")] */
 function detectContractNames(): ContractInfo[] {
     const results: ContractInfo[] = [];
     const cwd = process.cwd();
@@ -72,7 +69,6 @@ function detectContractNames(): ContractInfo[] {
     };
 
     scanDir(resolve(cwd, "contracts"));
-    // Also check root lib.rs for single-contract projects
     const rootLib = resolve(cwd, "lib.rs");
     if (existsSync(rootLib)) {
         const content = readFileSync(rootLib, "utf-8");
@@ -85,7 +81,6 @@ function detectContractNames(): ContractInfo[] {
 
 type ContractAction = "deploy" | "rename" | "skip";
 
-/** Prompt user to deploy, rename, or skip contracts */
 async function promptContractAction(contracts: ContractInfo[]): Promise<ContractAction> {
     const cwd = process.cwd();
     console.log();
@@ -119,7 +114,6 @@ async function promptContractAction(contracts: ContractInfo[]): Promise<Contract
     }
 }
 
-/** Prompt for new names and update Rust source files */
 async function renameContracts(contracts: ContractInfo[]): Promise<void> {
     const project = loadProjectConfig();
     const suggestedOrg = project.domain ? `@${project.domain.replace(/\.dot$/, "")}` : undefined;
@@ -132,7 +126,7 @@ async function renameContracts(contracts: ContractInfo[]): Promise<void> {
 
     for (const c of contracts) {
         const parts = c.name.split("/");
-        const shortName = parts.slice(1).join("/"); // e.g., "surveys"
+        const shortName = parts.slice(1).join("/");
         const defaultNew = suggestedOrg ? `${suggestedOrg}/${shortName}` : undefined;
         const hint = defaultNew ? ` [${defaultNew}]` : "";
 
@@ -154,12 +148,12 @@ async function renameContracts(contracts: ContractInfo[]): Promise<void> {
 }
 
 export const deployCommand = new Command("deploy")
-    .description("Build and deploy contracts, frontend, and publish to registry")
+    .description("Deploy contracts, frontend, and optionally publish to playground registry")
     .option("-n, --name <chain>", "Target chain", "paseo")
     .option("--suri <suri>", "Signer secret URI (e.g. //Alice for dev)")
-    .option("--contracts", "Include contract build & deploy (skipped by default)")
+    .option("--skip-contracts", "Skip contract build & deploy")
     .option("--skip-frontend", "Skip frontend build & deploy")
-    .option("--skip-publish", "Skip registry publish")
+    .option("--playground", "Also publish metadata to the playground registry")
     .option("--bootstrap", "Also deploy the ContractRegistry (contracts only)")
     .option("--domain <name>", "App domain (overrides dot.json)")
     .option("--app-name <name>", "Display name (overrides dot.json)")
@@ -199,13 +193,9 @@ export const deployCommand = new Command("deploy")
         }
 
         // ── Step 1: Contracts ─────────────────────────────────────────────
-        if (opts.contracts && !hasContracts()) {
-            console.log(`  ${dim("No contracts detected (no contracts/ or Cargo.toml)")}`);
-        }
-        if (opts.contracts && hasContracts()) {
+        if (!opts.skipContracts && hasContracts()) {
             let skipContracts = false;
 
-            // Detect contract package names and check if they match the domain
             if (!opts.yes) {
                 const contracts = detectContractNames();
                 const expectedOrg = `@${domain.replace(/\.dot$/, "")}`;
@@ -221,7 +211,6 @@ export const deployCommand = new Command("deploy")
                     } else if (action === "rename") {
                         await renameContracts(contracts);
                     }
-                    // action === "deploy" → proceed as-is
                 }
             }
 
@@ -238,6 +227,8 @@ export const deployCommand = new Command("deploy")
                     failed = true;
                 }
             }
+        } else if (!opts.skipContracts) {
+            console.log(`  ${dim("No contracts detected")}`);
         }
 
         // ── Step 2: Frontend ──────────────────────────────────────────────
@@ -245,21 +236,16 @@ export const deployCommand = new Command("deploy")
         if (opts.skipFrontend) {
             console.log(`  ${dim("Skipping frontend (--skip-frontend)")}`);
         } else if (!buildCmd) {
-            console.log(
-                `  ${dim('No frontend detected (no "build" in dot.json or package.json)')}`,
-            );
-        }
-        if (!opts.skipFrontend && buildCmd) {
+            console.log(`  ${dim("No frontend detected (no build script)")}`);
+        } else {
             const s = spinner("Frontend", "Building...");
             try {
-                // Build
                 execSync(buildCmd, { stdio: "inherit" });
 
                 if (!hasDistDir()) {
                     throw new Error("Build did not produce a dist/ directory");
                 }
 
-                // Deploy via bulletin-deploy
                 s.update(`Deploying ${fullDomain} to Bulletin...`);
                 const mnemonic = opts.suri ? undefined : loadMnemonic(chain);
                 const env: Record<string, string> = {
@@ -279,12 +265,11 @@ export const deployCommand = new Command("deploy")
             }
         }
 
-        // ── Step 3: Registry publish ──────────────────────────────────────
-        if (!opts.skipPublish) {
+        // ── Step 3: Playground registry publish (--playground only) ───────
+        if (opts.playground) {
             const s = spinner("Registry", "Publishing metadata...");
             let conn;
             try {
-                // Re-read config in case it was updated above
                 const projConfig = loadProjectConfig();
                 const gitRemote = getGitRemoteUrl();
 
@@ -302,7 +287,6 @@ export const deployCommand = new Command("deploy")
                 s.update("Preparing signer...");
                 const { signer, origin } = resolveSigner(chain, opts.suri);
 
-                // Read icon
                 let iconBytes: Uint8Array | undefined;
                 let iconCid: string | undefined;
                 if (iconPath) {
@@ -310,7 +294,6 @@ export const deployCommand = new Command("deploy")
                     iconCid = computeCid(iconBytes);
                 }
 
-                // Build metadata
                 const readme = readReadme();
                 const metadata: Record<string, unknown> = {};
                 if (appName) metadata.name = appName;

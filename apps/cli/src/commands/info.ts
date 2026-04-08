@@ -18,7 +18,6 @@ export const infoCommand = new Command("info")
 
             s.update(`Querying ${domain}...`);
 
-            // Query metadata URI and owner in parallel
             const [metaRes, ownerRes] = await Promise.all([
                 conn.registry.getMetadataUri.query(domain),
                 conn.registry.getOwner.query(domain),

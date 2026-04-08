@@ -5,7 +5,7 @@ import { resolve, basename } from "node:path";
 import { createInterface } from "node:readline";
 import { connect, fetchIpfs, unwrapOption } from "../connection.js";
 import { type AppMetadata } from "../config.js";
-import { spinner, bold, green, dim } from "../ui.js";
+import { spinner, printTable, truncate, bold, green, dim, cyan, yellow } from "../ui.js";
 
 function ask(prompt: string, fallback?: string): Promise<string> {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -47,130 +47,235 @@ function stripPostinstall(dir: string) {
     } catch {}
 }
 
+// ---------------------------------------------------------------------------
+// Interactive app picker (used when no domain arg is provided)
+// ---------------------------------------------------------------------------
+
+async function pickApp(
+    chainName: string,
+): Promise<{ domain: string; metadata?: AppMetadata } | null> {
+    const s = spinner("Browse", "Connecting to registry...");
+    let conn;
+    try {
+        conn = await connect(chainName);
+        s.update("Loading apps...");
+
+        const countRes = await conn.registry.getAppCount.query();
+        const total = countRes.success ? Number(countRes.value) : 0;
+
+        if (total === 0) {
+            s.succeed("No apps in the registry yet.");
+            return null;
+        }
+
+        const apps: { domain: string; metadata?: AppMetadata }[] = [];
+        const gateway = conn.ipfsGateway;
+        const BATCH = 10;
+        const LIMIT = 30;
+
+        for (let start = total - 1; start >= 0 && apps.length < LIMIT; start -= BATCH) {
+            const batchEnd = Math.max(start - BATCH + 1, 0);
+            const indices = [];
+            for (let i = start; i >= batchEnd; i--) indices.push(i);
+
+            const domains = await Promise.all(
+                indices.map(async (idx) => {
+                    const res = await conn!.registry.getDomainAt.query(idx);
+                    return res.success ? String(res.value) : null;
+                }),
+            );
+
+            for (const domain of domains) {
+                if (domain && apps.length < LIMIT) apps.push({ domain });
+            }
+        }
+
+        // Fetch metadata
+        s.update(`Loading metadata for ${apps.length} apps...`);
+        await Promise.allSettled(
+            apps.map(async (m) => {
+                try {
+                    const res = await conn!.registry.getMetadataUri.query(m.domain);
+                    const cid = unwrapOption<string>(res.success ? res.value : undefined);
+                    if (cid) m.metadata = await fetchIpfs<AppMetadata>(cid, gateway);
+                } catch {}
+            }),
+        );
+
+        s.succeed(`${apps.length} apps available`);
+        console.log();
+
+        // Display table
+        const rows = apps.map((m, i) => [
+            dim(`${i + 1}`),
+            bold(m.domain),
+            m.metadata?.name ?? dim("—"),
+            truncate(m.metadata?.description ?? "", 40),
+        ]);
+        printTable(["#", "Domain", "Name", "Description"], rows);
+        console.log();
+
+        // Pick
+        const choice = await ask("Select an app (number or domain)");
+        const num = parseInt(choice, 10);
+        if (num >= 1 && num <= apps.length) return apps[num - 1];
+        const byDomain = apps.find((a) => a.domain === choice || a.domain === `${choice}.dot`);
+        if (byDomain) return byDomain;
+
+        console.log(`  ${dim("Invalid selection.")}`);
+        return null;
+    } catch (err) {
+        s.fail(err instanceof Error ? err.message : String(err));
+        return null;
+    } finally {
+        conn?.destroy();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Clone & setup (shared between interactive and direct modes)
+// ---------------------------------------------------------------------------
+
+async function cloneAndSetup(
+    domain: string,
+    metadata: AppMetadata,
+    targetDir: string,
+    newDomain: string,
+    newName: string,
+    opts: { install: boolean },
+) {
+    const branchFlag = metadata.branch ? ` --branch ${metadata.branch}` : "";
+    const s = spinner(
+        "Clone",
+        `${metadata.repository}${metadata.branch ? ` (${metadata.branch})` : ""}...`,
+    );
+    execSync(`git clone${branchFlag} ${metadata.repository} ${targetDir}`, { stdio: "pipe" });
+
+    rmSync(`${targetDir}/.git`, { recursive: true, force: true });
+    execSync(`git init`, { cwd: targetDir, stdio: "pipe" });
+    stripPostinstall(targetDir);
+
+    s.update("Setting up dot.json...");
+    const dotJsonPath = resolve(targetDir, "dot.json");
+    let dotJson: Record<string, unknown> = {};
+    if (existsSync(dotJsonPath)) {
+        try {
+            dotJson = JSON.parse(readFileSync(dotJsonPath, "utf-8"));
+        } catch {}
+    }
+    dotJson.domain = newDomain;
+    dotJson.name = newName;
+    if (!dotJson.description && metadata.description) dotJson.description = metadata.description;
+    if (!dotJson.tag && metadata.tag) dotJson.tag = metadata.tag;
+    writeFileSync(dotJsonPath, JSON.stringify(dotJson, null, 2) + "\n");
+
+    s.succeed(`Remixed → ${bold(targetDir)}`);
+
+    if (opts.install && existsSync(resolve(targetDir, "package.json"))) {
+        const pm = detectPackageManager(targetDir);
+        const installSpinner = spinner("Install", `Running ${pm} install...`);
+        try {
+            execSync(`${pm} install`, { cwd: targetDir, stdio: "pipe" });
+            installSpinner.succeed("Dependencies installed");
+        } catch {
+            installSpinner.fail(`${pm} install failed — run it manually`);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Command
+// ---------------------------------------------------------------------------
+
 export const remixCommand = new Command("remix")
-    .description("Fork an app for local development")
-    .argument("<domain>", "App domain to remix (e.g. my-app)")
-    .argument("[dir]", "Target directory — also used as the new domain name")
+    .description("Fork an app to customize")
+    .argument("[domain]", "App domain to remix (e.g. my-app)")
     .option("-n, --name <chain>", "Chain to connect to", "paseo")
+    .option("--quest <id>", "Run a specific quest (non-interactive)")
     .option("--ipfs-gateway-url <url>", "Override IPFS gateway URL")
     .option("--no-install", "Skip dependency installation")
-    .action(async (rawDomain: string, dir: string | undefined, opts) => {
-        const domain = rawDomain.endsWith(".dot") ? rawDomain : `${rawDomain}.dot`;
-        const s = spinner("Remix", "Connecting...");
-        let conn;
-        try {
-            conn = await connect(opts.name);
-            const gateway = opts.ipfsGatewayUrl ?? conn.ipfsGateway;
+    .action(async (rawDomain: string | undefined, opts) => {
+        let domain: string;
+        let metadata: AppMetadata | undefined;
 
-            s.update(`Looking up ${domain}...`);
-
-            const metaRes = await conn.registry.getMetadataUri.query(domain);
-            const cid = unwrapOption<string>(metaRes.success ? metaRes.value : undefined);
-
-            if (!cid) {
-                s.fail(`App "${domain}" not found or has no metadata.`);
-                process.exitCode = 1;
-                return;
+        // ── Resolve app (interactive or direct) ──────────────────────
+        if (!rawDomain) {
+            // Interactive mode: browse and pick
+            const picked = await pickApp(opts.name);
+            if (!picked) {
+                process.exit(1);
             }
+            domain = picked.domain;
+            metadata = picked.metadata;
+        } else {
+            domain = rawDomain.endsWith(".dot") ? rawDomain : `${rawDomain}.dot`;
 
-            s.update("Fetching metadata...");
-            const metadata = await fetchIpfs<AppMetadata>(cid, gateway);
+            // Fetch metadata for the specified domain
+            const s = spinner("Remix", "Connecting...");
+            let conn;
+            try {
+                conn = await connect(opts.name);
+                const gateway = opts.ipfsGatewayUrl ?? conn.ipfsGateway;
 
-            if (!metadata.repository) {
-                s.fail(`App "${domain}" has no repository URL set. Cannot remix.`);
-                process.exitCode = 1;
-                return;
-            }
+                s.update(`Looking up ${domain}...`);
+                const metaRes = await conn.registry.getMetadataUri.query(domain);
+                const cid = unwrapOption<string>(metaRes.success ? metaRes.value : undefined);
 
-            const defaultName = metadata.name ?? domain.replace(/\.dot$/, "");
-            let newName: string;
-            let newDomain: string;
-            let targetDir: string;
-
-            if (dir) {
-                targetDir = dir;
-                newDomain = basename(dir);
-                newName = newDomain;
-            } else {
-                // Pause spinner for interactive prompt
-                s.succeed(`Found ${bold(domain)}`);
-                console.log();
-                newName = await ask("Name for your remix", defaultName);
-                newDomain = slugify(newName) + "-" + randomSuffix();
-                console.log(`  ${dim("→ domain:")} ${bold(newDomain)}`);
-                targetDir = newDomain;
-            }
-
-            if (existsSync(targetDir)) {
-                console.error(`  Directory "${targetDir}" already exists.`);
-                process.exitCode = 1;
-                return;
-            }
-
-            // Clone
-            const branchFlag = metadata.branch ? ` --branch ${metadata.branch}` : "";
-            const s2 = spinner(
-                "Clone",
-                `${metadata.repository}${metadata.branch ? ` (${metadata.branch})` : ""}...`,
-            );
-            execSync(`git clone${branchFlag} ${metadata.repository} ${targetDir}`, {
-                stdio: "pipe",
-            });
-
-            // Clean git history
-            rmSync(`${targetDir}/.git`, { recursive: true, force: true });
-            execSync(`git init`, { cwd: targetDir, stdio: "pipe" });
-
-            // Strip postinstall scripts that may fail in a fresh clone
-            stripPostinstall(targetDir);
-
-            // Update dot.json — merge with existing if present, override domain
-            s2.update("Setting up dot.json...");
-            const dotJsonPath = resolve(targetDir, "dot.json");
-            let dotJson: Record<string, unknown> = {};
-            if (existsSync(dotJsonPath)) {
-                try {
-                    dotJson = JSON.parse(readFileSync(dotJsonPath, "utf-8"));
-                } catch {}
-            }
-            dotJson.domain = newDomain;
-            dotJson.name = newName;
-            // Keep existing fields (build, icon, tag, etc.) but fill in from metadata if missing
-            if (!dotJson.description && metadata.description)
-                dotJson.description = metadata.description;
-            if (!dotJson.tag && metadata.tag) dotJson.tag = metadata.tag;
-            writeFileSync(dotJsonPath, JSON.stringify(dotJson, null, 2) + "\n");
-
-            s2.succeed(`Remixed ${bold(domain)} → ${bold(targetDir)}`);
-
-            // Install dependencies
-            if (opts.install !== false && existsSync(resolve(targetDir, "package.json"))) {
-                const pm = detectPackageManager(targetDir);
-                const installSpinner = spinner("Install", `Running ${pm} install...`);
-                try {
-                    execSync(`${pm} install`, { cwd: targetDir, stdio: "pipe" });
-                    installSpinner.succeed("Dependencies installed");
-                } catch {
-                    installSpinner.fail(`${pm} install failed — run it manually`);
+                if (!cid) {
+                    s.fail(`App "${domain}" not found or has no metadata.`);
+                    process.exit(1);
                 }
-            }
 
-            console.log();
-            console.log(`  ${dim("dot.json")}`);
-            console.log(`    ${dim("domain")}: ${bold(newDomain)}`);
-            if (metadata.name) console.log(`    ${dim("name")}: ${metadata.name}`);
-            if (metadata.tag) console.log(`    ${dim("tag")}: ${metadata.tag}`);
-            console.log();
-            console.log(`  ${green("Next steps:")}`);
-            console.log(`  ${dim("1.")} cd ${targetDir}`);
-            console.log(`  ${dim("2.")} claude`);
-            console.log(`  ${dim("3.")} dot deploy`);
-            console.log();
-        } catch (err) {
-            s.fail(err instanceof Error ? err.message : String(err));
-            process.exitCode = 1;
-        } finally {
-            conn?.destroy();
-            process.exit(process.exitCode ?? 0);
+                s.update("Fetching metadata...");
+                metadata = await fetchIpfs<AppMetadata>(cid, gateway);
+                s.succeed(`Found ${bold(domain)}`);
+            } catch (err) {
+                s.fail(err instanceof Error ? err.message : String(err));
+                process.exit(1);
+            } finally {
+                conn?.destroy();
+            }
         }
+
+        if (!metadata?.repository) {
+            console.error(`  App "${domain}" has no repository URL set. Cannot remix.`);
+            process.exit(1);
+        }
+
+        // ── Quest handling (stub) ────────────────────────────────────
+        if (opts.quest) {
+            console.log(`  ${yellow("!")} Quest support coming soon.`);
+            console.log(`    ${dim(`Requested quest: ${opts.quest}`)}`);
+        }
+
+        // ── Clone the app ────────────────────────────────────────────
+        const defaultName = metadata.name ?? domain.replace(/\.dot$/, "");
+        const newName = await ask("Name for your remix", defaultName);
+        const newDomain = slugify(newName) + "-" + randomSuffix();
+        console.log(`  ${dim("→ domain:")} ${bold(newDomain)}`);
+
+        if (existsSync(newDomain)) {
+            console.error(`  Directory "${newDomain}" already exists.`);
+            process.exit(1);
+        }
+
+        await cloneAndSetup(domain, metadata, newDomain, newDomain, newName, {
+            install: opts.install !== false,
+        });
+
+        // ── Quest picker stub (after clone) ──────────────────────────
+        if (!opts.quest) {
+            console.log();
+            console.log(`  ${yellow("!")} ${bold("Quests")} — coming soon`);
+            console.log(
+                `    ${dim("Interactive quest picker will be available in a future release")}`,
+            );
+        }
+
+        console.log();
+        console.log(`  ${green("Next steps:")}`);
+        console.log(`  ${dim("1.")} cd ${newDomain}`);
+        console.log(`  ${dim("2.")} claude`);
+        console.log(`  ${dim("3.")} dot deploy`);
+        console.log();
     });
