@@ -320,7 +320,7 @@ export async function createTransport(config: {
 
     throw new StatementConnectionError(
         "No connection method available. Either initialize chain-client " +
-            "(call getChainAPI() first) or provide an explicit endpoint.",
+            "(call createChainClient() or getChainAPI() first) or provide an explicit endpoint.",
     );
 }
 

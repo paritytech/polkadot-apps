@@ -10,7 +10,7 @@ const manager = new ContractManager(cdmJson, inkSdk, options?);
 
 ### Constructor Parameters
 - `cdmJson: CdmJson` — parsed cdm.json manifest
-- `inkSdk: InkSdk` — from `api.contracts` via `getChainAPI()`
+- `inkSdk: InkSdk` — created via `createInkSdk(client.raw.assetHub, { atBest: true })` from `@polkadot-api/sdk-ink`
 - `options.signerManager?: SignerManager` — auto signer/origin from logged-in account
 - `options.defaultOrigin?: SS58String` — static fallback origin
 - `options.defaultSigner?: PolkadotSigner` — static fallback signer
@@ -30,7 +30,7 @@ const handle = createContract(inkSdk, address, abi, options?);
 ```
 
 ### Parameters
-- `inkSdk: InkSdk` — from `api.contracts`
+- `inkSdk: InkSdk` — created via `createInkSdk(client.raw.assetHub, { atBest: true })` from `@polkadot-api/sdk-ink`
 - `address: HexString` — contract address on-chain
 - `abi: AbiEntry[]` — Solidity-compatible ABI array
 - `options` — same signer options as ContractManager

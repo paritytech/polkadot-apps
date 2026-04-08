@@ -54,6 +54,25 @@ import { getGateway } from "@polkadot-apps/bulletin";
 const custom = BulletinClient.from(myApi, "https://my-gateway.example/ipfs/");
 ```
 
+### When to use each entry point
+
+| Method | When to use | Size cost |
+|--------|-------------|-----------|
+| `BulletinClient.create("paseo")` | Quick prototyping, scripts | ~6.3 MB (loads all preset descriptors via getChainAPI) |
+| `BulletinClient.from(api, gateway)` | Production apps, BYOD setups | Only the descriptors you import (~912 KB for bulletin alone) |
+
+**Recommended for production**: Use `BulletinClient.from()` with a BYOD chain client:
+```ts
+import { createChainClient } from "@polkadot-apps/chain-client";
+import { bulletin } from "@polkadot-apps/descriptors/bulletin";
+
+const client = await createChainClient({
+    chains: { bulletin },
+    rpcs: { bulletin: ["wss://paseo-bulletin-rpc.polkadot.io"] },
+});
+const bulletinClient = BulletinClient.from(client.bulletin, "https://paseo-ipfs.polkadot.io/ipfs/");
+```
+
 ### Uploading Data
 
 ```ts

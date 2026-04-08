@@ -23,12 +23,18 @@ import type {
  *
  * @example
  * ```ts
- * import { getChainAPI } from "@polkadot-apps/chain-client";
+ * import { createChainClient } from "@polkadot-apps/chain-client";
+ * import { createInkSdk } from "@polkadot-api/sdk-ink";
+ * import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
  * import { ContractManager } from "@polkadot-apps/contracts";
  * import cdmJson from "./cdm.json";
  *
- * const api = await getChainAPI("paseo");
- * const manager = new ContractManager(cdmJson, api.contracts, {
+ * const client = await createChainClient({
+ *     chains: { assetHub: paseo_asset_hub },
+ *     rpcs: { assetHub: ["wss://sys.ibp.network/asset-hub-paseo"] },
+ * });
+ * const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+ * const manager = new ContractManager(cdmJson, inkSdk, {
  *     signerManager: signerManager, // from @polkadot-apps/signer
  * });
  *
@@ -108,8 +114,10 @@ export class ContractManager {
  *
  * @example
  * ```ts
- * const api = await getChainAPI("paseo");
- * const counter = createContract(api.contracts, "0xC472...", abi, {
+ * import { createInkSdk } from "@polkadot-api/sdk-ink";
+ *
+ * const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+ * const counter = createContract(inkSdk, "0xC472...", abi, {
  *     signerManager: signerManager,
  * });
  * await counter.getCount.query();

@@ -21,15 +21,19 @@ This skill covers the `@polkadot-apps/contracts` package for typed contract inte
 
 ```ts
 import { getChainAPI } from "@polkadot-apps/chain-client";
+import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { ContractManager } from "@polkadot-apps/contracts";
 import { SignerManager } from "@polkadot-apps/signer";
 import cdmJson from "./cdm.json";
 
-const api = await getChainAPI("paseo");
+// Connect and create InkSdk from raw PolkadotClient
+const client = await getChainAPI("paseo");
+const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+
 const signerManager = new SignerManager();
 await signerManager.connect();
 
-const manager = new ContractManager(cdmJson, api.contracts, { signerManager });
+const manager = new ContractManager(cdmJson, inkSdk, { signerManager });
 const counter = manager.getContract("@example/counter");
 
 // Read (dry-run, no gas cost)
@@ -39,14 +43,34 @@ const { value } = await counter.getCount.query();
 await counter.increment.tx();
 ```
 
+### BYOD Path (Bring Your Own Descriptors)
+
+```ts
+import { createChainClient } from "@polkadot-apps/chain-client";
+import { createInkSdk } from "@polkadot-api/sdk-ink";
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+import { ContractManager } from "@polkadot-apps/contracts";
+import cdmJson from "./cdm.json";
+
+const client = await createChainClient({
+    chains: { assetHub: paseo_asset_hub },
+    rpcs: { assetHub: ["wss://sys.ibp.network/asset-hub-paseo"] },
+});
+const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+
+const manager = new ContractManager(cdmJson, inkSdk, { signerManager });
+```
+
 ## Without CDM (Raw Address + ABI)
 
 ```ts
 import { getChainAPI } from "@polkadot-apps/chain-client";
+import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { createContract } from "@polkadot-apps/contracts";
 
-const api = await getChainAPI("paseo");
-const counter = createContract(api.contracts, "0xC472...", abi, { signerManager });
+const client = await getChainAPI("paseo");
+const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+const counter = createContract(inkSdk, "0xC472...", abi, { signerManager });
 
 await counter.getCount.query();
 await counter.increment.tx();
@@ -95,6 +119,12 @@ declare module "@polkadot-apps/contracts" {
 ```
 
 This provides full autocomplete on `manager.getContract("@example/counter")`.
+
+## Resources
+
+- **Repository**: https://github.com/paritytech/polkadot-apps
+- **npm**: https://www.npmjs.com/package/@polkadot-apps/contracts
+- **polkadot-api docs**: https://papi.how
 
 ## See Also
 

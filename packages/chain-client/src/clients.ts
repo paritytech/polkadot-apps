@@ -1,23 +1,12 @@
 import type { ChainDefinition, PolkadotClient, TypedApi } from "polkadot-api";
 import { createClient } from "polkadot-api";
-import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { createProvider, resetSmoldot } from "./providers.js";
 import { getClientCache, clearClientCache } from "./hmr.js";
-import type { ChainEntry } from "./types.js";
+import type { ChainEntry, ChainClientConfig, ChainClient, ChainMeta } from "./types.js";
 
-// Type-only imports — erased at compile time, zero bundle cost.
-// These give us per-chain TypedApi types without importing runtime descriptor data.
-import type { polkadot_asset_hub as PolkadotAssetHubDef } from "@polkadot-apps/descriptors/polkadot-asset-hub";
-import type { kusama_asset_hub as KusamaAssetHubDef } from "@polkadot-apps/descriptors/kusama-asset-hub";
-import type { paseo_asset_hub as PaseoAssetHubDef } from "@polkadot-apps/descriptors/paseo-asset-hub";
-import type { bulletin as BulletinDef } from "@polkadot-apps/descriptors/bulletin";
-import type { individuality as IndividualityDef } from "@polkadot-apps/descriptors/individuality";
-
-export type Environment = "polkadot" | "kusama" | "paseo";
-
-// Cache keys are env-scoped so chains with shared genesis hashes
-// (bulletin/individuality today) don't collide across environments.
-const cacheKey = (env: string, genesis: string) => `${env}:${genesis}`;
+// Cache keys are scoped by a fingerprint of the config so that two
+// `createChainClient` calls with different chain sets don't collide.
+const cacheKey = (fingerprint: string, genesis: string) => `${fingerprint}:${genesis}`;
 
 function findEntryByGenesis(genesis: string): ChainEntry | undefined {
     for (const [key, entry] of getClientCache()) {
@@ -25,194 +14,123 @@ function findEntryByGenesis(genesis: string): ChainEntry | undefined {
     }
 }
 
-// Genesis hashes are fixed per chain — extracted as constants to avoid
-// importing all descriptor bundles at module scope.
-const GENESIS = {
-    polkadot_asset_hub: "0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f",
-    kusama_asset_hub: "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
-    paseo_asset_hub: "0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2",
-    bulletin: "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea",
-    individuality: "0xe583155e68c7b71e9d2443f846eaba0016d0c38aa807884923545a7003f5bef0",
-} as const;
+const clientInstances = new Map<string, Promise<ChainClient<any>>>();
 
-/**
- * Lazy-load descriptors for a specific environment.
- * Only imports the chains needed — avoids bundling all 5 chains when
- * a consumer only uses one environment.
- */
-async function loadDescriptors(env: Environment) {
-    const assetHubImport = {
-        polkadot: () => import("@polkadot-apps/descriptors/polkadot-asset-hub"),
-        kusama: () => import("@polkadot-apps/descriptors/kusama-asset-hub"),
-        paseo: () => import("@polkadot-apps/descriptors/paseo-asset-hub"),
-    }[env]();
-
-    const [ahMod, { bulletin }, { individuality }] = await Promise.all([
-        assetHubImport,
-        import("@polkadot-apps/descriptors/bulletin"),
-        import("@polkadot-apps/descriptors/individuality"),
-    ]);
-
-    // Extract the asset hub descriptor (the named export varies per environment)
-    const assetHub =
-        "polkadot_asset_hub" in ahMod
-            ? ahMod.polkadot_asset_hub
-            : "kusama_asset_hub" in ahMod
-              ? ahMod.kusama_asset_hub
-              : (ahMod as typeof import("@polkadot-apps/descriptors/paseo-asset-hub"))
-                    .paseo_asset_hub;
-
-    return { assetHub, bulletin, individuality };
+/** Build a stable fingerprint from sorted chain names + genesis hashes. */
+function configFingerprint(chains: Record<string, ChainDefinition>): string {
+    return Object.entries(chains)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([name, desc]) => `${name}:${desc.genesis ?? "unknown"}`)
+        .join("|");
 }
 
-type ContractSdk = ReturnType<typeof createInkSdk>;
-
-/** Maps each environment to its asset hub descriptor type. */
-type AssetHubDescriptors = {
-    polkadot: typeof PolkadotAssetHubDef;
-    kusama: typeof KusamaAssetHubDef;
-    paseo: typeof PaseoAssetHubDef;
-};
-
-/** Fully typed chain API for an environment, derived from descriptors. */
-export type ChainAPI<E extends Environment> = {
-    assetHub: TypedApi<AssetHubDescriptors[E]>;
-    bulletin: TypedApi<typeof BulletinDef>;
-    individuality: TypedApi<typeof IndividualityDef>;
-    contracts: ContractSdk;
-    destroy: () => void;
-};
-
-/** Environments where all chains (asset hub, bulletin, individuality) are live. */
-const AVAILABLE_ENVIRONMENTS: Set<Environment> = new Set(["paseo"]);
-
-const rpcs = {
-    polkadot: {
-        assetHub: {
-            genesis: GENESIS.polkadot_asset_hub,
-            rpcs: [
-                "wss://polkadot-asset-hub-rpc.polkadot.io",
-                "wss://sys.ibp.network/asset-hub-polkadot",
-            ],
-        },
-        bulletin: { genesis: GENESIS.bulletin, rpcs: [] as string[] },
-        individuality: { genesis: GENESIS.individuality, rpcs: [] as string[] },
-    },
-    kusama: {
-        assetHub: {
-            genesis: GENESIS.kusama_asset_hub,
-            rpcs: [
-                "wss://kusama-asset-hub-rpc.polkadot.io",
-                "wss://sys.ibp.network/asset-hub-kusama",
-            ],
-        },
-        bulletin: { genesis: GENESIS.bulletin, rpcs: [] as string[] },
-        individuality: { genesis: GENESIS.individuality, rpcs: [] as string[] },
-    },
-    paseo: {
-        assetHub: {
-            genesis: GENESIS.paseo_asset_hub,
-            rpcs: [
-                "wss://sys.ibp.network/asset-hub-paseo",
-                "wss://asset-hub-paseo-rpc.dwellir.com",
-            ],
-        },
-        bulletin: { genesis: GENESIS.bulletin, rpcs: ["wss://paseo-bulletin-rpc.polkadot.io"] },
-        individuality: {
-            genesis: GENESIS.individuality,
-            rpcs: ["wss://pop3-testnet.parity-lab.parity.io/people"],
-        },
-    },
-} as const;
-
-const envCache = new Map<Environment, Promise<ChainAPI<Environment>>>();
-
 /**
- * Get the typed chain API for a given environment.
+ * Create a multi-chain client with user-provided descriptors and RPC endpoints.
  *
- * Returns asset hub, bulletin, individuality, and contracts — fully typed from descriptors.
+ * Returns fully-typed APIs for each chain plus raw `PolkadotClient` access via `.raw`.
  * Connections use host routing (via `@polkadot-apps/host`) when inside a container,
- * falling back to direct RPC.
+ * falling back to direct WebSocket RPC.
+ *
+ * Results are cached by genesis-hash fingerprint — calling with the same descriptors
+ * returns the same instance.
  *
  * @example
  * ```ts
- * const api = await getChainAPI("paseo")
- * await api.assetHub.query.System.Account.getValue(addr)
- * await api.bulletin.query.TransactionStorage.ByteFee.getValue()
- * const contract = api.contracts.getContract(descriptor, address)
+ * import { createChainClient } from "@polkadot-apps/chain-client";
+ * import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+ * import { bulletin } from "@polkadot-apps/descriptors/bulletin";
+ *
+ * const client = await createChainClient({
+ *     chains: { assetHub: paseo_asset_hub, bulletin },
+ *     rpcs: {
+ *         assetHub: ["wss://sys.ibp.network/asset-hub-paseo"],
+ *         bulletin: ["wss://paseo-bulletin-rpc.polkadot.io"],
+ *     },
+ * });
+ *
+ * // Fully typed from your descriptors
+ * const account = await client.assetHub.query.System.Account.getValue(addr);
+ * const fee = await client.bulletin.query.TransactionStorage.ByteFee.getValue();
+ *
+ * // Raw client for advanced use (e.g., InkSdk for contracts)
+ * import { createInkSdk } from "@polkadot-api/sdk-ink";
+ * const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+ *
+ * // Cleanup
+ * client.destroy();
  * ```
  */
-export async function getChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>> {
-    const existing = envCache.get(env);
-    if (existing) return existing as Promise<ChainAPI<E>>;
+export async function createChainClient<const TChains extends Record<string, ChainDefinition>>(
+    config: ChainClientConfig<TChains>,
+): Promise<ChainClient<TChains>> {
+    const fingerprint = configFingerprint(config.chains);
 
-    const promise = initChainAPI<E>(env).catch((err) => {
-        envCache.delete(env);
+    const existing = clientInstances.get(fingerprint);
+    if (existing) return existing as Promise<ChainClient<TChains>>;
+
+    const promise = initChainClient(config, fingerprint).catch((err) => {
+        clientInstances.delete(fingerprint);
         throw err;
     });
-    envCache.set(env, promise as Promise<ChainAPI<Environment>>);
+    clientInstances.set(fingerprint, promise);
     return promise;
 }
 
+/** @internal — exported for presets to clear when they delegate to createChainClient. */
+export function clearClientInstances(): void {
+    clientInstances.clear();
+}
+
 /* @integration */
-async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>> {
-    if (!AVAILABLE_ENVIRONMENTS.has(env)) {
-        throw new Error(`Chain API for "${env}" is not yet available`);
-    }
-    const envRpcs = rpcs[env];
+async function initChainClient<const TChains extends Record<string, ChainDefinition>>(
+    config: ChainClientConfig<TChains>,
+    fingerprint: string,
+): Promise<ChainClient<TChains>> {
+    const names = Object.keys(config.chains) as (string & keyof TChains)[];
     const clientCache = getClientCache();
 
-    // Load descriptors lazily — only the chains needed for this environment
-    const descriptors = await loadDescriptors(env);
+    // Create providers and clients in parallel
+    const entries = await Promise.all(
+        names.map(async (name) => {
+            const descriptor = config.chains[name] as ChainDefinition;
+            const genesis = descriptor.genesis;
+            if (!genesis) {
+                throw new Error(`Descriptor for chain "${name}" has no genesis hash.`);
+            }
+            const chainRpcs = config.rpcs[name] as readonly string[];
+            const meta: ChainMeta = { rpcs: [...chainRpcs], ...config.meta?.[name] };
 
-    // Create providers (handles host routing + smoldot fallback)
-    const [ahProvider, bProvider, iProvider] = await Promise.all([
-        createProvider(envRpcs.assetHub.genesis, { rpcs: envRpcs.assetHub.rpcs }),
-        createProvider(envRpcs.bulletin.genesis, { rpcs: envRpcs.bulletin.rpcs }),
-        createProvider(envRpcs.individuality.genesis, { rpcs: envRpcs.individuality.rpcs }),
-    ]);
+            const provider = await createProvider(genesis, meta);
+            const client = createClient(provider);
 
-    // Create clients
-    const ahClient = createClient(ahProvider);
-    const bClient = createClient(bProvider);
-    const iClient = createClient(iProvider);
+            // Populate HMR cache so getClient() and isConnected() work
+            const key = cacheKey(fingerprint, genesis);
+            if (!clientCache.has(key)) {
+                clientCache.set(key, {
+                    client,
+                    api: new Map(),
+                } satisfies ChainEntry);
+            }
 
-    // Populate HMR cache so utility functions (isConnected, destroy, etc.) work
-    const populateCache = (genesis: string, client: PolkadotClient) => {
-        const key = cacheKey(env, genesis);
-        if (!clientCache.has(key)) {
-            clientCache.set(key, {
-                client,
-                api: new Map(),
-                contractSdk: null,
-                initPromise: null,
-            } satisfies ChainEntry);
-        }
-    };
-    populateCache(envRpcs.assetHub.genesis, ahClient);
-    populateCache(envRpcs.bulletin.genesis, bClient);
-    populateCache(envRpcs.individuality.genesis, iClient);
+            return { name, descriptor, client, genesis };
+        }),
+    );
 
-    // Contract SDK on asset hub (where contracts are deployed)
-    const contracts = createInkSdk(ahClient, { atBest: true });
+    // Build typed APIs and raw client map
+    const apis = {} as Record<string, unknown>;
+    const raw = {} as Record<string, PolkadotClient>;
 
-    // Cache the contract SDK in HMR cache too
-    const ahEntry = clientCache.get(cacheKey(env, envRpcs.assetHub.genesis));
-    if (ahEntry) ahEntry.contractSdk = contracts;
-
-    // Build typed APIs from lazily-loaded descriptors
-    const apis = {
-        assetHub: ahClient.getTypedApi(descriptors.assetHub),
-        bulletin: bClient.getTypedApi(descriptors.bulletin),
-        individuality: iClient.getTypedApi(descriptors.individuality),
-    };
+    for (const { name, descriptor, client } of entries) {
+        apis[name] = client.getTypedApi(descriptor);
+        raw[name] = client;
+    }
 
     return {
         ...apis,
-        contracts,
+        raw,
         destroy() {
-            for (const { genesis } of Object.values(envRpcs)) {
-                const key = cacheKey(env, genesis);
+            for (const { genesis } of entries) {
+                const key = cacheKey(fingerprint, genesis);
                 const entry = clientCache.get(key);
                 if (entry) {
                     try {
@@ -223,21 +141,31 @@ async function initChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
                     clientCache.delete(key);
                 }
             }
-            envCache.delete(env);
+            clientInstances.delete(fingerprint);
         },
-    } as ChainAPI<E>;
+    } as ChainClient<TChains>;
 }
 
-/** Destroy all environments. */
+/**
+ * Destroy all chain client instances and reset internal caches.
+ *
+ * Tears down every connection created by {@link createChainClient} or
+ * {@link getChainAPI}, including the smoldot light-client worker.
+ */
 export function destroyAll(): void {
     clearClientCache();
-    envCache.clear();
+    clientInstances.clear();
     resetSmoldot();
 }
 
 /**
- * Get the raw PolkadotClient for a connected chain.
- * The chain must have been initialized via getChainAPI() first.
+ * Get the raw `PolkadotClient` for a connected chain by its descriptor.
+ *
+ * The chain must have been initialized via {@link createChainClient} or
+ * {@link getChainAPI} first. Alternatively, use `client.raw.<name>` on the
+ * returned {@link ChainClient}.
+ *
+ * @throws If the chain has not been connected yet.
  */
 export function getClient(descriptor: ChainDefinition): PolkadotClient {
     const genesis = descriptor.genesis;
@@ -246,7 +174,7 @@ export function getClient(descriptor: ChainDefinition): PolkadotClient {
     if (!entry?.client) {
         throw new Error(
             `Chain not connected (genesis: ${genesis}). ` +
-                `Call getChainAPI() first to establish connections.`,
+                `Call createChainClient() or getChainAPI() first to establish connections.`,
         );
     }
     return entry.client;
@@ -254,7 +182,8 @@ export function getClient(descriptor: ChainDefinition): PolkadotClient {
 
 /**
  * Check if a chain is currently connected.
- * Sync — no side effects, no initialization.
+ *
+ * Synchronous — no side effects, no initialization.
  */
 export function isConnected(descriptor: ChainDefinition): boolean {
     const genesis = descriptor.genesis;
@@ -263,24 +192,27 @@ export function isConnected(descriptor: ChainDefinition): boolean {
 }
 
 if (import.meta.vitest) {
-    const { test, expect, beforeEach } = import.meta.vitest;
+    const { test, expect, beforeEach, vi } = import.meta.vitest;
 
     const fakeDescriptor = { genesis: "0xtest" } as ChainDefinition;
-    const fakeClient = { destroy: () => {}, getTypedApi: () => ({}) } as unknown as PolkadotClient;
+    const fakeClient = {
+        destroy: () => {},
+        getTypedApi: () => ({}),
+    } as unknown as PolkadotClient;
 
-    function seedCache(genesis: string, client: PolkadotClient, env: Environment = "paseo") {
-        getClientCache().set(cacheKey(env, genesis), {
+    function seedCache(genesis: string, client: PolkadotClient, fp = "test") {
+        getClientCache().set(cacheKey(fp, genesis), {
             client,
             api: new Map(),
-            contractSdk: null,
-            initPromise: null,
         });
     }
 
     beforeEach(() => {
         clearClientCache();
-        envCache.clear();
+        clientInstances.clear();
     });
+
+    // --- isConnected ---
 
     test("isConnected returns false for unknown chain", () => {
         expect(isConnected(fakeDescriptor)).toBe(false);
@@ -295,6 +227,8 @@ if (import.meta.vitest) {
         expect(isConnected({} as ChainDefinition)).toBe(false);
     });
 
+    // --- getClient ---
+
     test("getClient returns client from cache", () => {
         seedCache("0xtest", fakeClient);
         expect(getClient(fakeDescriptor)).toBe(fakeClient);
@@ -308,6 +242,8 @@ if (import.meta.vitest) {
         expect(() => getClient({} as ChainDefinition)).toThrow(/no genesis hash/);
     });
 
+    // --- destroyAll ---
+
     test("destroyAll calls client.destroy() and clears caches", () => {
         let destroyed = false;
         const trackableClient = {
@@ -317,38 +253,66 @@ if (import.meta.vitest) {
             getTypedApi: () => ({}),
         } as unknown as PolkadotClient;
         seedCache("0xtest", trackableClient);
-        envCache.set("paseo", Promise.resolve({} as ChainAPI<"paseo">));
+        clientInstances.set("test", Promise.resolve({} as ChainClient<any>));
         destroyAll();
         expect(destroyed).toBe(true);
         expect(isConnected(fakeDescriptor)).toBe(false);
-        expect(envCache.size).toBe(0);
+        expect(clientInstances.size).toBe(0);
     });
 
-    test("getChainAPI returns same result for same environment", async () => {
-        const fakeResult = {} as ChainAPI<"paseo">;
-        envCache.set("paseo", Promise.resolve(fakeResult));
-        const result = await getChainAPI("paseo");
+    // --- createChainClient ---
+
+    test("createChainClient returns same promise for identical config", async () => {
+        const fakeResult = {} as ChainClient<any>;
+        const fp = configFingerprint({ a: fakeDescriptor });
+        clientInstances.set(fp, Promise.resolve(fakeResult));
+        const result = await createChainClient({
+            chains: { a: fakeDescriptor },
+            rpcs: { a: [] },
+        });
         expect(result).toBe(fakeResult);
     });
 
-    test("getChainAPI returns different results for different environments", async () => {
-        const paseoResult = {} as ChainAPI<"paseo">;
-        const polkadotResult = {} as ChainAPI<"polkadot">;
-        envCache.set("paseo", Promise.resolve(paseoResult));
-        envCache.set("polkadot", Promise.resolve(polkadotResult));
-        const a = await getChainAPI("paseo");
-        const b = await getChainAPI("polkadot");
-        expect(a).not.toBe(b);
-    });
-
-    test("getChainAPI deduplicates concurrent calls", async () => {
-        const fakeResult = {} as ChainAPI<"kusama">;
-        envCache.set("kusama", Promise.resolve(fakeResult));
-        const [a, b] = await Promise.all([getChainAPI("kusama"), getChainAPI("kusama")]);
+    test("createChainClient deduplicates concurrent calls", async () => {
+        const fakeResult = {} as ChainClient<any>;
+        const fp = configFingerprint({ x: fakeDescriptor });
+        clientInstances.set(fp, Promise.resolve(fakeResult));
+        const [a, b] = await Promise.all([
+            createChainClient({ chains: { x: fakeDescriptor }, rpcs: { x: [] } }),
+            createChainClient({ chains: { x: fakeDescriptor }, rpcs: { x: [] } }),
+        ]);
         expect(a).toBe(b);
     });
 
-    test("full lifecycle: connect, verify, destroy, verify disconnected", () => {
+    test("createChainClient returns different results for different configs", async () => {
+        const descA = { genesis: "0xaaa" } as ChainDefinition;
+        const descB = { genesis: "0xbbb" } as ChainDefinition;
+        const resultA = {} as ChainClient<any>;
+        const resultB = {} as ChainClient<any>;
+        clientInstances.set(configFingerprint({ a: descA }), Promise.resolve(resultA));
+        clientInstances.set(configFingerprint({ b: descB }), Promise.resolve(resultB));
+        const a = await createChainClient({ chains: { a: descA }, rpcs: { a: [] } });
+        const b = await createChainClient({ chains: { b: descB }, rpcs: { b: [] } });
+        expect(a).not.toBe(b);
+    });
+
+    // --- configFingerprint ---
+
+    test("configFingerprint is stable regardless of key order", () => {
+        const d1 = { genesis: "0x1" } as ChainDefinition;
+        const d2 = { genesis: "0x2" } as ChainDefinition;
+        expect(configFingerprint({ a: d1, b: d2 })).toBe(configFingerprint({ b: d2, a: d1 }));
+    });
+
+    // --- findEntryByGenesis ---
+
+    test("findEntryByGenesis returns undefined for missing genesis", () => {
+        expect(findEntryByGenesis("0xnonexistent")).toBeUndefined();
+    });
+
+    // --- full lifecycle ---
+
+    test("full lifecycle: seed, verify connected, destroy, verify disconnected", () => {
         seedCache("0xtest", fakeClient);
         expect(isConnected(fakeDescriptor)).toBe(true);
         expect(getClient(fakeDescriptor)).toBe(fakeClient);
@@ -357,89 +321,25 @@ if (import.meta.vitest) {
         expect(() => getClient(fakeDescriptor)).toThrow(/Chain not connected/);
     });
 
-    test("genesis constants are valid hex hashes", () => {
-        for (const hash of Object.values(GENESIS)) {
-            expect(hash).toMatch(/^0x[a-f0-9]{64}$/);
-        }
-    });
-
-    test("two envs cached independently, destroy one leaves other intact", () => {
+    test("two fingerprints cached independently, destroy one leaves other intact", () => {
         const sharedGenesis = "0xshared";
         const clientA = { destroy: () => {} } as PolkadotClient;
         const clientB = { destroy: () => {} } as PolkadotClient;
         const descriptorShared = { genesis: sharedGenesis } as ChainDefinition;
 
-        seedCache(sharedGenesis, clientA, "polkadot");
-        seedCache(sharedGenesis, clientB, "kusama");
+        seedCache(sharedGenesis, clientA, "fpA");
+        seedCache(sharedGenesis, clientB, "fpB");
 
-        // Both envs visible via genesis lookup
         expect(isConnected(descriptorShared)).toBe(true);
 
-        // Destroy polkadot's entry only
+        // Destroy only fpA's entry
         const cache = getClientCache();
-        const polkadotKey = cacheKey("polkadot", sharedGenesis);
-        cache.get(polkadotKey)?.client.destroy();
-        cache.delete(polkadotKey);
+        const keyA = cacheKey("fpA", sharedGenesis);
+        cache.get(keyA)?.client.destroy();
+        cache.delete(keyA);
 
-        // Kusama's entry still alive
+        // fpB's entry still alive
         expect(isConnected(descriptorShared)).toBe(true);
         expect(getClient(descriptorShared)).toBe(clientB);
-    });
-
-    test("rpcs defined for all environments", () => {
-        for (const env of ["polkadot", "kusama", "paseo"] as const) {
-            const envRpcs = rpcs[env];
-            expect(envRpcs.assetHub.rpcs.length).toBeGreaterThan(0);
-            expect(envRpcs.assetHub.genesis).toBeTruthy();
-            expect(envRpcs.bulletin.genesis).toBeTruthy();
-            expect(envRpcs.individuality.genesis).toBeTruthy();
-        }
-    });
-
-    test("paseo has RPCs for all chains", () => {
-        const envRpcs = rpcs.paseo;
-        expect(envRpcs.bulletin.rpcs.length).toBeGreaterThan(0);
-        expect(envRpcs.individuality.rpcs.length).toBeGreaterThan(0);
-    });
-
-    test("polkadot and kusama throw as not yet available", async () => {
-        await expect(getChainAPI("polkadot")).rejects.toThrow("not yet available");
-        await expect(getChainAPI("kusama")).rejects.toThrow("not yet available");
-    });
-
-    test("genesis constants match rpcs config", () => {
-        expect(rpcs.polkadot.assetHub.genesis).toBe(GENESIS.polkadot_asset_hub);
-        expect(rpcs.kusama.assetHub.genesis).toBe(GENESIS.kusama_asset_hub);
-        expect(rpcs.paseo.assetHub.genesis).toBe(GENESIS.paseo_asset_hub);
-        expect(rpcs.paseo.bulletin.genesis).toBe(GENESIS.bulletin);
-        expect(rpcs.paseo.individuality.genesis).toBe(GENESIS.individuality);
-    });
-
-    test("findEntryByGenesis returns undefined for missing genesis", () => {
-        expect(findEntryByGenesis("0xnonexistent")).toBeUndefined();
-    });
-
-    test("loadDescriptors returns descriptors with genesis hashes for paseo", async () => {
-        const descriptors = await loadDescriptors("paseo");
-        expect(descriptors).toBeDefined();
-        expect(descriptors!.assetHub).toBeDefined();
-        expect(descriptors!.bulletin).toBeDefined();
-        expect(descriptors!.individuality).toBeDefined();
-        // Verify genesis hashes match the GENESIS constants
-        expect(descriptors!.assetHub.genesis).toBe(GENESIS.paseo_asset_hub);
-        expect(descriptors!.bulletin.genesis).toBe(GENESIS.bulletin);
-        expect(descriptors!.individuality.genesis).toBe(GENESIS.individuality);
-    });
-
-    test("loadDescriptors returns correct asset hub per environment", async () => {
-        const polkadot = await loadDescriptors("polkadot");
-        const kusama = await loadDescriptors("kusama");
-        const paseo = await loadDescriptors("paseo");
-        expect(polkadot!.assetHub.genesis).toBe(GENESIS.polkadot_asset_hub);
-        expect(kusama!.assetHub.genesis).toBe(GENESIS.kusama_asset_hub);
-        expect(paseo!.assetHub.genesis).toBe(GENESIS.paseo_asset_hub);
-        // bulletin and individuality are the same across environments
-        expect(polkadot!.bulletin.genesis).toBe(paseo!.bulletin.genesis);
-        expect(polkadot!.individuality.genesis).toBe(paseo!.individuality.genesis);
     });
 }

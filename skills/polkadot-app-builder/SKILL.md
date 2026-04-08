@@ -13,12 +13,28 @@ Orchestrator skill for building applications with the `@polkadot-apps` package e
 
 ## Quick Start
 
+### Preset Path (zero-config for known environments)
+
 ```typescript
 import { getChainAPI } from "@polkadot-apps/chain-client";
 
-const api = await getChainAPI("paseo");
-const balance = await api.assetHub.query.System.Account.getValue("5GrwvaEF...");
-api.destroy();
+const client = await getChainAPI("paseo");
+const balance = await client.assetHub.query.System.Account.getValue("5GrwvaEF...");
+client.destroy();
+```
+
+### BYOD Path (Bring Your Own Descriptors)
+
+```typescript
+import { createChainClient } from "@polkadot-apps/chain-client";
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+
+const client = await createChainClient({
+    chains: { assetHub: paseo_asset_hub },
+    rpcs: { assetHub: ["wss://sys.ibp.network/asset-hub-paseo"] },
+});
+const balance = await client.assetHub.query.System.Account.getValue("5GrwvaEF...");
+client.destroy();
 ```
 
 ## Workflow
@@ -108,6 +124,7 @@ npm install
 
 Invoke the relevant domain skill(s) based on the selected packages:
 - **polkadot-chain-connection** — for connecting and querying chains
+- **polkadot-contracts** — for smart contracts (ContractManager, createContract, InkSdk, codegen)
 - **polkadot-transactions** — for submitting transactions, signing, keys
 - **polkadot-bulletin** — for Bulletin Chain data storage
 - **polkadot-statement-store** — for pub/sub messaging
@@ -119,6 +136,28 @@ Invoke the relevant domain skill(s) based on the selected packages:
 npx tsc            # Compile TypeScript
 node dist/index.js # Run the app
 ```
+
+## Chain Client: BYOD vs Preset
+
+`@polkadot-apps/chain-client` offers two paths for connecting to chains:
+
+| | `getChainAPI` (Preset) | `createChainClient` (BYOD) |
+|---|---|---|
+| **When** | Known environments (paseo, polkadot, kusama) | Custom chains, custom RPCs, or subset of chains |
+| **Descriptors** | Built-in, lazy-loaded | You import and provide them |
+| **RPCs** | Built-in | You provide them |
+| **Chains** | Always assetHub + bulletin + individuality | Any combination you choose |
+| **Bundle size** | Slightly larger (all 3 chains loaded) | Minimal (only what you import) |
+
+**Use `getChainAPI`** when you want zero-config connection to a standard environment.
+
+**Use `createChainClient`** when you need:
+- Only one chain (e.g., just Asset Hub for contracts)
+- Custom RPC endpoints
+- Chains not in the preset list
+- Minimal bundle size
+
+Both return the same `ChainClient` type with `.raw` access for advanced use (e.g., `createInkSdk`).
 
 ## Environments and Chains
 
@@ -137,8 +176,9 @@ See [references/chains.md](references/chains.md) for full details.
 1. **Missing `polkadot-api`** — It's a peer dependency of `@polkadot-apps/descriptors`. Always install it.
 2. **Barrel import of descriptors** — Use `@polkadot-apps/descriptors/bulletin`, NOT `@polkadot-apps/descriptors`.
 3. **Using unavailable environments** — Only `"paseo"` works. `"polkadot"` and `"kusama"` throw.
-4. **Forgetting `await`** — `getChainAPI()` returns a Promise. Always `await` it.
-5. **Not cleaning up** — Call `api.destroy()` or `destroyAll()` when done to close WebSocket connections.
+4. **Forgetting `await`** — `getChainAPI()` and `createChainClient()` return a Promise. Always `await` it.
+5. **Not cleaning up** — Call `client.destroy()` or `destroyAll()` when done to close WebSocket connections.
+6. **Using `api.contracts`** — There is no `.contracts` property on chain clients. Create InkSdk yourself: `createInkSdk(client.raw.assetHub, { atBest: true })`.
 6. **Dev signers in production** — `createDevSigner("Alice")` is testnet-only. Use `SignerManager` for production.
 7. **Wrong signer type** — `PolkadotSigner` (tx), `StatementSignerWithKey` (statement-store), and `SignerManager` (wallet UI) are distinct.
 
@@ -162,3 +202,9 @@ When assisting a developer:
 3. Implement features incrementally, explaining each step
 4. Reference the domain skill docs for API details
 5. Let the developer customize and extend
+
+## Resources
+
+- **Repository**: https://github.com/paritytech/polkadot-apps
+- **npm packages**: https://www.npmjs.com/org/polkadot-apps
+- **polkadot-api docs**: https://papi.how
