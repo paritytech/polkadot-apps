@@ -10,14 +10,26 @@ OS=$(uname -s); case "$OS" in Linux) OS=linux;; Darwin) OS=darwin;; *) echo "Uns
 ARCH=$(uname -m); case "$ARCH" in x86_64|amd64) ARCH=x64;; arm64|aarch64) ARCH=arm64;; *) echo "Unsupported arch: $ARCH"; exit 1;; esac
 ASSET="$BIN-$OS-$ARCH"
 
-# 2) Fetch latest release tag (uses redirect URL to avoid GitHub API rate limits)
-TAG=${DOT_TAG:-$(curl -fsSI "https://github.com/$REPO/releases/latest" \
-      | sed -n 's|^location:.*/tag/\(.*\)$|\1|p' | tr -d '\r' | head -n1)}
+# 2) Resolve release tag
+if [ -n "$DOT_TAG" ]; then
+  TAG="$DOT_TAG"
+elif command -v gh >/dev/null 2>&1; then
+  TAG=$(gh release view --repo "$REPO" --json tagName -q '.tagName' 2>/dev/null) || true
+fi
+if [ -z "$TAG" ]; then
+  # Fallback: unauthenticated redirect (works for public repos)
+  TAG=$(curl -fsSI "https://github.com/$REPO/releases/latest" \
+        | sed -n 's|^location:.*/tag/\(.*\)$|\1|p' | tr -d '\r' | head -n1) || true
+fi
 [ -z "$TAG" ] && echo "Could not determine latest release" && exit 1
 
 # 3) Install binary
 mkdir -p "$DOT_DIR/bin" "$HOME/.local/bin"
-curl -fsSL -L "https://github.com/$REPO/releases/download/$TAG/$ASSET" -o "$DOT_DIR/bin/$BIN"
+if command -v gh >/dev/null 2>&1; then
+  gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --output "$DOT_DIR/bin/$BIN" --clobber
+else
+  curl -fsSL -L "https://github.com/$REPO/releases/download/$TAG/$ASSET" -o "$DOT_DIR/bin/$BIN"
+fi
 chmod +x "$DOT_DIR/bin/$BIN"
 ln -sf "$DOT_DIR/bin/$BIN" "$HOME/.local/bin/$BIN"
 
