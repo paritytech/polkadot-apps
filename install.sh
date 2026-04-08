@@ -14,10 +14,13 @@ ASSET="$BIN-$OS-$ARCH"
 if [ -n "$DOT_TAG" ]; then
   TAG="$DOT_TAG"
 elif command -v gh >/dev/null 2>&1; then
-  TAG=$(gh release view --repo "$REPO" --json tagName -q '.tagName' 2>/dev/null) || true
+  # Try latest non-prerelease, then fall back to newest release of any kind
+  TAG=$(gh release view --repo "$REPO" --json tagName -q '.tagName' 2>/dev/null) \
+    || TAG=$(gh release list --repo "$REPO" --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null) \
+    || true
 fi
 if [ -z "$TAG" ]; then
-  # Fallback: unauthenticated redirect (works for public repos)
+  # Fallback: unauthenticated redirect (works for public repos only)
   TAG=$(curl -fsSI "https://github.com/$REPO/releases/latest" \
         | sed -n 's|^location:.*/tag/\(.*\)$|\1|p' | tr -d '\r' | head -n1) || true
 fi
