@@ -1,0 +1,42 @@
+{
+    "name": "@polkadot-apps/terminal",
+    "description": "QR code login for CLI/terminal apps via Polkadot mobile wallet pairing",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "@noble/curves": "^1.8.0",
+        "@noble/hashes": "catalog:",
+        "@polkadot-apps/address": "workspace:*",
+        "@polkadot-apps/crypto": "workspace:*",
+        "@polkadot-apps/logger": "workspace:*",
+        "@polkadot-apps/statement-store": "workspace:*",
+        "@polkadot-apps/storage": "workspace:*",
+        "@polkadot-labs/hdkd": "catalog:",
+        "@polkadot-labs/hdkd-helpers": "catalog:",
+        "qrcode": "^1.5.4"
+    },
+    "devDependencies": {
+        "@scure/sr25519": "1.0.0",
+        "@types/qrcode": "^1.5.5",
+        "typescript": "catalog:"
+    }
+}
