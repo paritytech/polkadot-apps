@@ -1,74 +1,210 @@
 /**
- * File-based KvStore for Node.js environments.
+ * File-based StorageAdapter for Node.js environments.
  *
- * Uses JSON files in ~/.polkadot-apps/ since Node.js doesn't have localStorage.
+ * Implements the @novasamatech/storage-adapter interface using JSON files
+ * in ~/.polkadot-apps/. Node.js doesn't have localStorage, so this
+ * provides persistent storage for the SDK's session and secret data.
  */
-import { createLogger } from "@polkadot-apps/logger";
-import type { KvStore } from "@polkadot-apps/storage";
+import type { StorageAdapter } from "@novasamatech/storage-adapter";
+import { fromPromise } from "neverthrow";
 import { join } from "node:path";
 import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 
-const log = createLogger("terminal:storage");
+const DEFAULT_STORAGE_DIR = join(homedir(), ".polkadot-apps");
 
-const STORAGE_DIR = join(homedir(), ".polkadot-apps");
-
-function filePath(prefix: string, key: string): string {
-    const safe = `${prefix}_${key}`.replace(/[^a-zA-Z0-9_-]/g, "_");
-    return join(STORAGE_DIR, `${safe}.json`);
+function sanitizeKey(appId: string, key: string): string {
+    return `${appId}_${key}`.replace(/[^a-zA-Z0-9_.-]/g, "_");
 }
 
-export function createNodeKvStore(prefix: string): KvStore {
+function toError(e: unknown): Error {
+    return e instanceof Error ? e : new Error(String(e));
+}
+
+/**
+ * Create a file-based StorageAdapter for use with the host-papp SDK in Node.js.
+ *
+ * Data is stored as individual JSON files in the given directory
+ * (defaults to `~/.polkadot-apps/`).
+ */
+export function createNodeStorageAdapter(appId: string, storageDir?: string): StorageAdapter {
+    const dir = storageDir ?? DEFAULT_STORAGE_DIR;
     let dirCreated = false;
+    const subscribers = new Map<string, Set<(value: string | null) => unknown>>();
+
+    function fp(key: string): string {
+        return join(dir, `${sanitizeKey(appId, key)}.json`);
+    }
 
     async function ensureDir(): Promise<void> {
         if (dirCreated) return;
-        try {
-            await mkdir(STORAGE_DIR, { recursive: true });
-            dirCreated = true;
-        } catch {
-            // ignore
+        await mkdir(dir, { recursive: true });
+        dirCreated = true;
+    }
+
+    function notifySubscribers(key: string, value: string | null) {
+        const subs = subscribers.get(key);
+        if (subs) {
+            for (const cb of subs) {
+                try { cb(value); } catch { /* ignore */ }
+            }
         }
     }
 
     return {
-        async get(key) {
-            try {
-                return await readFile(filePath(prefix, key), "utf-8");
-            } catch {
-                return null;
-            }
+        read(key: string) {
+            return fromPromise(
+                readFile(fp(key), "utf-8").catch(() => null),
+                toError,
+            );
         },
 
-        async set(key, value) {
-            await ensureDir();
-            try {
-                await writeFile(filePath(prefix, key), value, "utf-8");
-            } catch (e) {
-                log.warn("Failed to write", { key, error: e });
-            }
+        write(key: string, value: string) {
+            return fromPromise(
+                ensureDir()
+                    .then(() => writeFile(fp(key), value, "utf-8"))
+                    .then(() => { notifySubscribers(key, value); }),
+                toError,
+            ).map(() => undefined as void);
         },
 
-        async remove(key) {
-            try {
-                await unlink(filePath(prefix, key));
-            } catch {
-                // file may not exist
-            }
+        clear(key: string) {
+            return fromPromise(
+                unlink(fp(key))
+                    .catch(() => {})
+                    .then(() => { notifySubscribers(key, null); }),
+                toError,
+            ).map(() => undefined as void);
         },
 
-        async getJSON<T>(key: string): Promise<T | null> {
-            const raw = await this.get(key);
-            if (raw === null) return null;
-            try {
-                return JSON.parse(raw) as T;
-            } catch {
-                return null;
+        subscribe(key: string, callback: (value: string | null) => unknown) {
+            if (!subscribers.has(key)) {
+                subscribers.set(key, new Set());
             }
-        },
-
-        async setJSON(key, value) {
-            await this.set(key, JSON.stringify(value));
+            subscribers.get(key)!.add(callback);
+            return () => {
+                subscribers.get(key)?.delete(callback);
+            };
         },
     };
+}
+
+if (import.meta.vitest) {
+    const { describe, test, expect, beforeEach, afterAll } = import.meta.vitest;
+    const { mkdtemp, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+
+    let testDir: string;
+
+    beforeEach(async () => {
+        testDir = await mkdtemp(join(tmpdir(), "terminal-storage-test-"));
+    });
+
+    afterAll(async () => {
+        // Clean up any remaining test dirs
+        try { await rm(testDir, { recursive: true }); } catch { /* ignore */ }
+    });
+
+    describe("createNodeStorageAdapter", () => {
+        test("read returns null for missing key", async () => {
+            const store = createNodeStorageAdapter("test", testDir);
+            const result = await store.read("nonexistent");
+            expect(result.isOk()).toBe(true);
+            expect(result._unsafeUnwrap()).toBeNull();
+        });
+
+        test("write and read round-trip", async () => {
+            const store = createNodeStorageAdapter("test", testDir);
+            await store.write("key1", "hello");
+            const result = await store.read("key1");
+            expect(result._unsafeUnwrap()).toBe("hello");
+        });
+
+        test("write overwrites existing value", async () => {
+            const store = createNodeStorageAdapter("test", testDir);
+            await store.write("key1", "first");
+            await store.write("key1", "second");
+            const result = await store.read("key1");
+            expect(result._unsafeUnwrap()).toBe("second");
+        });
+
+        test("clear removes key", async () => {
+            const store = createNodeStorageAdapter("test", testDir);
+            await store.write("key1", "value");
+            await store.clear("key1");
+            const result = await store.read("key1");
+            expect(result._unsafeUnwrap()).toBeNull();
+        });
+
+        test("clear is safe for missing key", async () => {
+            const store = createNodeStorageAdapter("test", testDir);
+            const result = await store.clear("nonexistent");
+            expect(result.isOk()).toBe(true);
+        });
+
+        test("different appIds are isolated", async () => {
+            const storeA = createNodeStorageAdapter("app-a", testDir);
+            const storeB = createNodeStorageAdapter("app-b", testDir);
+            await storeA.write("key", "from-a");
+            await storeB.write("key", "from-b");
+            expect((await storeA.read("key"))._unsafeUnwrap()).toBe("from-a");
+            expect((await storeB.read("key"))._unsafeUnwrap()).toBe("from-b");
+        });
+
+        test("subscribe notifies on write", async () => {
+            const store = createNodeStorageAdapter("test", testDir);
+            const values: (string | null)[] = [];
+            store.subscribe("key1", (v) => values.push(v));
+
+            await store.write("key1", "hello");
+            expect(values).toEqual(["hello"]);
+        });
+
+        test("subscribe notifies on clear", async () => {
+            const store = createNodeStorageAdapter("test", testDir);
+            const values: (string | null)[] = [];
+            await store.write("key1", "hello");
+            store.subscribe("key1", (v) => values.push(v));
+
+            await store.clear("key1");
+            expect(values).toEqual([null]);
+        });
+
+        test("unsubscribe stops notifications", async () => {
+            const store = createNodeStorageAdapter("test", testDir);
+            const values: (string | null)[] = [];
+            const unsub = store.subscribe("key1", (v) => values.push(v));
+
+            await store.write("key1", "first");
+            unsub();
+            await store.write("key1", "second");
+
+            expect(values).toEqual(["first"]);
+        });
+
+        test("subscriber errors do not break other subscribers", async () => {
+            const store = createNodeStorageAdapter("test", testDir);
+            const values: string[] = [];
+            store.subscribe("key1", () => { throw new Error("boom"); });
+            store.subscribe("key1", (v) => { if (v) values.push(v); });
+
+            await store.write("key1", "hello");
+            expect(values).toEqual(["hello"]);
+        });
+
+        test("sanitizes special characters in keys", async () => {
+            const store = createNodeStorageAdapter("test", testDir);
+            await store.write("key/with:special chars!", "value");
+            const result = await store.read("key/with:special chars!");
+            expect(result._unsafeUnwrap()).toBe("value");
+        });
+
+        test("handles JSON values", async () => {
+            const store = createNodeStorageAdapter("test", testDir);
+            const obj = { name: "test", count: 42, nested: { ok: true } };
+            await store.write("json", JSON.stringify(obj));
+            const raw = (await store.read("json"))._unsafeUnwrap();
+            expect(JSON.parse(raw!)).toEqual(obj);
+        });
+    });
 }

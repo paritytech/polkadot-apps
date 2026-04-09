@@ -2,7 +2,7 @@
  * Terminal QR code rendering using Unicode half-block characters.
  *
  * Wraps the `qrcode` npm package's UTF-8 renderer, which packs two
- * module rows per terminal line using ▀▄█ characters.
+ * module rows per terminal line using half-block characters.
  */
 
 /** Options for QR code rendering. */
@@ -17,11 +17,8 @@ export interface QrRenderOptions {
  * Encode a string as a QR code rendered in Unicode half-block characters.
  *
  * Returns a multi-line string suitable for `console.log`.
- * Uses ▀ (upper half), ▄ (lower half), █ (full block), and space
- * to pack 2 module rows per terminal line — halving vertical height.
  */
 export async function renderQrCode(data: string, options?: QrRenderOptions): Promise<string> {
-    // Dynamic import — qrcode is CJS, loaded at runtime
     const QRCode = await import("qrcode");
     const result = await QRCode.toString(data, {
         type: "utf8",
@@ -42,9 +39,7 @@ if (import.meta.vitest) {
 
     test("renderQrCode contains Unicode block characters", async () => {
         const result = await renderQrCode("test");
-        // Should contain at least one of the half-block characters
-        const hasBlocks = /[▀▄█]/.test(result);
-        expect(hasBlocks).toBe(true);
+        expect(/[▀▄█]/.test(result)).toBe(true);
     });
 
     test("different inputs produce different QR codes", async () => {

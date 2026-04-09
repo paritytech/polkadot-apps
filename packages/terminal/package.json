@@ -1,6 +1,6 @@
 {
     "name": "@polkadot-apps/terminal",
-    "description": "QR code login for CLI/terminal apps via Polkadot mobile wallet pairing",
+    "description": "QR code login and signing for CLI/terminal apps via Polkadot mobile wallet pairing",
     "version": "0.1.0",
     "type": "module",
     "main": "./dist/index.js",
@@ -10,6 +10,11 @@
             "source": "./src/index.ts",
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js"
+        },
+        "./register": {
+            "source": "./src/register.ts",
+            "types": "./dist/register.d.ts",
+            "import": "./dist/register.js"
         }
     },
     "files": [
@@ -19,23 +24,18 @@
         "access": "public"
     },
     "scripts": {
-        "build": "tsc -p tsconfig.json",
+        "build": "tsc -p tsconfig.json && cp src/loader.mjs dist/loader.mjs",
         "clean": "rm -rf dist"
     },
     "dependencies": {
-        "@noble/curves": "^1.8.0",
-        "@noble/hashes": "catalog:",
-        "@polkadot-apps/address": "workspace:*",
-        "@polkadot-apps/crypto": "workspace:*",
-        "@polkadot-apps/logger": "workspace:*",
-        "@polkadot-apps/statement-store": "workspace:*",
-        "@polkadot-apps/storage": "workspace:*",
-        "@polkadot-labs/hdkd": "catalog:",
-        "@polkadot-labs/hdkd-helpers": "catalog:",
+        "@novasamatech/host-papp": "0.6.12",
+        "@novasamatech/statement-store": "0.6.12",
+        "@novasamatech/storage-adapter": "0.6.12",
+        "@polkadot-api/ws-provider": "^0.7.5",
+        "neverthrow": "^8.2.0",
         "qrcode": "^1.5.4"
     },
     "devDependencies": {
-        "@scure/sr25519": "1.0.0",
         "@types/qrcode": "^1.5.5",
         "typescript": "catalog:"
     }

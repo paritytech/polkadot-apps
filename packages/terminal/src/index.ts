@@ -1,34 +1,23 @@
-// QR Login
-export { startQrLogin, resumeSession, clearSession } from "./qr-login.js";
+// Terminal Adapter
+export { createTerminalAdapter, SS_STABLE_STAGE_ENDPOINTS, SS_PASEO_STABLE_STAGE_ENDPOINTS } from "./adapter.js";
+export type { TerminalAdapterOptions, TerminalAdapter } from "./adapter.js";
 
 // QR Encoding
 export { renderQrCode } from "./qr-encode.js";
 export type { QrRenderOptions } from "./qr-encode.js";
 
-// Signing
-export { createWalletSigner } from "./signing.js";
+// TODO: replace node-storage with @polkadot-apps/storage file backend
+// once it supports Node.js filesystem persistence.
+
+// Re-export SDK types consumers will need
 export type {
-    WalletSigner,
-    WalletSignerOptions,
+    PappAdapter,
+    HostMetadata,
+    AttestationStatus,
+    PairingStatus,
+    UserSession,
+    StoredUserSession,
+    SigningPayloadRequest,
     SigningRawRequest,
-    SigningResponseData,
-} from "./signing.js";
-
-// Session (advanced use)
-export { createSigningSession } from "./sso/session.js";
-export type { SigningSession, SessionOptions } from "./sso/session.js";
-
-// SSO Auth Flow (advanced use)
-export { AuthFlow } from "./sso/auth-flow.js";
-export type { PairedSession } from "./sso/auth-flow.js";
-
-// Errors
-export { QrLoginError, QrLoginTimeoutError, QrLoginCancelledError } from "./errors.js";
-
-// Types
-export type {
-    QrLoginOptions,
-    QrLoginResult,
-    QrLoginController,
-    TerminalSession,
-} from "./types.js";
+    SigningPayloadResponse,
+} from "@novasamatech/host-papp";

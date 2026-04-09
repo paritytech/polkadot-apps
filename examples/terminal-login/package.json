@@ -4,11 +4,10 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "start": "tsx index.ts"
+        "start": "tsx --import @polkadot-apps/terminal/register index.ts"
     },
     "dependencies": {
         "@polkadot-apps/terminal": "workspace:*",
-        "polkadot-api": "catalog:",
         "ws": "^8.18.0"
     },
     "devDependencies": {

@@ -1,24 +1,14 @@
 /**
- * Terminal Login Example
+ * Terminal Login + Signing Example
  *
- * Demonstrates QR code login with the Polkadot mobile app
- * using the SSO handshake protocol.
+ * Demonstrates QR code login with the Polkadot mobile app followed by
+ * interactive signing via the paired wallet, using the host-papp SDK.
  *
  * Usage:
- *   pnpm --filter terminal-login-example start [endpoint]
- *
- * Examples:
  *   pnpm --filter terminal-login-example start
- *   pnpm --filter terminal-login-example start wss://pop3-testnet.parity-lab.parity.io/people
- *   pnpm --filter terminal-login-example start wss://people-paseo.ibp.network
  */
 
-// Enable verbose logging from @polkadot-apps packages
-process.env.POLKADOT_APPS_LOG = "info";
-
-// Polyfill WebSocket for Node.js (polkadot-api ws-provider/web expects globalThis.WebSocket)
-// polkadot-api calls `new WebSocket(url, protocol)` — ws needs followRedirects
-// in the 3rd arg, but polkadot-api doesn't pass it, so we intercept via Proxy.
+// Polyfill WebSocket for Node.js
 import { WebSocket as _WS } from "ws";
 const WebSocket = new Proxy(_WS, {
     construct(target, args) {
@@ -28,92 +18,227 @@ const WebSocket = new Proxy(_WS, {
 });
 Object.assign(globalThis, { WebSocket });
 
+import * as readline from "node:readline";
 import {
-    startQrLogin,
-    resumeSession,
-    clearSession,
+    createTerminalAdapter,
     renderQrCode,
-    type QrLoginResult,
+    type PappAdapter,
+    type PairingStatus,
+    type AttestationStatus,
 } from "@polkadot-apps/terminal";
 
-const DEFAULT_ENDPOINT = "wss://paseo-people-next-rpc.polkadot.io";
 const DEFAULT_METADATA_URL =
     "https://gist.githubusercontent.com/ReinhardHatko/27415c91178d74196d7c1116d39056d5/raw/56e61d719251170828a80f12d34343a8617b9935/metadata.json";
 
-function showAccount(result: QrLoginResult): void {
-    console.log();
-    console.log("===================================");
-    console.log("  Logged in successfully!");
-    console.log("===================================");
-    console.log();
-    console.log(`  Address:    ${result.address}`);
-    console.log(`  Name:       ${result.name ?? "(unnamed)"}`);
-    console.log(`  Public Key: 0x${Buffer.from(result.publicKey).toString("hex").slice(0, 16)}...`);
-    console.log(`  Session:    ${result.sessionId.slice(0, 12)}...`);
-    console.log();
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function prompt(question: string): Promise<string> {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    return new Promise((resolve) => {
+        rl.question(question, (answer) => {
+            rl.close();
+            resolve(answer.trim());
+        });
+    });
 }
 
+function toHex(bytes: Uint8Array): string {
+    return "0x" + Buffer.from(bytes).toString("hex");
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
 async function main(): Promise<void> {
-    const endpoint = process.argv[2] || DEFAULT_ENDPOINT;
+    const endpoint = process.argv[2] || "wss://paseo-people-next-rpc.polkadot.io";
 
     console.log();
-    console.log("  Terminal Login Example");
-    console.log("  ~~~~~~~~~~~~~~~~~~~~~");
+    console.log("  Terminal Login + Signing Example");
+    console.log("  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     console.log();
     console.log(`  Endpoint: ${endpoint}`);
     console.log();
 
-    // Check for existing session
-    const existing = await resumeSession();
-    if (existing) {
-        console.log("  Found existing session.");
-        showAccount(existing);
+    const adapter = createTerminalAdapter({
+        appId: "terminal-login-example",
+        metadataUrl: DEFAULT_METADATA_URL,
+        endpoints: [endpoint],
+    });
 
-        console.log("  Press Ctrl+C to exit, or wait 3s to re-login...");
-        await new Promise((r) => setTimeout(r, 3000));
-        await clearSession();
-        console.log("  Session cleared. Starting fresh login...");
+    // Wait for sessions to load from disk
+    const existingSessions = await new Promise<any[]>((resolve) => {
+        let resolved = false;
+        let unsub: (() => void) | null = null;
+        unsub = adapter.sessions.sessions.subscribe((sessions) => {
+            if (resolved) return;
+            resolved = true;
+            unsub?.();
+            resolve(sessions);
+        });
+        setTimeout(() => {
+            if (resolved) return;
+            resolved = true;
+            unsub?.();
+            resolve([]);
+        }, 2000);
+    });
+
+    if (existingSessions.length > 0) {
+        const session = existingSessions[0];
+        console.log("  Found existing session.");
+        console.log(`  Address: ${toHex(session.remoteAccount.accountId)}`);
         console.log();
     }
 
-    // Start QR login
-    console.log("  Scan the QR code below with the Polkadot mobile app.");
-    console.log("  (timeout: 2 minutes)");
-    console.log();
-
-    const controller = await startQrLogin({
-        metadataUrl: DEFAULT_METADATA_URL,
-        endpoints: [endpoint],
-        timeoutMs: 120_000,
-    });
-
-    // Render QR code
-    const qr = await renderQrCode(controller.pairingUri);
-    console.log(qr);
-    console.log(`  Session: ${controller.sessionId.slice(0, 12)}...`);
-    console.log();
-    console.log("  Waiting for pairing response...");
-
-    // Handle Ctrl+C
+    // Interactive loop
+    let running = true;
     process.on("SIGINT", () => {
-        console.log("\n  Cancelled.");
-        controller.destroy();
+        running = false;
+        console.log("\n  Bye!");
         process.exit(0);
     });
 
-    try {
-        const result = await controller.result;
-        showAccount(result);
-    } catch (err) {
-        if (err instanceof Error) {
-            console.error(`\n  Login failed: ${err.message}`);
-        }
-        controller.destroy();
-        process.exit(1);
-    }
+    while (running) {
+        const sessions = adapter.sessions.sessions.read();
+        const hasSession = sessions.length > 0;
 
-    controller.destroy();
-    process.exit(0);
+        console.log();
+        console.log("  ┌─────────────────────────────────┐");
+        console.log("  │  What would you like to do?      │");
+        console.log("  │                                   │");
+        if (hasSession) {
+            console.log("  │  1. Sign a raw message            │");
+            console.log("  │  2. Re-login (new QR pairing)     │");
+            console.log("  │  3. Disconnect & exit             │");
+            console.log("  │  4. Exit                          │");
+        } else {
+            console.log("  │  1. Login (QR pairing)            │");
+            console.log("  │  2. Exit                          │");
+        }
+        console.log("  └─────────────────────────────────┘");
+        console.log();
+
+        const choice = await prompt(hasSession ? "  Choice [1-4]: " : "  Choice [1-2]: ");
+
+        try {
+            if (hasSession) {
+                const session = sessions[0];
+                switch (choice) {
+                    case "1":
+                        await signRawMessage(session);
+                        break;
+                    case "2":
+                        await adapter.sessions.disconnect(session);
+                        await doLogin(adapter);
+                        break;
+                    case "3":
+                        await adapter.sessions.disconnect(session);
+                        process.exit(0);
+                        break;
+                    case "4":
+                        process.exit(0);
+                        break;
+                    default:
+                        console.log("  Invalid choice.");
+                }
+            } else {
+                switch (choice) {
+                    case "1":
+                        await doLogin(adapter);
+                        break;
+                    case "2":
+                        process.exit(0);
+                        break;
+                    default:
+                        console.log("  Invalid choice.");
+                }
+            }
+        } catch (err) {
+            console.error(`  Error: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+}
+
+// ─── Login ───────────────────────────────────────────────────────────────────
+
+async function doLogin(adapter: PappAdapter): Promise<void> {
+    console.log("  Starting QR login + attestation...");
+    console.log();
+
+    let qrShown = false;
+    const unsubPairing = adapter.sso.pairingStatus.subscribe((status: PairingStatus) => {
+        if (status.step === "pairing" && !qrShown) {
+            qrShown = true;
+            renderQrCode(status.payload).then((qr) => {
+                console.log(qr);
+                console.log("  Scan with the Polkadot mobile app...");
+                console.log();
+            });
+        } else if (status.step === "finished") {
+            console.log("  Pairing successful!");
+        } else if (status.step === "pairingError") {
+            console.log(`  Pairing error: ${status.message}`);
+        }
+    });
+
+    const unsubAttestation = adapter.sso.attestationStatus.subscribe((status: AttestationStatus) => {
+        if (status.step === "attestation") {
+            console.log(`  Attesting account (username: ${status.username})...`);
+        } else if (status.step === "finished") {
+            console.log("  Attestation complete!");
+        } else if (status.step === "attestationError") {
+            console.log(`  Attestation error: ${status.message}`);
+        }
+    });
+
+    const result = await adapter.sso.authenticate();
+
+    unsubPairing();
+    unsubAttestation();
+
+    result.match(
+        (session) => {
+            if (session) {
+                console.log();
+                console.log("  ===================================");
+                console.log("  Logged in successfully!");
+                console.log("  ===================================");
+                console.log();
+            } else {
+                console.log("  Login cancelled.");
+            }
+        },
+        (error) => {
+            console.error(`  Login failed: ${error.message}`);
+        },
+    );
+}
+
+// ─── Signing ─────────────────────────────────────────────────────────────────
+
+async function signRawMessage(session: any): Promise<void> {
+    const message = await prompt("  Enter a message to sign (or press Enter for default): ");
+    const text = message || "Hello from polkadot-apps terminal!";
+
+    console.log();
+    console.log(`  Signing: "${text}"`);
+    console.log("  Approve on your phone...");
+
+    const result = await session.signRaw({
+        address: toHex(session.remoteAccount.accountId),
+        data: { tag: "Bytes", value: new TextEncoder().encode(text) },
+    });
+
+    result.match(
+        (data: any) => {
+            console.log();
+            console.log("  Signature received!");
+            console.log(`  ${toHex(data.signature)}`);
+            console.log();
+        },
+        (error: Error) => {
+            console.error(`  Signing failed: ${error.message}`);
+        },
+    );
 }
 
 main().catch((err) => {

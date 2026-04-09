@@ -1,20 +1,37 @@
 # @polkadot-apps/terminal
 
-QR code login for CLI/terminal apps via the Polkadot mobile wallet.
+QR code login, attestation, and transaction signing for CLI/terminal apps via the Polkadot mobile wallet.
 
-Implements the Polkadot SSO handshake protocol: generates Sr25519 + P256 keypairs, displays a QR code deep link, subscribes to the statement store for the wallet's encrypted response, and extracts the paired account.
+Wraps the [`@novasamatech/host-papp`](https://www.npmjs.com/package/@novasamatech/host-papp) SDK with Node.js-compatible adapters (file-based storage, WebSocket transport) so the full SSO protocol works outside the browser.
 
 ## Installation
 
 ```bash
-pnpm add @polkadot-apps/terminal
+pnpm add @polkadot-apps/terminal ws
 ```
 
-Node.js requires a WebSocket polyfill:
+## Setup
+
+Two things must be configured before using the package:
+
+**1. Register the WASM loader** — the host-papp SDK depends on `verifiablejs` which uses inline WASM (browser-only). The register hook redirects it to the Node.js WASM build. Pass it via `--import`:
 
 ```bash
-pnpm add ws
+node --import @polkadot-apps/terminal/register app.js
+tsx --import @polkadot-apps/terminal/register app.ts
 ```
+
+Or in your `package.json` scripts:
+
+```json
+{
+    "scripts": {
+        "start": "tsx --import @polkadot-apps/terminal/register index.ts"
+    }
+}
+```
+
+**2. Polyfill WebSocket** — must be done before creating the adapter:
 
 ```ts
 import { WebSocket } from "ws";
@@ -24,70 +41,105 @@ Object.assign(globalThis, { WebSocket });
 ## Quick Start
 
 ```ts
-import { startQrLogin, resumeSession, clearSession, renderQrCode } from "@polkadot-apps/terminal";
+import { createTerminalAdapter, renderQrCode } from "@polkadot-apps/terminal";
 
-// Resume an existing session or start a new QR login
-let login = await resumeSession();
+// 1. Create the adapter
+const adapter = createTerminalAdapter({
+    appId: "my-terminal-app",
+    metadataUrl: "https://example.com/metadata.json",
+});
 
-if (!login) {
-    const controller = await startQrLogin({
-        metadataUrl: "https://example.com/metadata.json",
-        endpoints: ["wss://paseo-people-next-rpc.polkadot.io"],
-        timeoutMs: 120_000,
+// 2. Subscribe to pairing status to show the QR code
+adapter.sso.pairingStatus.subscribe(async (status) => {
+    if (status.step === "pairing") {
+        console.log(await renderQrCode(status.payload));
+        console.log("Scan with the Polkadot mobile app...");
+    }
+});
+
+// 3. Authenticate (QR pairing + on-chain attestation)
+const result = await adapter.sso.authenticate();
+
+result.match(
+    (session) => console.log("Logged in!", session?.id),
+    (error) => console.error("Failed:", error.message),
+);
+
+// 4. Wait for sessions to load (they load asynchronously from disk)
+const sessions = await new Promise<any[]>((resolve) => {
+    let resolved = false;
+    let unsub: (() => void) | null = null;
+    unsub = adapter.sessions.sessions.subscribe((s) => {
+        if (resolved) return;
+        resolved = true;
+        unsub?.();
+        resolve(s);
+    });
+    setTimeout(() => {
+        if (!resolved) { resolved = true; unsub?.(); resolve([]); }
+    }, 2000);
+});
+
+// 5. Sign messages via the paired wallet
+if (sessions.length > 0) {
+    const session = sessions[0];
+    const sig = await session.signRaw({
+        address: "0x" + Buffer.from(session.remoteAccount.accountId).toString("hex"),
+        data: { tag: "Bytes", value: new TextEncoder().encode("Hello") },
     });
 
-    console.log(await renderQrCode(controller.pairingUri));
-    console.log("Scan with the Polkadot mobile app...");
-
-    login = await controller.result;
-    controller.destroy();
+    sig.match(
+        (data) => console.log("Signature:", data.signature),
+        (error) => console.error("Failed:", error.message),
+    );
 }
-
-console.log(`Logged in as ${login.address}`);
-
-await clearSession(); // optional: remove persisted session
 ```
 
 ## API
 
-### `startQrLogin(options: QrLoginOptions): Promise<QrLoginController>`
+### `createTerminalAdapter(options): PappAdapter`
 
-Start a QR login session. Returns a controller with:
-- `pairingUri` -- the `polkadotapp://pair?handshake=0x...` deep link
-- `sessionId` -- hex-encoded local account ID
-- `result` -- promise that resolves on successful pairing
-- `cancel()` / `destroy()` -- abort the login
+Creates a terminal adapter backed by the host-papp SDK.
 
-### `renderQrCode(data: string, options?: QrRenderOptions): Promise<string>`
+**Options:**
+- `appId` -- unique app identifier (used as storage namespace)
+- `metadataUrl` -- URL to metadata JSON shown during pairing
+- `endpoints?` -- statement store WebSocket endpoints (defaults to Paseo)
+- `hostMetadata?` -- optional host environment info
+
+**Returns** a `PappAdapter` with:
+- `sso` -- auth component (`.authenticate()`, `.abortAuthentication()`, status subscriptions)
+- `sessions` -- session manager (signing, disconnect)
+
+### `renderQrCode(data, options?): Promise<string>`
 
 Render a string as a QR code using Unicode half-block characters for terminal display.
 
-### `resumeSession(): Promise<QrLoginResult | null>`
+### `createNodeStorageAdapter(appId): StorageAdapter`
 
-Resume a persisted session. Returns null if expired or not found.
+File-based storage adapter for Node.js. Data persists in `~/.polkadot-apps/`.
 
-### `clearSession(): Promise<void>`
+## Signing
 
-Remove the persisted session.
+After login and attestation, the paired wallet can sign messages via the statement store.
 
-### `AuthFlow` (advanced)
+**`signRaw`** works end-to-end: the wallet receives the request, shows a prompt, and returns the signature.
 
-Low-level SSO handshake: key derivation, SCALE encoding, ECDH decryption. Use `startQrLogin` instead unless you need custom control.
+**`signPayload`** (for signing transaction payloads) is not yet functional — the request is submitted but the wallet does not respond. This is a known limitation of the current wallet/protocol version.
 
-## Error Handling
+## How It Works
 
-- `QrLoginTimeoutError` -- login exceeded the configured timeout
-- `QrLoginCancelledError` -- login was cancelled via `cancel()` or `destroy()`
+1. **QR Pairing** -- generates Sr25519 + P256 keypairs, encodes a `polkadotapp://pair?handshake=0x...` deep link, subscribes to the statement store
+2. **Attestation** -- registers the local account on the People chain so it can publish statements
+3. **Signing** -- sends encrypted signing requests to the wallet via the statement store, receives signed responses
 
-Both extend `QrLoginError`.
+Sessions are persisted to `~/.polkadot-apps/` and survive across restarts. The SDK loads them asynchronously on startup — subscribe to `adapter.sessions.sessions` and wait for the first emission.
 
 ## Dependencies
 
-- `@polkadot-apps/statement-store` -- statement store transport and codec
-- `@polkadot-apps/crypto` -- AES-GCM, HKDF, hex encoding
-- `@polkadot-apps/address` -- SS58 encoding
-- `@polkadot-apps/storage` -- session persistence
-- `@polkadot-apps/logger` -- structured logging
-- `@polkadot-labs/hdkd` / `@polkadot-labs/hdkd-helpers` -- Sr25519 key derivation
-- `@noble/curves` -- P256 ECDH
+- `@novasamatech/host-papp` -- Polkadot host-product SDK (auth, attestation, signing)
+- `@novasamatech/statement-store` -- statement store client and session management
+- `@novasamatech/storage-adapter` -- storage interface
+- `@polkadot-api/ws-provider` -- WebSocket JSON-RPC provider
+- `neverthrow` -- Result type for error handling
 - `qrcode` -- QR code generation
