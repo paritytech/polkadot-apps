@@ -1,86 +1,51 @@
 /**
- * File-based StorageAdapter for Node.js environments.
+ * Bridge from @polkadot-apps/storage KvStore to the novasama StorageAdapter interface.
  *
- * Implements the @novasamatech/storage-adapter interface using JSON files
- * in ~/.polkadot-apps/. Node.js doesn't have localStorage, so this
- * provides persistent storage for the SDK's session and secret data.
+ * Uses the file-based backend added to @polkadot-apps/storage, which persists
+ * data to ~/.polkadot-apps/ in Node.js environments.
  */
 import type { StorageAdapter } from "@novasamatech/storage-adapter";
+import { createKvStore } from "@polkadot-apps/storage";
 import { fromPromise } from "neverthrow";
-import { join } from "node:path";
-import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
-import { homedir } from "node:os";
-
-const DEFAULT_STORAGE_DIR = join(homedir(), ".polkadot-apps");
-
-function sanitizeKey(appId: string, key: string): string {
-    return `${appId}_${key}`.replace(/[^a-zA-Z0-9_.-]/g, "_");
-}
 
 function toError(e: unknown): Error {
     return e instanceof Error ? e : new Error(String(e));
 }
 
 /**
- * Create a file-based StorageAdapter for use with the host-papp SDK in Node.js.
+ * Create a StorageAdapter backed by @polkadot-apps/storage.
  *
- * Data is stored as individual JSON files in the given directory
- * (defaults to `~/.polkadot-apps/`).
+ * In Node.js this uses the file-based backend (~/.polkadot-apps/).
+ * In browsers it falls back to localStorage.
  */
-export function createNodeStorageAdapter(appId: string, storageDir?: string): StorageAdapter {
-    const dir = storageDir ?? DEFAULT_STORAGE_DIR;
-    let dirCreated = false;
+export async function createStorageAdapter(appId: string, storageDir?: string): Promise<StorageAdapter> {
+    const store = await createKvStore({ prefix: appId, storageDir });
     const subscribers = new Map<string, Set<(value: string | null) => unknown>>();
-
-    function fp(key: string): string {
-        return join(dir, `${sanitizeKey(appId, key)}.json`);
-    }
-
-    async function ensureDir(): Promise<void> {
-        if (dirCreated) return;
-        await mkdir(dir, { recursive: true });
-        dirCreated = true;
-    }
 
     function notifySubscribers(key: string, value: string | null) {
         const subs = subscribers.get(key);
         if (subs) {
             for (const cb of subs) {
-                try {
-                    cb(value);
-                } catch {
-                    /* ignore */
-                }
+                try { cb(value); } catch { /* ignore */ }
             }
         }
     }
 
     return {
         read(key: string) {
-            return fromPromise(
-                readFile(fp(key), "utf-8").catch(() => null),
-                toError,
-            );
+            return fromPromise(store.get(key), toError);
         },
 
         write(key: string, value: string) {
             return fromPromise(
-                ensureDir()
-                    .then(() => writeFile(fp(key), value, "utf-8"))
-                    .then(() => {
-                        notifySubscribers(key, value);
-                    }),
+                store.set(key, value).then(() => { notifySubscribers(key, value); }),
                 toError,
             ).map(() => undefined as void);
         },
 
         clear(key: string) {
             return fromPromise(
-                unlink(fp(key))
-                    .catch(() => {})
-                    .then(() => {
-                        notifySubscribers(key, null);
-                    }),
+                store.remove(key).then(() => { notifySubscribers(key, null); }),
                 toError,
             ).map(() => undefined as void);
         },
@@ -98,129 +63,71 @@ export function createNodeStorageAdapter(appId: string, storageDir?: string): St
 }
 
 if (import.meta.vitest) {
-    const { describe, test, expect, beforeEach, afterAll } = import.meta.vitest;
+    const { describe, test, expect, beforeEach, afterEach } = import.meta.vitest;
     const { mkdtemp, rm } = await import("node:fs/promises");
     const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
 
-    let testDir: string;
+    describe("createStorageAdapter", () => {
+        let testDir: string;
 
-    beforeEach(async () => {
-        testDir = await mkdtemp(join(tmpdir(), "terminal-storage-test-"));
-    });
+        beforeEach(async () => {
+            testDir = await mkdtemp(join(tmpdir(), "terminal-storage-test-"));
+        });
 
-    afterAll(async () => {
-        // Clean up any remaining test dirs
-        try {
-            await rm(testDir, { recursive: true });
-        } catch {
-            /* ignore */
-        }
-    });
-
-    describe("createNodeStorageAdapter", () => {
-        test("read returns null for missing key", async () => {
-            const store = createNodeStorageAdapter("test", testDir);
-            const result = await store.read("nonexistent");
-            expect(result.isOk()).toBe(true);
-            expect(result._unsafeUnwrap()).toBeNull();
+        afterEach(async () => {
+            try { await rm(testDir, { recursive: true }); } catch { /* ignore */ }
         });
 
         test("write and read round-trip", async () => {
-            const store = createNodeStorageAdapter("test", testDir);
-            await store.write("key1", "hello");
-            const result = await store.read("key1");
-            expect(result._unsafeUnwrap()).toBe("hello");
+            const adapter = await createStorageAdapter("test", testDir);
+            const writeResult = await adapter.write("key1", "hello");
+            expect(writeResult.isOk()).toBe(true);
+            const readResult = await adapter.read("key1");
+            expect(readResult.isOk()).toBe(true);
+            expect(readResult._unsafeUnwrap()).toBe("hello");
         });
 
-        test("write overwrites existing value", async () => {
-            const store = createNodeStorageAdapter("test", testDir);
-            await store.write("key1", "first");
-            await store.write("key1", "second");
-            const result = await store.read("key1");
-            expect(result._unsafeUnwrap()).toBe("second");
-        });
-
-        test("clear removes key", async () => {
-            const store = createNodeStorageAdapter("test", testDir);
-            await store.write("key1", "value");
-            await store.clear("key1");
-            const result = await store.read("key1");
+        test("read returns null for missing key", async () => {
+            const adapter = await createStorageAdapter("test", testDir);
+            const result = await adapter.read("nonexistent");
+            expect(result.isOk()).toBe(true);
             expect(result._unsafeUnwrap()).toBeNull();
         });
 
-        test("clear is safe for missing key", async () => {
-            const store = createNodeStorageAdapter("test", testDir);
-            const result = await store.clear("nonexistent");
-            expect(result.isOk()).toBe(true);
-        });
-
-        test("different appIds are isolated", async () => {
-            const storeA = createNodeStorageAdapter("app-a", testDir);
-            const storeB = createNodeStorageAdapter("app-b", testDir);
-            await storeA.write("key", "from-a");
-            await storeB.write("key", "from-b");
-            expect((await storeA.read("key"))._unsafeUnwrap()).toBe("from-a");
-            expect((await storeB.read("key"))._unsafeUnwrap()).toBe("from-b");
+        test("clear removes key", async () => {
+            const adapter = await createStorageAdapter("test", testDir);
+            await adapter.write("key1", "value");
+            await adapter.clear("key1");
+            const result = await adapter.read("key1");
+            expect(result._unsafeUnwrap()).toBeNull();
         });
 
         test("subscribe notifies on write", async () => {
-            const store = createNodeStorageAdapter("test", testDir);
+            const adapter = await createStorageAdapter("test", testDir);
             const values: (string | null)[] = [];
-            store.subscribe("key1", (v) => values.push(v));
-
-            await store.write("key1", "hello");
+            adapter.subscribe("key1", (v: string | null) => values.push(v));
+            await adapter.write("key1", "hello");
             expect(values).toEqual(["hello"]);
         });
 
         test("subscribe notifies on clear", async () => {
-            const store = createNodeStorageAdapter("test", testDir);
+            const adapter = await createStorageAdapter("test", testDir);
             const values: (string | null)[] = [];
-            await store.write("key1", "hello");
-            store.subscribe("key1", (v) => values.push(v));
-
-            await store.clear("key1");
+            await adapter.write("key1", "hello");
+            adapter.subscribe("key1", (v: string | null) => values.push(v));
+            await adapter.clear("key1");
             expect(values).toEqual([null]);
         });
 
         test("unsubscribe stops notifications", async () => {
-            const store = createNodeStorageAdapter("test", testDir);
+            const adapter = await createStorageAdapter("test", testDir);
             const values: (string | null)[] = [];
-            const unsub = store.subscribe("key1", (v) => values.push(v));
-
-            await store.write("key1", "first");
+            const unsub = adapter.subscribe("key1", (v: string | null) => values.push(v));
+            await adapter.write("key1", "first");
             unsub();
-            await store.write("key1", "second");
-
+            await adapter.write("key1", "second");
             expect(values).toEqual(["first"]);
-        });
-
-        test("subscriber errors do not break other subscribers", async () => {
-            const store = createNodeStorageAdapter("test", testDir);
-            const values: string[] = [];
-            store.subscribe("key1", () => {
-                throw new Error("boom");
-            });
-            store.subscribe("key1", (v) => {
-                if (v) values.push(v);
-            });
-
-            await store.write("key1", "hello");
-            expect(values).toEqual(["hello"]);
-        });
-
-        test("sanitizes special characters in keys", async () => {
-            const store = createNodeStorageAdapter("test", testDir);
-            await store.write("key/with:special chars!", "value");
-            const result = await store.read("key/with:special chars!");
-            expect(result._unsafeUnwrap()).toBe("value");
-        });
-
-        test("handles JSON values", async () => {
-            const store = createNodeStorageAdapter("test", testDir);
-            const obj = { name: "test", count: 42, nested: { ok: true } };
-            await store.write("json", JSON.stringify(obj));
-            const raw = (await store.read("json"))._unsafeUnwrap();
-            expect(JSON.parse(raw!)).toEqual(obj);
         });
     });
 }

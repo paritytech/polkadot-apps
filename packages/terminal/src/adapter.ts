@@ -15,7 +15,7 @@ import {
 import { createLazyClient, createPapiStatementStoreAdapter } from "@novasamatech/statement-store";
 import { getWsProvider } from "@polkadot-api/ws-provider/node";
 
-import { createNodeStorageAdapter } from "./node-storage.js";
+import { createStorageAdapter } from "./node-storage.js";
 
 /** Options for creating a terminal adapter. */
 export interface TerminalAdapterOptions {
@@ -44,10 +44,10 @@ export type TerminalAdapter = PappAdapter & {
     destroy(): void;
 };
 
-export function createTerminalAdapter(options: TerminalAdapterOptions): TerminalAdapter {
+export async function createTerminalAdapter(options: TerminalAdapterOptions): Promise<TerminalAdapter> {
     const endpoints = options.endpoints ?? SS_PASEO_STABLE_STAGE_ENDPOINTS;
 
-    const storage = createNodeStorageAdapter(options.appId);
+    const storage = await createStorageAdapter(options.appId);
     const lazyClient = createLazyClient(
         getWsProvider({ endpoints, heartbeatTimeout: Number.POSITIVE_INFINITY }),
     );

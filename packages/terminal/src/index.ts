@@ -16,9 +16,6 @@ export { waitForSessions } from "./sessions.js";
 export { renderQrCode } from "./qr-encode.js";
 export type { QrRenderOptions } from "./qr-encode.js";
 
-// TODO: replace node-storage with @polkadot-apps/storage file backend
-// once it supports Node.js filesystem persistence.
-
 // Re-export SDK types consumers will need
 export type {
     PappAdapter,
