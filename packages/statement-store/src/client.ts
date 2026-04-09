@@ -344,6 +344,9 @@ export class StatementStoreClient {
         if (!this.transport) return;
 
         const filter = { matchAll: [this.appTopic] };
+        log.debug("Starting subscription", {
+            appTopic: topicToHex(this.appTopic).slice(0, 16) + "...",
+        });
 
         this.subscription = this.transport.subscribe(
             filter,
@@ -414,8 +417,21 @@ export class StatementStoreClient {
      * Returns true if the statement was new and delivered.
      */
     private handleStatementReceived(hex: string): boolean {
+        log.debug("Processing statement", { hexLength: hex.length, preview: hex.slice(0, 40) + "..." });
+
         const parsed = this.parseStatement<unknown>(hex);
-        if (!parsed) return false;
+        if (!parsed) {
+            log.debug("Statement parse returned null (no data or malformed)");
+            return false;
+        }
+
+        log.debug("Statement parsed", {
+            hasChannel: !!parsed.channel,
+            hasTopic1: !!parsed.topic1,
+            hasTopic2: !!parsed.topic2,
+            dataType: typeof parsed.data,
+            signer: parsed.signer ? topicToHex(parsed.signer).slice(0, 16) + "..." : "none",
+        });
 
         // Deduplication key: channel hex (if present) or data hash
         const dedupeKey = parsed.channel ? topicToHex(parsed.channel) : hex.substring(0, 64);
@@ -424,10 +440,13 @@ export class StatementStoreClient {
         const newExpiry = parsed.expiry ?? 0n;
 
         if (existingExpiry !== undefined && newExpiry <= existingExpiry) {
+            log.debug("Statement deduplicated", { dedupeKey: dedupeKey.slice(0, 16) + "..." });
             return false; // Already seen or older
         }
 
         this.seen.set(dedupeKey, newExpiry);
+
+        log.debug("Delivering statement to callbacks", { callbackCount: this.callbacks.length });
 
         // Deliver to callbacks (snapshot to handle mid-iteration unsubscribes)
         for (const callback of [...this.callbacks]) {
@@ -459,8 +478,11 @@ export class StatementStoreClient {
                 expiry: decoded.expiry,
                 raw: decoded,
             };
-        } catch {
-            // Skip malformed statements
+        } catch (error) {
+            log.debug("Failed to parse statement", {
+                error: error instanceof Error ? error.message : String(error),
+                hexPreview: hex.slice(0, 40) + "...",
+            });
             return null;
         }
     }
