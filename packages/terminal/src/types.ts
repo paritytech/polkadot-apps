@@ -24,6 +24,12 @@ export interface QrLoginResult {
     name: string | null;
     /** The session ID (hex-encoded local account ID). */
     sessionId: string;
+    /** P256 ECDH shared secret with the remote wallet (32 bytes). Available for signing sessions. */
+    sharedSecret: Uint8Array;
+    /** Local account ID (32 bytes, Sr25519 public key). */
+    localAccountId: Uint8Array;
+    /** BIP39 mnemonic used to derive the local keypairs. Needed to sign session statements. */
+    mnemonic: string;
 }
 
 /** Controller for an in-progress QR login session. */
@@ -50,6 +56,12 @@ export interface TerminalSession {
     publicKeyHex: string;
     /** Human-readable name, if available. */
     name: string | null;
+    /** Hex-encoded P256 ECDH shared secret with the remote wallet. */
+    sharedSecretHex: string;
+    /** Hex-encoded local account ID (Sr25519 public key). */
+    localAccountIdHex: string;
+    /** BIP39 mnemonic for re-deriving keypairs. */
+    mnemonic: string;
     /** Unix timestamp (ms) when the session was created. */
     createdAt: number;
     /** Unix timestamp (ms) when the session expires. */

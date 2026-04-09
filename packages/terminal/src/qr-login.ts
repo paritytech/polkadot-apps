@@ -12,8 +12,8 @@
 import { createLogger } from "@polkadot-apps/logger";
 import { createTransport, decodeStatement } from "@polkadot-apps/statement-store";
 import type { Unsubscribable } from "@polkadot-apps/statement-store";
-import { createKvStore } from "@polkadot-apps/storage";
 import type { KvStore } from "@polkadot-apps/storage";
+import { createNodeKvStore } from "./node-storage.js";
 import { ss58Encode } from "@polkadot-apps/address";
 import { bytesToHex, hexToBytes } from "@polkadot-apps/crypto";
 import { generateMnemonic } from "@polkadot-labs/hdkd-helpers";
@@ -106,6 +106,9 @@ export async function startQrLogin(options: QrLoginOptions): Promise<QrLoginCont
                         publicKey: session.remoteAccountId,
                         name: null,
                         sessionId,
+                        sharedSecret: session.sharedSecret,
+                        localAccountId: session.localAccountId,
+                        mnemonic,
                     };
 
                     cancelled = true;
@@ -171,11 +174,21 @@ export async function resumeSession(storagePrefix?: string): Promise<QrLoginResu
         return null;
     }
 
+    // Sessions saved before signing support won't have these fields
+    if (!session.sharedSecretHex || !session.localAccountIdHex || !session.mnemonic) {
+        log.debug("Session missing signing fields, clearing");
+        await store.remove(SESSION_KEY);
+        return null;
+    }
+
     return {
         address: session.address,
         publicKey: hexToBytes(session.publicKeyHex),
         name: session.name,
         sessionId: session.sessionId,
+        sharedSecret: hexToBytes(session.sharedSecretHex),
+        localAccountId: hexToBytes(session.localAccountIdHex),
+        mnemonic: session.mnemonic,
     };
 }
 
@@ -193,6 +206,9 @@ async function persistSession(result: QrLoginResult): Promise<void> {
             address: result.address,
             publicKeyHex: bytesToHex(result.publicKey),
             name: result.name,
+            sharedSecretHex: bytesToHex(result.sharedSecret),
+            localAccountIdHex: bytesToHex(result.localAccountId),
+            mnemonic: result.mnemonic,
             createdAt: Date.now(),
             expiresAt: Date.now() + SESSION_TTL_MS,
         };
@@ -209,7 +225,7 @@ let _store: KvStore | null = null;
 
 async function getStore(prefix?: string): Promise<KvStore> {
     if (!_store) {
-        _store = await createKvStore({ prefix: prefix ?? STORAGE_PREFIX });
+        _store = createNodeKvStore(prefix ?? STORAGE_PREFIX);
     }
     return _store;
 }
