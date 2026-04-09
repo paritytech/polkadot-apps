@@ -145,17 +145,27 @@ export function toHex(bytes: Uint8Array): string {
  * @returns The concatenated bytes to be signed.
  */
 export function createSignatureMaterial(fields: StatementFields): Uint8Array {
+    // Field tags match @novasamatech/sdk-statement Variant ordering:
+    //   0=proof, 1=decryptionKey, 2=expiry, 3=channel,
+    //   4=topic1, 5=topic2, 6=topic3, 7=topic4, 8=data
+    // Fields must be sorted by tag. Proof (0) is excluded from signature material.
     const parts: Uint8Array[] = [];
+
+    // Field tag 1: DecryptionKey (optional, 32 bytes)
+    if (fields.decryptionKey) {
+        parts.push(new Uint8Array([1]));
+        parts.push(fields.decryptionKey);
+    }
 
     // Field tag 2: Expiry (always present)
     const expiry = (BigInt(fields.expirationTimestamp) << 32n) | BigInt(fields.sequenceNumber);
     parts.push(new Uint8Array([2]));
     parts.push(encodeU64LE(expiry));
 
-    // Field tag 3: DecryptionKey (optional, 32 bytes)
-    if (fields.decryptionKey) {
+    // Field tag 3: Channel (optional, 32 bytes)
+    if (fields.channel) {
         parts.push(new Uint8Array([3]));
-        parts.push(fields.decryptionKey);
+        parts.push(fields.channel);
     }
 
     // Field tag 4: Topic1 (optional, 32 bytes)
@@ -168,12 +178,6 @@ export function createSignatureMaterial(fields: StatementFields): Uint8Array {
     if (fields.topic2) {
         parts.push(new Uint8Array([5]));
         parts.push(fields.topic2);
-    }
-
-    // Field tag 6: Channel (optional, 32 bytes)
-    if (fields.channel) {
-        parts.push(new Uint8Array([6]));
-        parts.push(fields.channel);
     }
 
     // Field tag 8: Data (optional, compact-length-prefixed)
@@ -204,6 +208,10 @@ export function encodeStatement(
 ): Uint8Array {
     const fieldArrays: Uint8Array[] = [];
 
+    // Field tags match @novasamatech/sdk-statement Variant ordering:
+    //   0=proof, 1=decryptionKey, 2=expiry, 3=channel,
+    //   4=topic1, 5=topic2, 6=topic3, 7=topic4, 8=data
+
     // Field tag 0: AuthenticityProof (Sr25519 = variant 0)
     fieldArrays.push(
         concatBytes(
@@ -213,13 +221,18 @@ export function encodeStatement(
         ),
     );
 
+    // Field tag 1: DecryptionKey (optional)
+    if (fields.decryptionKey) {
+        fieldArrays.push(concatBytes(new Uint8Array([1]), fields.decryptionKey));
+    }
+
     // Field tag 2: Expiry
     const expiry = (BigInt(fields.expirationTimestamp) << 32n) | BigInt(fields.sequenceNumber);
     fieldArrays.push(concatBytes(new Uint8Array([2]), encodeU64LE(expiry)));
 
-    // Field tag 3: DecryptionKey (optional)
-    if (fields.decryptionKey) {
-        fieldArrays.push(concatBytes(new Uint8Array([3]), fields.decryptionKey));
+    // Field tag 3: Channel (optional)
+    if (fields.channel) {
+        fieldArrays.push(concatBytes(new Uint8Array([3]), fields.channel));
     }
 
     // Field tag 4: Topic1 (optional)
@@ -230,11 +243,6 @@ export function encodeStatement(
     // Field tag 5: Topic2 (optional)
     if (fields.topic2) {
         fieldArrays.push(concatBytes(new Uint8Array([5]), fields.topic2));
-    }
-
-    // Field tag 6: Channel (optional)
-    if (fields.channel) {
-        fieldArrays.push(concatBytes(new Uint8Array([6]), fields.channel));
     }
 
     // Field tag 8: Data (optional)
@@ -275,6 +283,8 @@ export function decodeStatement(hex: string): DecodedStatement {
         const tag = bytes[offset];
         offset += 1;
 
+        // Field tags: 0=proof, 1=decryptionKey, 2=expiry, 3=channel,
+        //            4=topic1, 5=topic2, 6=topic3, 7=topic4, 8=data
         switch (tag) {
             case 0: {
                 // AuthenticityProof: variant (1 byte) + signature (64 bytes) + signer (32 bytes)
@@ -286,6 +296,14 @@ export function decodeStatement(hex: string): DecodedStatement {
                 offset += 32;
                 break;
             }
+            case 1: {
+                if (offset + 32 > bytes.length) {
+                    throw new StatementEncodingError("Truncated decryption key");
+                }
+                result.decryptionKey = bytes.slice(offset, offset + 32);
+                offset += 32;
+                break;
+            }
             case 2: {
                 result.expiry = decodeU64LE(bytes, offset);
                 offset += 8;
@@ -293,9 +311,9 @@ export function decodeStatement(hex: string): DecodedStatement {
             }
             case 3: {
                 if (offset + 32 > bytes.length) {
-                    throw new StatementEncodingError("Truncated decryption key");
+                    throw new StatementEncodingError("Truncated channel");
                 }
-                result.decryptionKey = bytes.slice(offset, offset + 32);
+                result.channel = bytes.slice(offset, offset + 32);
                 offset += 32;
                 break;
             }
@@ -315,11 +333,12 @@ export function decodeStatement(hex: string): DecodedStatement {
                 offset += 32;
                 break;
             }
-            case 6: {
+            case 6:
+            case 7: {
+                // topic3, topic4 — skip (32 bytes)
                 if (offset + 32 > bytes.length) {
-                    throw new StatementEncodingError("Truncated channel");
+                    throw new StatementEncodingError(`Truncated topic at tag ${tag}`);
                 }
-                result.channel = bytes.slice(offset, offset + 32);
                 offset += 32;
                 break;
             }
