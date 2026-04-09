@@ -12,7 +12,7 @@
         "format:check": "biome format .",
         "generate-descriptors": "bash packages/descriptors/scripts/generate.sh",
         "docs": "typedoc",
-        "cli:install": "pnpm build && bun build --compile ./apps/cli/src/index.ts --outfile ~/.dot/bin/dot && bash ./scripts/cli-path.sh"
+        "cli:install": "pnpm build && bun build --compile ./apps/cli/src/index.ts --outfile ~/.polkadot/bin/dot && bash ./scripts/cli-path.sh"
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",

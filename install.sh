@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-DOT_DIR="$HOME/.dot"
+DOT_DIR="$HOME/.polkadot"
 REPO="paritytech/polkadot-apps"
 BIN="dot"
 
@@ -45,19 +45,19 @@ append_once() {
 }
 
 if command -v bash >/dev/null 2>&1; then
-  append_once "$HOME/.bashrc" 'export PATH="$HOME/.dot/bin:$HOME/.local/bin:$PATH"'
+  append_once "$HOME/.bashrc" 'export PATH="$HOME/.polkadot/bin:$HOME/.local/bin:$PATH"'
   append_once "$HOME/.bash_profile" '[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"'
   echo "bash PATH configured"
 fi
 
 if command -v zsh >/dev/null 2>&1; then
-  append_once "$HOME/.zshrc" 'export PATH="$HOME/.dot/bin:$HOME/.local/bin:$PATH"'
+  append_once "$HOME/.zshrc" 'export PATH="$HOME/.polkadot/bin:$HOME/.local/bin:$PATH"'
   echo "zsh PATH configured"
 fi
 
 if command -v fish >/dev/null 2>&1; then
   mkdir -p "$HOME/.config/fish"
-  append_once "$HOME/.config/fish/config.fish" 'fish_add_path $HOME/.dot/bin $HOME/.local/bin'
+  append_once "$HOME/.config/fish/config.fish" 'fish_add_path $HOME/.polkadot/bin $HOME/.local/bin'
   echo "fish PATH configured"
 fi
 

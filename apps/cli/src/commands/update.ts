@@ -46,7 +46,7 @@ export const updateCommand = new Command("update")
             const binRes = await fetch(url);
             if (!binRes.ok) throw new Error(`Download failed: ${binRes.statusText}`);
 
-            const binPath = resolve(homedir(), ".dot/bin/dot");
+            const binPath = resolve(homedir(), ".polkadot/bin/dot");
             const bytes = new Uint8Array(await binRes.arrayBuffer());
             writeFileSync(binPath, bytes);
             chmodSync(binPath, 0o755);

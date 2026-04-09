@@ -99,16 +99,20 @@ export function readReadme(): string | undefined {
 // ---------------------------------------------------------------------------
 
 export function loadAccount(chain: string): { address: string; mnemonic: string } {
-    const accountsPath = resolve(homedir(), ".dot/accounts.json");
+    const accountsPath = resolve(homedir(), ".polkadot/accounts.json");
     try {
         const accounts = JSON.parse(readFileSync(accountsPath, "utf-8"));
         if (!accounts[chain]) {
-            throw new Error(`No account found for chain "${chain}". Run "dot setup" first.`);
+            throw new Error(
+                `No account found for chain "${chain}". Run "dot init" or use --suri //Alice for dev.`,
+            );
         }
         return accounts[chain];
     } catch (err: unknown) {
         if (err instanceof Error && "code" in err && (err as any).code === "ENOENT") {
-            throw new Error(`No accounts file found at ${accountsPath}. Run "dot setup" first.`);
+            throw new Error(
+                `No accounts file found. Run "dot init" or use --suri //Alice for dev.`,
+            );
         }
         throw err;
     }

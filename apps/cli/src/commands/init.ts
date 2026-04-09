@@ -142,7 +142,7 @@ export const initCommand = new Command("init")
 
         // ── Step 3: QR Authentication ─────────────────────────────────
         if (!opts.skipAuth) {
-            const dotDir = resolve(homedir(), ".dot");
+            const dotDir = resolve(homedir(), ".polkadot");
             const sessionExists = existsSync(resolve(dotDir, "sessions.json"));
 
             if (sessionExists) {
