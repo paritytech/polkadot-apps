@@ -127,14 +127,24 @@ export class RpcTransport implements StatementTransport {
     ): Unsubscribable {
         const serializedFilter = serializeTopicFilter(filter);
 
+        log.debug("Subscribing", { filter: JSON.stringify(serializedFilter) });
+
         let unsubFn: (() => void) | null = null;
 
         try {
             unsubFn = this.client._request("statement_subscribeStatement", [serializedFilter], {
                 onSuccess: (_subscriptionId, followSubscription) => {
-                    log.info("Subscription active");
+                    log.info("Subscription active", { subscriptionId: String(_subscriptionId) });
                     followSubscription(_subscriptionId, {
                         next: (event: unknown) => {
+                            log.debug("Subscription event received", {
+                                type: typeof event,
+                                preview:
+                                    typeof event === "string"
+                                        ? event.slice(0, 40) + "..."
+                                        : JSON.stringify(event)?.slice(0, 120),
+                            });
+
                             // Handle raw hex string (legacy format)
                             if (typeof event === "string") {
                                 onStatement(event);
@@ -144,9 +154,16 @@ export class RpcTransport implements StatementTransport {
                             // Extract batched event from various wrapper formats
                             const statementEvent = extractStatementEvent(event);
                             if (statementEvent) {
+                                log.debug("Extracted statement event", {
+                                    count: statementEvent.statements.length,
+                                });
                                 for (const hex of statementEvent.statements) {
                                     onStatement(hex);
                                 }
+                            } else {
+                                log.warn("Could not extract statement event from subscription payload", {
+                                    keys: event != null && typeof event === "object" ? Object.keys(event as Record<string, unknown>).join(", ") : "N/A",
+                                });
                             }
                         },
                         error: (e: Error) => {
@@ -202,6 +219,10 @@ export class RpcTransport implements StatementTransport {
      */
     async query(topics: TopicHash[], decryptionKey?: string): Promise<string[]> {
         const topicHexes = topics.map(topicToHex);
+        log.debug("Querying statements", {
+            topics: topicHexes.map((h) => h.slice(0, 16) + "..."),
+            hasDecryptionKey: !!decryptionKey,
+        });
 
         // Try statement_posted (for statements with decryptionKey)
         if (decryptionKey) {
@@ -210,7 +231,9 @@ export class RpcTransport implements StatementTransport {
                     topicHexes,
                     decryptionKey,
                 ]);
-                return asStringArray(result);
+                const statements = asStringArray(result);
+                log.debug("statement_posted returned", { count: statements.length });
+                return statements;
             } catch (error) {
                 log.debug("statement_posted unavailable", {
                     error: error instanceof Error ? error.message : String(error),
@@ -221,7 +244,9 @@ export class RpcTransport implements StatementTransport {
         // Try statement_broadcasts
         try {
             const result = await this.client.request("statement_broadcasts", [topicHexes]);
-            return asStringArray(result);
+            const statements = asStringArray(result);
+            log.debug("statement_broadcasts returned", { count: statements.length });
+            return statements;
         } catch (error) {
             log.debug("statement_broadcasts unavailable", {
                 error: error instanceof Error ? error.message : String(error),
@@ -231,7 +256,9 @@ export class RpcTransport implements StatementTransport {
         // Fallback to statement_dump (all statements, unfiltered)
         try {
             const result = await this.client.request("statement_dump", []);
-            return asStringArray(result);
+            const statements = asStringArray(result);
+            log.debug("statement_dump returned", { count: statements.length });
+            return statements;
         } catch (error) {
             log.debug("statement_dump unavailable", {
                 error: error instanceof Error ? error.message : String(error),
@@ -326,19 +353,30 @@ export async function createTransport(config: {
 
 /* @integration */
 async function createDirectTransport(endpoint: string): Promise<RpcTransport> {
+    // Use @polkadot-api/substrate-client instead of polkadot-api's createClient.
+    // polkadot-api's high-level client routes subscription notifications by method
+    // name, but the statement store sends notifications as `statement_statement`
+    // while the subscribe method is `statement_subscribeStatement`. The lower-level
+    // substrate-client matches by subscription ID, so it works correctly.
+    const { getWsProvider } = await import("polkadot-api/ws-provider/web");
+    const { createClient } = await import("@polkadot-api/substrate-client");
+
+    const provider = getWsProvider(endpoint);
+    const client = createClient(provider);
+
+    // getWsProvider connects lazily. The substrate-client's _request (used for
+    // subscriptions) throws synchronously if the connection isn't ready yet,
+    // unlike request() which wraps in a promise. Wait for the connection by
+    // making a lightweight RPC call that queues until connected.
     try {
-        const { getWsProvider } = await import("polkadot-api/ws-provider/web");
-        const { createClient } = await import("polkadot-api");
-        const provider = getWsProvider(endpoint);
-        const client = createClient(provider);
-        log.info("Connected to statement store via direct endpoint", { endpoint });
-        return new RpcTransport(client as unknown as RpcClient, true);
-    } catch (error) {
-        throw new StatementConnectionError(
-            `Failed to connect to ${endpoint}: ${error instanceof Error ? error.message : String(error)}`,
-            { cause: error instanceof Error ? error : undefined },
-        );
+        await client.request("system_name", []);
+    } catch {
+        // Non-fatal — the endpoint may not support system_name but the
+        // WebSocket should be open after this resolves or rejects.
     }
+
+    log.info("Connected to statement store via direct endpoint", { endpoint });
+    return new RpcTransport(client as unknown as RpcClient, true);
 }
 
 /* @integration */
