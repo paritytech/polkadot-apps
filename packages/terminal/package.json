@@ -17,11 +17,12 @@
             "import": "./dist/register.js"
         }
     },
-    "files": ["dist"],
+    "files": ["dist", "scripts"],
     "publishConfig": {
         "access": "public"
     },
     "scripts": {
+        "postinstall": "bash scripts/patch-wasm.sh",
         "build": "tsc -p tsconfig.json && cp src/loader.mjs dist/loader.mjs",
         "clean": "rm -rf dist"
     },
