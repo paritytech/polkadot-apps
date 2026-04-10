@@ -1,8 +1,8 @@
-import type { getChainAPI } from "@polkadot-apps/chain-client";
+import type { connect } from "./connect.js";
 
-type ChainAPI = Awaited<ReturnType<typeof getChainAPI>>;
+type Client = Awaited<ReturnType<typeof connect>>;
 
-export async function queryState(api: ChainAPI) {
+export async function queryState(api: Client) {
   console.log("\n--- Chain State ---");
 
   const blockNumber = await api.assetHub.query.System.Number.getValue();

@@ -12,6 +12,7 @@
         "@polkadot-apps/address": "workspace:*",
         "@polkadot-apps/bulletin": "workspace:*",
         "@polkadot-apps/chain-client": "workspace:*",
+        "@polkadot-apps/descriptors": "workspace:*",
         "@polkadot-apps/logger": "workspace:*",
         "@polkadot-apps/tx": "workspace:*",
         "@polkadot-apps/utils": "workspace:*",

@@ -10,7 +10,7 @@ const manager = new ContractManager(cdmJson, inkSdk, options?);
 
 ### Constructor Parameters
 - `cdmJson: CdmJson` — parsed cdm.json manifest
-- `inkSdk: InkSdk` — from `api.contracts` via `getChainAPI()`
+- `inkSdk: InkSdk` — created via `createInkSdk(client.raw.assetHub, { atBest: true })` from `@polkadot-api/sdk-ink`
 - `options.signerManager?: SignerManager` — auto signer/origin from logged-in account
 - `options.defaultOrigin?: SS58String` — static fallback origin
 - `options.defaultSigner?: PolkadotSigner` — static fallback signer
@@ -21,6 +21,19 @@ const manager = new ContractManager(cdmJson, inkSdk, options?);
 - `getAddress(library)` — returns contract hex address
 - `setDefaults(defaults)` — update signerManager/origin/signer
 
+### Static Factory
+
+```ts
+const manager = await ContractManager.fromClient(cdmJson, client, options?);
+```
+
+- `cdmJson: CdmJson` — parsed cdm.json manifest
+- `client: ChainClient` — a `ChainClient` from `getChainAPI()` or `createChainClient()`. Creates `InkSdk` internally from `client.raw.assetHub`.
+- `options` — same as constructor options (signerManager, defaultOrigin, defaultSigner, targetHash)
+- Returns `Promise<ContractManager>` — async because InkSdk creation may be async
+
+This is the convenience path. For production, prefer the constructor with an explicit `createInkSdk` call (size-optimized, avoids transitive `@polkadot-api/sdk-ink` dependency).
+
 ## createContract
 
 ```ts
@@ -30,10 +43,27 @@ const handle = createContract(inkSdk, address, abi, options?);
 ```
 
 ### Parameters
-- `inkSdk: InkSdk` — from `api.contracts`
+- `inkSdk: InkSdk` — created via `createInkSdk(client.raw.assetHub, { atBest: true })` from `@polkadot-api/sdk-ink`
 - `address: HexString` — contract address on-chain
 - `abi: AbiEntry[]` — Solidity-compatible ABI array
 - `options` — same signer options as ContractManager
+
+## createContractFromClient
+
+```ts
+import { createContractFromClient } from "@polkadot-apps/contracts";
+
+const handle = await createContractFromClient(client, address, abi, options?);
+```
+
+### Parameters
+- `client: ChainClient` — a `ChainClient` from `getChainAPI()` or `createChainClient()`. Creates `InkSdk` internally from `client.raw.assetHub`.
+- `address: HexString` — contract address on-chain
+- `abi: AbiEntry[]` — Solidity-compatible ABI array
+- `options` — same signer options as ContractManager
+- Returns `Promise<Contract<ContractDef>>` — async because InkSdk creation may be async
+
+This is the convenience path. For production, prefer `createContract` with an explicit `createInkSdk` call (size-optimized).
 
 ## Contract Handle Methods
 

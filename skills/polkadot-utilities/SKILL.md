@@ -111,7 +111,7 @@ formatBalance(15_000_000_000n, { maxDecimals: 2, symbol: "DOT" }); // "1.5 DOT"
 // Balance querying (typed wrapper for System.Account)
 import { getBalance } from "@polkadot-apps/utils";
 
-const balance = await getBalance(api.assetHub, aliceAddress);
+const balance = await getBalance(client.assetHub, aliceAddress);
 console.log(formatBalance(balance.free, { symbol: "DOT" })); // "1,000.5 DOT"
 ```
 

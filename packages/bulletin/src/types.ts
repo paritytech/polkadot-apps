@@ -5,8 +5,7 @@ import type { TxStatus, WaitFor } from "@polkadot-apps/tx";
 /** Typed API for the Bulletin Chain, derived from PAPI descriptors. */
 export type BulletinApi = TypedApi<typeof bulletin>;
 
-/** Network environment. Matches chain-client's Environment type. */
-export type Environment = "polkadot" | "kusama" | "paseo";
+export type { Environment } from "@polkadot-apps/chain-client";
 
 /**
  * Options for {@link upload}.

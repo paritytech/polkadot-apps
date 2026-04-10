@@ -9,6 +9,12 @@ START
 │
 ├─ Need to connect to Polkadot chains?
 │  YES → @polkadot-apps/chain-client + polkadot-api (always required)
+│  │
+│  ├─ Want zero-config for a known environment (paseo/polkadot/kusama)?
+│  │  YES → getChainAPI("paseo") — built-in descriptors + RPCs
+│  │
+│  └─ Need custom chains, custom RPCs, or minimal bundle?
+│     YES → createChainClient({ chains, rpcs }) — bring your own descriptors
 │
 ├─ Need to submit transactions?
 │  YES → @polkadot-apps/tx
@@ -131,10 +137,12 @@ storage ← host, logger
 keys ← address, crypto, utils, storage
 tx ← keys, logger
 signer ← address, keys, logger
-chain-client ← descriptors, host
-contracts ← tx, signer, keys, logger
+chain-client ← descriptors, host  (provides .raw for InkSdk creation)
+contracts ← tx, signer, keys, logger  (needs InkSdk from @polkadot-api/sdk-ink)
 bulletin ← chain-client, descriptors, host, logger, tx
 statement-store ← chain-client, descriptors, logger
 ```
+
+Note: `contracts` no longer depends on `chain-client`. Create InkSdk yourself from `client.raw.<chain>` and pass it to `ContractManager` or `createContract`.
 
 Transitive dependencies are handled automatically by npm/pnpm — install only the packages you directly use.

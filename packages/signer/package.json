@@ -23,6 +23,7 @@
     },
     "dependencies": {
         "@polkadot-apps/address": "workspace:*",
+        "@polkadot-apps/host": "workspace:*",
         "@polkadot-apps/keys": "workspace:*",
         "@polkadot-apps/logger": "workspace:*",
         "polkadot-api": "catalog:"

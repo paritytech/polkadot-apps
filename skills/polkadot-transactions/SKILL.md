@@ -112,14 +112,14 @@ Submit multiple transactions as a single atomic batch — one signing prompt, on
 import { batchSubmitAndWatch } from "@polkadot-apps/tx";
 
 // Build individual transactions from a PAPI typed API
-// NOTE: Pass the chain-specific TypedApi (e.g., api.assetHub), not the ChainAPI wrapper.
-// When using @polkadot-apps/chain-client: api = await getChainAPI("paseo"), then use api.assetHub.
-const tx1 = api.assetHub.tx.Balances.transfer_keep_alive({ dest: addr1, value: 1_000n });
-const tx2 = api.assetHub.tx.Balances.transfer_keep_alive({ dest: addr2, value: 2_000n });
-const tx3 = api.assetHub.tx.System.remark({ remark: Binary.fromText("hello") });
+// NOTE: Pass the chain-specific TypedApi (e.g., client.assetHub), not the ChainClient wrapper.
+// When using @polkadot-apps/chain-client: client = await getChainAPI("paseo"), then use client.assetHub.
+const tx1 = client.assetHub.tx.Balances.transfer_keep_alive({ dest: addr1, value: 1_000n });
+const tx2 = client.assetHub.tx.Balances.transfer_keep_alive({ dest: addr2, value: 2_000n });
+const tx3 = client.assetHub.tx.System.remark({ remark: Binary.fromText("hello") });
 
 // Submit as atomic batch — pass the same TypedApi that built the transactions
-const result = await batchSubmitAndWatch([tx1, tx2, tx3], api.assetHub, signer, {
+const result = await batchSubmitAndWatch([tx1, tx2, tx3], client.assetHub, signer, {
   onStatus: (status: TxStatus) => updateUI(status),
 });
 ```
@@ -148,8 +148,8 @@ const [dryRun1, dryRun2] = await Promise.all([
 const tx1 = extractTransaction(dryRun1);
 const tx2 = extractTransaction(dryRun2);
 
-// api.assetHub is the TypedApi for the chain where the contract lives
-const result = await batchSubmitAndWatch([tx1, tx2], api.assetHub, signer);
+// client.assetHub is the TypedApi for the chain where the contract lives
+const result = await batchSubmitAndWatch([tx1, tx2], client.assetHub, signer);
 ```
 
 ### 4. (Optional) Retry Transient Failures
