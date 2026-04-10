@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/statement-store",
     "description": "Publish/subscribe client for the Polkadot Statement Store with topic-based routing and SCALE encoding",
-    "version": "0.2.5",
+    "version": "0.2.10",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -12,6 +12,7 @@
         }
     },
     "files": ["dist"],
+    "sideEffects": false,
     "publishConfig": {
         "access": "public"
     },
@@ -23,7 +24,7 @@
         "@polkadot-apps/chain-client": "workspace:*",
         "@polkadot-apps/descriptors": "workspace:*",
         "@polkadot-apps/logger": "workspace:*",
-        "@noble/hashes": "catalog:",
+        "@polkadot-apps/utils": "workspace:*",
         "polkadot-api": "catalog:"
     },
     "devDependencies": {

@@ -1,12 +1,20 @@
 import { getChainAPI } from "@polkadot-apps/chain-client";
 import type { PolkadotSigner } from "polkadot-api";
 
-import { computeCid } from "./cid.js";
+import { checkAuthorization } from "./authorization.js";
+import {
+    type CidCodec,
+    type HashAlgorithm,
+    cidToPreimageKey,
+    computeCid,
+    hashToCid,
+} from "./cid.js";
 import { cidExists, getGateway, gatewayUrl } from "./gateway.js";
 import { executeQuery } from "./query.js";
 import { resolveQueryStrategy, type QueryStrategy } from "./resolve-query.js";
 import { batchUpload, upload } from "./upload.js";
 import type {
+    AuthorizationStatus,
     BatchUploadItem,
     BatchUploadOptions,
     BatchUploadResult,
@@ -75,6 +83,18 @@ export class BulletinClient {
     }
 
     /**
+     * Reconstruct a CID from a `0x`-prefixed hex hash. Static — no instance needed.
+     *
+     * Useful for converting on-chain hashes back to CIDs for IPFS gateway lookups.
+     * Pass optional hash algorithm and codec to match the on-chain CID configuration.
+     *
+     * @see {@link hashToCid} for full documentation.
+     */
+    static hashToCid(hexHash: `0x${string}`, hashCode?: HashAlgorithm, codec?: CidCodec): string {
+        return hashToCid(hexHash, hashCode, codec);
+    }
+
+    /**
      * Upload data to the Bulletin Chain.
      *
      * @param data   - Raw bytes to store.
@@ -134,6 +154,21 @@ export class BulletinClient {
     gatewayUrl(cid: string): string {
         return gatewayUrl(cid, this.gateway);
     }
+
+    /**
+     * Check whether an account is authorized to store data on the Bulletin Chain.
+     *
+     * Use as a pre-flight check before {@link upload} to provide clear UX
+     * instead of letting the transaction fail mid-execution.
+     *
+     * @param address - SS58-encoded account address to check.
+     * @returns Authorization status with remaining quota.
+     *
+     * @see {@link checkAuthorization} for the standalone function equivalent.
+     */
+    async checkAuthorization(address: string): Promise<AuthorizationStatus> {
+        return checkAuthorization(this.api, address);
+    }
 }
 
 if (import.meta.vitest) {
@@ -177,6 +212,13 @@ if (import.meta.vitest) {
             const data = new TextEncoder().encode("hello");
             const cid = BulletinClient.computeCid(data);
             expect(cid).toBe(computeCid(data));
+        });
+
+        test("hashToCid() is static and delegates to standalone", () => {
+            const data = new TextEncoder().encode("hello");
+            const cid = computeCid(data);
+            const key = cidToPreimageKey(cid);
+            expect(BulletinClient.hashToCid(key)).toBe(cid);
         });
 
         test("gatewayUrl() returns gateway + cid", () => {
@@ -227,6 +269,27 @@ if (import.meta.vitest) {
             } finally {
                 vi.unstubAllGlobals();
             }
+        });
+
+        test("checkAuthorization delegates to standalone", async () => {
+            const authMockApi = {
+                ...mockApi,
+                query: {
+                    TransactionStorage: {
+                        Authorizations: {
+                            getValue: vi.fn().mockResolvedValue({
+                                extent: { transactions: 5, bytes: 2000n },
+                                expiration: 100,
+                            }),
+                        },
+                    },
+                },
+            } as unknown as BulletinApi;
+            const client = BulletinClient.from(authMockApi, GATEWAY);
+            const status = await client.checkAuthorization("5GrwvaEF...");
+            expect(status.authorized).toBe(true);
+            expect(status.remainingTransactions).toBe(5);
+            expect(status.remainingBytes).toBe(2000n);
         });
     });
 }

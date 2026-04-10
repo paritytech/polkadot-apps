@@ -1,11 +1,19 @@
+export { checkAuthorization } from "./authorization.js";
 export { BulletinClient } from "./client.js";
-export { computeCid, cidToPreimageKey } from "./cid.js";
+export {
+    computeCid,
+    cidToPreimageKey,
+    hashToCid,
+    HashAlgorithm,
+    CidCodec,
+} from "./cid.js";
 export { getGateway, gatewayUrl, cidExists, fetchBytes, fetchJson } from "./gateway.js";
 export { resolveQueryStrategy } from "./resolve-query.js";
 export { queryBytes, queryJson } from "./query.js";
 export { resolveUploadStrategy } from "./resolve-signer.js";
 export { upload, batchUpload } from "./upload.js";
 export type {
+    AuthorizationStatus,
     BulletinApi,
     Environment,
     UploadOptions,

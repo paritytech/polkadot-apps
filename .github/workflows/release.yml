@@ -11,12 +11,23 @@ permissions:
 
 jobs:
     release:
-        if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.actor.login != 'github-actions[bot]'
+        if: github.event.workflow_run.conclusion == 'success'
         runs-on: parity-default
         steps:
             - uses: actions/checkout@v4
               with:
                   fetch-depth: 0
+
+            # Skip if the triggering commit was a version bump by the bot
+            - name: Check if bot commit
+              id: bot
+              run: |
+                  author=$(git log -1 --format='%an')
+                  if [ "$author" = "github-actions[bot]" ]; then
+                    echo "skip=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "skip=false" >> $GITHUB_OUTPUT
+                  fi
 
             # Check for pending changesets before doing anything expensive
             - name: Check for changesets
@@ -28,51 +39,52 @@ jobs:
                     echo "found=false" >> $GITHUB_OUTPUT
                   fi
 
-            - if: steps.changesets.outputs.found == 'true'
+            - if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               uses: pnpm/action-setup@v4
-            - if: steps.changesets.outputs.found == 'true'
+            - if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               uses: actions/setup-node@v4
               with:
                   node-version: "22"
                   registry-url: "https://registry.npmjs.org"
 
-            - if: steps.changesets.outputs.found == 'true'
+            - if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               run: pnpm install
 
             # Version packages (consumes changesets, bumps versions)
             - name: Version packages
-              if: steps.changesets.outputs.found == 'true'
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               run: pnpm changeset version
 
             # Build all publishable packages
             - name: Build packages
-              if: steps.changesets.outputs.found == 'true'
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               run: pnpm build
 
             # Format everything right before committing
             - name: Format
-              if: steps.changesets.outputs.found == 'true'
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               run: pnpm format
 
             # Strip file:generated dep AFTER build and format — both
             # changeset version and papi (called by build) re-add it
             - name: Strip descriptors file:generated dep
-              if: steps.changesets.outputs.found == 'true'
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               run: node -e 'const p=require("./packages/descriptors/package.json");delete p.dependencies;require("fs").writeFileSync("./packages/descriptors/package.json",JSON.stringify(p,null,4)+"\n")'
 
             # Commit version bumps
             - name: Commit version changes
-              if: steps.changesets.outputs.found == 'true'
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               run: |
                   git config user.name "github-actions[bot]"
                   git config user.email "github-actions[bot]@users.noreply.github.com"
                   git add -A
                   git diff --cached --quiet || git commit -m "chore: version packages"
+                  git pull --rebase
                   git push
 
             # Create git tags for versioned packages
             - name: Create and push tags
-              if: steps.changesets.outputs.found == 'true'
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               run: |
                   for pkg in packages/*/package.json; do
                     name=$(jq -r '.name' "$pkg")
@@ -86,7 +98,7 @@ jobs:
 
             # Pack all workspace packages for publishing
             - name: Pack packages
-              if: steps.changesets.outputs.found == 'true'
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               run: |
                   mkdir -p artifacts
                   for dir in packages/*/; do
@@ -96,7 +108,7 @@ jobs:
                   done
 
             - name: Upload package artifacts
-              if: steps.changesets.outputs.found == 'true'
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               uses: actions/upload-artifact@v4
               with:
                   name: packages
@@ -104,7 +116,7 @@ jobs:
 
             # Dispatch to npm_publish_automation for publishing
             - name: Publish via npm_publish_automation
-              if: steps.changesets.outputs.found == 'true'
+              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               uses: octokit/request-action@v2.x
               with:
                   route: POST /repos/paritytech/npm_publish_automation/actions/workflows/publish.yml/dispatches

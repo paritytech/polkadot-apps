@@ -1,28 +1,42 @@
 {
     "name": "@polkadot-apps/descriptors",
     "description": "Pre-generated Polkadot API descriptors for Asset Hub, Bulletin, and Individuality chains",
-    "version": "0.1.7",
+    "version": "1.0.0",
     "type": "module",
-    "main": "./generated/dist/index.mjs",
-    "types": "./generated/dist/index.d.ts",
     "exports": {
-        ".": {
-            "types": "./generated/dist/index.d.ts",
-            "module": "./generated/dist/index.mjs",
-            "import": "./generated/dist/index.mjs",
-            "require": "./generated/dist/index.js"
+        "./polkadot-asset-hub": {
+            "types": "./chains/polkadot-asset-hub/generated/dist/index.d.ts",
+            "import": "./chains/polkadot-asset-hub/generated/dist/index.mjs"
+        },
+        "./kusama-asset-hub": {
+            "types": "./chains/kusama-asset-hub/generated/dist/index.d.ts",
+            "import": "./chains/kusama-asset-hub/generated/dist/index.mjs"
+        },
+        "./paseo-asset-hub": {
+            "types": "./chains/paseo-asset-hub/generated/dist/index.d.ts",
+            "import": "./chains/paseo-asset-hub/generated/dist/index.mjs"
+        },
+        "./bulletin": {
+            "types": "./chains/bulletin/generated/dist/index.d.ts",
+            "import": "./chains/bulletin/generated/dist/index.mjs"
+        },
+        "./individuality": {
+            "types": "./chains/individuality/generated/dist/index.d.ts",
+            "import": "./chains/individuality/generated/dist/index.mjs"
         },
         "./package.json": "./package.json"
     },
     "sideEffects": false,
-    "files": ["generated/dist"],
+    "files": [
+        "chains/*/generated/dist"
+    ],
     "publishConfig": {
         "access": "public"
     },
     "scripts": {
         "generate": "bash scripts/generate.sh",
-        "build": "test -d generated/dist || papi",
-        "clean": "rm -rf generated"
+        "build": "bash scripts/build.sh",
+        "clean": "rm -rf chains/*/generated/dist chains/*/generated/src"
     },
     "peerDependencies": {
         "polkadot-api": ">=1.23.0"

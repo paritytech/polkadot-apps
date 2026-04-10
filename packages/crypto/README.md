@@ -155,21 +155,14 @@ const encryptionKey = deriveKey(masterKey, "myapp-v1", "document-encryption");
 
 ## Utilities
 
-Re-exported from `@noble/hashes/utils`:
-
 ```typescript
-import {
-  randomBytes,
-  bytesToHex,
-  hexToBytes,
-  utf8ToBytes,
-  concatBytes,
-} from "@polkadot-apps/crypto";
+import { randomBytes } from "@polkadot-apps/crypto";
 
 const bytes = randomBytes(32);
-const hex = bytesToHex(bytes); // lowercase, no 0x prefix
-const back = hexToBytes(hex);
 ```
+
+> **Migration note:** `bytesToHex`, `hexToBytes`, `utf8ToBytes`, and `concatBytes` have moved to
+> [`@polkadot-apps/utils`](../utils/README.md). Import them from there instead.
 
 ## API
 
@@ -228,10 +221,6 @@ const back = hexToBytes(hex);
 | Function | Signature | Returns |
 |---|---|---|
 | `randomBytes` | `(length: number)` | `Uint8Array` |
-| `bytesToHex` | `(bytes: Uint8Array)` | `string` |
-| `hexToBytes` | `(hex: string)` | `Uint8Array` |
-| `utf8ToBytes` | `(str: string)` | `Uint8Array` |
-| `concatBytes` | `(...arrays: Uint8Array[])` | `Uint8Array` |
 
 ## Types
 

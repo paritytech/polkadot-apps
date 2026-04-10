@@ -10,7 +10,7 @@ import {
 } from "./codec.js";
 import { StatementConnectionError } from "./errors.js";
 import { createChannel, createTopic, topicToHex } from "./topics.js";
-import { createTransport, type RpcClient, RpcTransport } from "./transport.js";
+import { createTransport, type RpcClient } from "./transport.js";
 import type {
     DecodedStatement,
     PublishOptions,

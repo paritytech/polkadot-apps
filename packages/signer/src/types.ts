@@ -1,5 +1,7 @@
 import type { PolkadotSigner } from "polkadot-api";
 
+import type { SS58String } from "@polkadot-apps/address";
+
 import type { SignerError } from "./errors.js";
 
 /** Connection status for a signer provider. */
@@ -11,7 +13,7 @@ export type ProviderType = "host" | "extension" | "dev";
 /** A signing-capable account from any provider. */
 export interface SignerAccount {
     /** SS58 address (generic prefix 42 by default). */
-    address: string;
+    address: SS58String;
     /**
      * H160 EVM address derived from the public key.
      *

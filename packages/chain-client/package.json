@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/chain-client",
     "description": "Multi-chain Polkadot API client with typed access to Asset Hub, Bulletin, and Individuality chains",
-    "version": "0.3.6",
+    "version": "0.3.8",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -13,6 +13,7 @@
         }
     },
     "files": ["dist"],
+    "sideEffects": false,
     "publishConfig": {
         "access": "public"
     },
@@ -25,14 +26,6 @@
         "@polkadot-apps/host": "workspace:*",
         "@polkadot-api/sdk-ink": "catalog:",
         "polkadot-api": "catalog:"
-    },
-    "peerDependencies": {
-        "@novasamatech/product-sdk": "catalog:"
-    },
-    "peerDependenciesMeta": {
-        "@novasamatech/product-sdk": {
-            "optional": true
-        }
     },
     "devDependencies": {
         "typescript": "catalog:"

@@ -1,0 +1,352 @@
+# @polkadot-apps/contracts
+
+Typed contract interactions for Solidity and ink! smart contracts on Polkadot Asset Hub.
+
+## Install
+
+```bash
+pnpm add @polkadot-apps/contracts
+```
+
+## Quick start
+
+```typescript
+import { getChainAPI } from "@polkadot-apps/chain-client";
+import { ContractManager } from "@polkadot-apps/contracts";
+import cdmJson from "./cdm.json";
+
+const api = await getChainAPI("paseo");
+const manager = new ContractManager(cdmJson, api.contracts, {
+  signerManager: signerManager, // from @polkadot-apps/signer
+});
+
+const counter = manager.getContract("@example/counter");
+const { value } = await counter.getCount.query();
+await counter.increment.tx();
+```
+
+## Usage with CDM
+
+`ContractManager` reads contract addresses and ABIs from a `cdm.json` manifest. Each method on a contract handle exposes `.query()` for read-only dry-runs and `.tx()` for signed on-chain transactions.
+
+```typescript
+import { getChainAPI } from "@polkadot-apps/chain-client";
+import { ContractManager } from "@polkadot-apps/contracts";
+import cdmJson from "./cdm.json";
+
+const api = await getChainAPI("paseo");
+const manager = new ContractManager(cdmJson, api.contracts);
+
+const counter = manager.getContract("@example/counter");
+
+// Read-only query (dry-run, no gas cost)
+const result = await counter.getCount.query();
+console.log(result.value); // 42
+
+// Signed transaction
+const txResult = await counter.increment.tx();
+console.log(txResult.txHash, txResult.ok);
+```
+
+Methods with arguments use positional parameters. Pass an options object as the last argument to override defaults.
+
+```typescript
+const token = manager.getContract("@example/token");
+
+await token.transfer.tx("0xRecipient", 1000n, {
+  value: 0n,
+  waitFor: "finalized",
+});
+
+const { value } = await token.balanceOf.query("0xOwner");
+```
+
+When `cdm.json` contains multiple targets, the first target is selected by default. Pass `targetHash` to select a specific one.
+
+```typescript
+const manager = new ContractManager(cdmJson, api.contracts, {
+  targetHash: "abc123",
+});
+```
+
+## Usage without CDM
+
+`createContract` builds a contract handle from a raw address and ABI array -- no `cdm.json` needed. This is useful for one-off interactions or contracts not managed by CDM.
+
+```typescript
+import { getChainAPI } from "@polkadot-apps/chain-client";
+import { createContract } from "@polkadot-apps/contracts";
+
+const api = await getChainAPI("paseo");
+
+const abi = [
+  {
+    type: "function",
+    name: "getCount",
+    inputs: [],
+    outputs: [{ name: "", type: "uint32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "increment",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+];
+
+const counter = createContract(api.contracts, "0xC472...", abi, {
+  defaultOrigin: "5GrwvaEF...",
+  defaultSigner: signer,
+});
+
+const { value } = await counter.getCount.query();
+await counter.increment.tx();
+```
+
+## SignerManager integration
+
+Pass a `SignerManager` from `@polkadot-apps/signer` so the currently logged-in account is used automatically as the signer and origin for all contract interactions. The account is resolved at call time, so account switches are reflected immediately.
+
+```typescript
+import { SignerManager } from "@polkadot-apps/signer";
+import { ContractManager } from "@polkadot-apps/contracts";
+
+const signerManager = new SignerManager();
+await signerManager.connect();
+signerManager.selectAccount(accounts[0].address);
+
+const manager = new ContractManager(cdmJson, api.contracts, {
+  signerManager: signerManager,
+});
+
+// Uses the logged-in account automatically -- no manual signer wiring
+const counter = manager.getContract("@example/counter");
+await counter.increment.tx();
+```
+
+Signer resolution order (highest priority wins):
+
+1. Explicit override in call options (`{ signer }`)
+2. `signerManager` (current logged-in account)
+3. Static `defaultSigner` / `defaultOrigin`
+
+For read-only queries, when no origin is available from any source, a dev fallback address (Alice) is used automatically. This is safe because queries are dry-run simulations.
+
+You can also update defaults after construction:
+
+```typescript
+manager.setDefaults({ signerManager: newSignerManager });
+manager.setDefaults({ origin: "5NewOrigin" });
+```
+
+## Codegen
+
+`generateContractTypes` produces a TypeScript module augmentation that extends the `Contracts` interface with typed method signatures for each installed contract. This gives `ContractManager.getContract()` fully-typed handles with autocomplete for method names, arguments, and return types.
+
+```typescript
+import { generateContractTypes } from "@polkadot-apps/contracts/codegen";
+import { writeFileSync } from "node:fs";
+
+const source = generateContractTypes([
+  { library: "@example/counter", abi },
+]);
+writeFileSync(".cdm/contracts.d.ts", source);
+```
+
+The generated file looks like:
+
+```typescript
+// Auto-generated by cdm install — do not edit
+import type { HexString, Binary, FixedSizeBinary } from "polkadot-api";
+
+declare module "@polkadot-apps/contracts" {
+    interface Contracts {
+        "@example/counter": {
+            methods: {
+                getCount: { args: []; response: number };
+                increment: { args: []; response: undefined };
+            };
+        };
+    }
+}
+```
+
+Solidity ABI types are mapped to TypeScript equivalents: `uint8`/`uint16`/`uint32` become `number`, larger integers become `bigint`, `address` becomes `HexString`, `bytes` becomes `Binary`, `bytesN` becomes `FixedSizeBinary<N>`, and tuples become inline object types.
+
+## Error handling
+
+All errors extend `ContractError`. Use `instanceof` to catch any contract-related error, or narrow to specific types.
+
+```typescript
+import {
+  ContractError,
+  ContractSignerMissingError,
+  ContractNotFoundError,
+} from "@polkadot-apps/contracts";
+
+try {
+  await counter.increment.tx();
+} catch (error) {
+  if (error instanceof ContractSignerMissingError) {
+    console.error("No signer -- connect a wallet first");
+  } else if (error instanceof ContractNotFoundError) {
+    console.error(`${error.library} not in cdm.json for target ${error.targetHash}`);
+  } else if (error instanceof ContractError) {
+    console.error("Contract error:", error.message);
+  }
+}
+```
+
+Transaction calls also propagate errors from `@polkadot-apps/tx` (`TxTimeoutError`, `TxDispatchError`, `TxSigningRejectedError`) since they use `submitAndWatch` internally.
+
+## API
+
+### `ContractManager`
+
+#### `constructor(cdmJson, inkSdk, options?)`
+
+Create a manager backed by a `cdm.json` manifest.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `cdmJson` | `CdmJson` | Parsed `cdm.json` manifest with targets, dependencies, and contracts. |
+| `inkSdk` | `InkSdk` | Ink SDK instance, typically `api.contracts` from `getChainAPI`. |
+| `options` | `ContractManagerOptions` | Optional. See below. |
+
+#### `getContract<K>(library): Contract<Contracts[K]>`
+
+Return a typed contract handle. Each method has `.query()` and `.tx()`.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `library` | `string` | Contract library name as it appears in `cdm.json` (e.g. `"@example/counter"`). |
+
+**Throws**: `ContractNotFoundError` when the library is not in the manifest for the selected target.
+
+#### `getAddress(library): HexString`
+
+Return the on-chain address of an installed contract.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `library` | `string` | Contract library name. |
+
+**Throws**: `ContractNotFoundError` when the library is not found.
+
+#### `setDefaults(defaults): void`
+
+Update the default origin, signer, or signerManager used by all contract handles.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `defaults` | `ContractDefaults` | Partial defaults to merge. |
+
+### `createContract(inkSdk, address, abi, options?): Contract<ContractDef>`
+
+Create a contract handle from a raw address and ABI -- no `cdm.json` needed.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `inkSdk` | `InkSdk` | Ink SDK instance. |
+| `address` | `HexString` | On-chain contract address. |
+| `abi` | `AbiEntry[]` | Solidity-compatible ABI array. |
+| `options` | `ContractOptions` | Optional signer/origin configuration. |
+
+### `generateContractTypes(contracts): string`
+
+Generate a TypeScript module augmentation for typed contract handles. Exported from the `@polkadot-apps/contracts/codegen` subpath.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `contracts` | `{ library: string; abi: AbiEntry[] }[]` | Contracts to generate types for. |
+
+**Returns**: TypeScript source string to write to `.cdm/contracts.d.ts`.
+
+## Types
+
+```typescript
+interface CdmJson {
+  targets: Record<string, CdmJsonTarget>;
+  dependencies: Record<string, Record<string, number | string>>;
+  contracts?: Record<string, Record<string, CdmJsonContract>>;
+}
+
+interface CdmJsonTarget {
+  "asset-hub": string;
+  bulletin: string;
+}
+
+interface CdmJsonContract {
+  version: number;
+  address: HexString;
+  abi: AbiEntry[];
+  metadataCid: string;
+}
+
+interface AbiEntry {
+  type: string;
+  name?: string;
+  inputs: AbiParam[];
+  outputs?: AbiParam[];
+  stateMutability?: string;
+}
+
+interface AbiParam {
+  name: string;
+  type: string;
+  components?: AbiParam[];
+}
+
+interface ContractDef {
+  methods: Record<string, { args: any[]; response: any }>;
+}
+
+interface QueryResult<T> {
+  success: boolean;
+  value: T;
+  gasRequired?: bigint;
+}
+
+interface QueryOptions {
+  origin?: SS58String;
+  value?: bigint;
+}
+
+interface TxOptions extends SubmitOptions {
+  signer?: PolkadotSigner;
+  origin?: SS58String;
+  value?: bigint;
+  gasLimit?: Weight;
+  storageDepositLimit?: bigint;
+}
+
+interface ContractDefaults {
+  origin?: SS58String;
+  signer?: PolkadotSigner;
+  signerManager?: SignerManager;
+}
+
+interface ContractOptions {
+  signerManager?: SignerManager;
+  defaultOrigin?: SS58String;
+  defaultSigner?: PolkadotSigner;
+}
+
+interface ContractManagerOptions extends ContractOptions {
+  targetHash?: string;
+}
+```
+
+### Error classes
+
+| Class | Extends | Key properties |
+|-------|---------|---------------|
+| `ContractError` | `Error` | Base class for all contract errors. |
+| `ContractSignerMissingError` | `ContractError` | No signer available for a transaction call. |
+| `ContractNotFoundError` | `ContractError` | `library: string`, `targetHash: string` |
+
+## License
+
+Apache-2.0

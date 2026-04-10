@@ -29,6 +29,49 @@ const result = await submitAndWatch(tx, signer, {
 console.log(result.txHash, result.ok);
 ```
 
+## Batch transactions
+
+Submit multiple transactions as a single atomic batch. Uses Substrate's `Utility.batch_all` by default (all-or-nothing).
+
+```typescript
+import { batchSubmitAndWatch } from "@polkadot-apps/tx";
+
+const tx1 = api.tx.Balances.transfer_keep_alive({ dest: addr1, value: 1_000n });
+const tx2 = api.tx.Balances.transfer_keep_alive({ dest: addr2, value: 2_000n });
+const tx3 = api.tx.System.remark({ remark: Binary.fromText("hello") });
+
+const result = await batchSubmitAndWatch([tx1, tx2, tx3], api, signer, {
+  onStatus: (status) => console.log(status),
+});
+```
+
+Three batch modes are available:
+
+| Mode | Behavior |
+|------|----------|
+| `"batch_all"` (default) | Atomic. Reverts all calls if any single call fails. |
+| `"batch"` | Best-effort. Stops at first failure but earlier successful calls are not reverted. |
+| `"force_batch"` | Like `batch` but continues after failures (never aborts early). |
+
+```typescript
+// Non-atomic: some calls may fail while others succeed
+const result = await batchSubmitAndWatch(calls, api, signer, { mode: "batch" });
+```
+
+> **WARNING:** In `"batch"` and `"force_batch"` modes, `result.ok` is `true` even when individual calls fail. Inspect `result.events` for `Utility.ItemFailed` events to detect individual failures. Only `"batch_all"` guarantees that `result.ok === false` when any call fails.
+
+Calls can be PAPI transactions (`.decodedCall` extracted automatically), Ink SDK `AsyncTransaction` wrappers (`.waited` resolved automatically), or raw decoded calls.
+
+```typescript
+// Mix of raw decoded calls and transactions
+const calls = [
+  api.tx.Balances.transfer_keep_alive({ dest, value: 1_000n }),     // PAPI tx
+  extractTransaction(await contract.query("mint", { origin, data })), // Ink SDK
+  someDecodedCallObject,                                              // raw
+];
+const result = await batchSubmitAndWatch(calls, api, signer);
+```
+
 ## Transaction lifecycle
 
 `submitAndWatch` drives a transaction through its full lifecycle: signing, broadcasting, block inclusion, and optional finalization. You choose when to resolve the returned promise with the `waitFor` option.
@@ -77,7 +120,7 @@ const dryRunResult = await contract.query.myMethod(args);
 const tx = extractTransaction(dryRunResult);
 
 const buffered = applyWeightBuffer(dryRunResult.weight_required, {
-  bufferPercent: 25, // default: 25%
+  percent: 25, // default: 25%
 });
 ```
 
@@ -98,7 +141,7 @@ if (!mapped) {
 
 ## Retry logic
 
-`withRetry` wraps any async function with exponential backoff and jitter. It does **not** retry `TxDispatchError`, `TxSigningRejectedError`, or `TxTimeoutError` -- these represent terminal conditions that retrying cannot fix.
+`withRetry` wraps any async function with exponential backoff and jitter. It does **not** retry `TxDispatchError`, `TxBatchError`, `TxSigningRejectedError`, or `TxTimeoutError` -- these represent terminal conditions that retrying cannot fix.
 
 ```typescript
 import { withRetry, calculateDelay } from "@polkadot-apps/tx";
@@ -158,6 +201,19 @@ Submit a transaction and watch its lifecycle through to inclusion or finalizatio
 
 **Throws**: `TxTimeoutError`, `TxDispatchError`, `TxSigningRejectedError`.
 
+### `batchSubmitAndWatch(calls, api, signer, options?): Promise<TxResult>`
+
+Batch multiple transactions into a single Substrate Utility batch and submit with lifecycle tracking.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `calls` | `BatchableCall[]` | Transactions, AsyncTransactions, or raw decoded calls. |
+| `api` | `BatchApi` | Typed API with `tx.Utility.batch_all/batch/force_batch`. |
+| `signer` | `PolkadotSigner` | Signer from a wallet, Host API, or `createDevSigner`. |
+| `options` | `BatchSubmitOptions` | Optional. Extends `SubmitOptions` with `mode`. |
+
+**Throws**: `TxBatchError` (empty calls), `TxTimeoutError`, `TxDispatchError`, `TxSigningRejectedError`.
+
 ### `createDevSigner(name): PolkadotSigner`
 
 Create a signer from the well-known dev mnemonic at `//Name` (sr25519).
@@ -172,7 +228,7 @@ Return the 32-byte public key for a dev account.
 
 ### `withRetry<T>(fn, options?): Promise<T>`
 
-Retry an async function with exponential backoff and jitter. Does not retry `TxDispatchError`, `TxSigningRejectedError`, or `TxTimeoutError`.
+Retry an async function with exponential backoff and jitter. Does not retry `TxBatchError`, `TxDispatchError`, `TxSigningRejectedError`, or `TxTimeoutError`.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -241,6 +297,22 @@ interface Weight {
   ref_time: bigint;
   proof_size: bigint;
 }
+
+type BatchMode = "batch_all" | "batch" | "force_batch";
+
+interface BatchSubmitOptions extends SubmitOptions {
+  mode?: BatchMode;  // default: "batch_all"
+}
+
+interface BatchApi {
+  tx: {
+    Utility: {
+      batch(args: { calls: unknown[] }): SubmittableTransaction;
+      batch_all(args: { calls: unknown[] }): SubmittableTransaction;
+      force_batch(args: { calls: unknown[] }): SubmittableTransaction;
+    };
+  };
+}
 ```
 
 ### Error classes
@@ -252,6 +324,7 @@ interface Weight {
 | `TxDispatchError` | `TxError` | `dispatchError: unknown`, `formatted: string` |
 | `TxSigningRejectedError` | `TxError` | User rejected signing. |
 | `TxDryRunError` | `TxError` | `raw: unknown`, `formatted: string`, `revertReason?: string` |
+| `TxBatchError` | `TxError` | Batch construction failed (e.g., empty calls). |
 | `TxAccountMappingError` | `TxError` | Account mapping failed. |
 
 ## License

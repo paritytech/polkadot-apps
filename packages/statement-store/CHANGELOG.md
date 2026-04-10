@@ -1,5 +1,44 @@
 # @polkadot-apps/statement-store
 
+## 0.2.10
+
+### Patch Changes
+
+- Updated dependencies [6fe9c11]
+  - @polkadot-apps/utils@0.4.0
+
+## 0.2.9
+
+### Patch Changes
+
+- Updated dependencies [c286f9b]
+  - @polkadot-apps/chain-client@0.3.8
+
+## 0.2.8
+
+### Patch Changes
+
+- 8bbabe6: Add `blake2b256`, `sha256`, and `keccak256` hash functions to `@polkadot-apps/utils`. Consumers no longer need `@noble/hashes` as a direct dependency for hashing. Migrated bulletin and statement-store to use the new centralized exports.
+- Updated dependencies [8bbabe6]
+  - @polkadot-apps/utils@0.3.0
+
+## 0.2.7
+
+### Patch Changes
+
+- 648008e: Restructure descriptors into per-chain papi builds. Each chain now has its own `.papi/polkadot-api.json` config and generates into `chains/<name>/generated/dist/`. Consumers import via subpath exports (e.g., `import { bulletin } from "@polkadot-apps/descriptors/bulletin"`) which only bundles that chain's metadata. The barrel import is removed. chain-client lazy-loads descriptors per environment via dynamic imports.
+- Updated dependencies [648008e]
+- Updated dependencies [648008e]
+  - @polkadot-apps/logger@0.1.5
+  - @polkadot-apps/descriptors@1.0.0
+  - @polkadot-apps/chain-client@0.3.7
+
+## 0.2.6
+
+### Patch Changes
+
+- abd49ca: Remove unused variables and imports
+
 ## 0.2.5
 
 ### Patch Changes

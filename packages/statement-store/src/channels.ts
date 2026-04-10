@@ -455,7 +455,7 @@ if (import.meta.vitest) {
         });
 
         test("local write and network echo use same key", async () => {
-            const { createChannel: mkCh, topicToHex: toHex } = await import("./topics.js");
+            const { createChannel: mkCh } = await import("./topics.js");
             const mockClient = createMockClient();
             const store = new ChannelStore<TestValue>(
                 mockClient as unknown as StatementStoreClient,
