@@ -1,9 +1,16 @@
 import { Command } from "commander";
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
-import { homedir } from "node:os";
-import { spinner, bold, dim, green, red, yellow } from "../ui.js";
+import { spinner, bold, dim, green, yellow } from "../ui.js";
+
+// WebSocket polyfill for Node.js (required by host-papp SDK)
+import { WebSocket as _WS } from "ws";
+const WebSocket = new Proxy(_WS, {
+    construct(target, args) {
+        const [url, protocols, opts] = args;
+        return new target(url, protocols, { followRedirects: true, ...opts });
+    },
+});
+Object.assign(globalThis, { WebSocket });
 
 function commandExists(cmd: string): boolean {
     try {
@@ -48,6 +55,146 @@ function hasCargoPvmContract(): boolean {
     return commandExists("cargo-pvm-contract");
 }
 
+// ---------------------------------------------------------------------------
+// QR Login
+// ---------------------------------------------------------------------------
+
+const METADATA_URL =
+    "https://gist.githubusercontent.com/ReinhardHatko/27415c91178d74196d7c1116d39056d5/raw/56e61d719251170828a80f12d34343a8617b9935/metadata.json";
+
+async function doQrLogin(): Promise<boolean> {
+    const {
+        createTerminalAdapter,
+        renderQrCode,
+    } = await import("@polkadot-apps/terminal");
+    type PairingStatus = import("@polkadot-apps/terminal").PairingStatus;
+    type AttestationStatus = import("@polkadot-apps/terminal").AttestationStatus;
+
+    const adapter = createTerminalAdapter({
+        appId: "dot-cli",
+        metadataUrl: METADATA_URL,
+        endpoints: ["wss://paseo-people-next-rpc.polkadot.io"],
+    });
+
+    // Check for existing session
+    // Wait for sessions to load from disk — first emission is often empty
+    const existingSessions = await new Promise<any[]>((resolve) => {
+        let resolved = false;
+        let unsub: (() => void) | null = null;
+        unsub = adapter.sessions.sessions.subscribe((sessions) => {
+            if (resolved) return;
+            if (sessions.length > 0) {
+                resolved = true;
+                queueMicrotask(() => unsub?.());
+                resolve(sessions);
+            }
+        });
+        // If no sessions arrive within 3s, assume none exist
+        setTimeout(() => {
+            if (resolved) return;
+            resolved = true;
+            unsub?.();
+            resolve([]);
+        }, 3000);
+    });
+
+    if (existingSessions.length > 0) {
+        const session = existingSessions[0];
+        const addr =
+            "0x" + Buffer.from(session.remoteAccount.accountId).toString("hex");
+        console.log(`  ${green("✔")} Authenticated`);
+        console.log(`    ${dim("Address:")} ${addr}`);
+        process.exit(0);
+    }
+
+    // No existing session — start QR pairing
+    console.log();
+    console.log(`  ${bold("Scan with the Polkadot mobile app to log in:")}`);
+    console.log();
+
+    let qrShown = false;
+    const unsubPairing = adapter.sso.pairingStatus.subscribe((status: PairingStatus) => {
+        if (status.step === "pairing" && !qrShown) {
+            qrShown = true;
+            renderQrCode(status.payload).then((qr) => {
+                console.log(qr);
+            });
+        } else if (status.step === "finished") {
+            console.log(`  ${green("✔")} Paired with mobile wallet`);
+        } else if (status.step === "pairingError") {
+            console.log(`  ${dim("Pairing error:")} ${status.message}`);
+        }
+    });
+
+    const unsubAttestation = adapter.sso.attestationStatus.subscribe(
+        (status: AttestationStatus) => {
+            if (status.step === "attestation") {
+                const s = spinner("Attestation", `Registering on-chain (${status.username})...`);
+                // Store spinner ref for cleanup — attestation can take a while
+                (adapter as any)._attestSpinner = s;
+            } else if (status.step === "finished") {
+                (adapter as any)._attestSpinner?.succeed("Attestation complete");
+            } else if (status.step === "attestationError") {
+                (adapter as any)._attestSpinner?.fail(`Attestation failed: ${status.message}`);
+            }
+        },
+    );
+
+    const result = await adapter.sso.authenticate();
+
+    unsubPairing();
+    unsubAttestation();
+
+    let success = false;
+    result.match(
+        (session) => {
+            if (session) {
+                console.log();
+                console.log(`  ${green("✔")} ${bold("Logged in successfully!")}`);
+                success = true;
+            } else {
+                console.log(`  ${dim("Login cancelled.")}`);
+            }
+        },
+        (error) => {
+            console.log(`  ${dim("Login failed:")} ${error.message}`);
+        },
+    );
+
+    // Wait for session to persist to disk before destroying
+    if (success) {
+        await new Promise<void>((resolve) => {
+            let resolved = false;
+            let unsub: (() => void) | null = null;
+            unsub = adapter.sessions.sessions.subscribe((sessions) => {
+                if (sessions.length > 0 && !resolved) {
+                    resolved = true;
+                    // Defer unsubscribe — callback may fire synchronously before unsub is assigned
+                    queueMicrotask(() => unsub?.());
+                    resolve();
+                }
+            });
+            if (resolved) return; // Already resolved synchronously
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    unsub?.();
+                    resolve();
+                }
+            }, 3000);
+        });
+    }
+
+    // Session persisted, just exit. adapter.destroy() has a bug where it
+    // disconnects the WebSocket before unsubscribing statement store listeners,
+    // causing async DestroyedError noise. Skip it — process.exit cleans up.
+    process.exit(success ? 0 : 1);
+}
+
+// ---------------------------------------------------------------------------
+// Command
+// ---------------------------------------------------------------------------
+
 export const initCommand = new Command("init")
     .description("Set up your development environment and authenticate")
     .option("--skip-toolchain", "Skip Rust toolchain setup")
@@ -59,7 +206,6 @@ export const initCommand = new Command("init")
 
         // ── Step 1: Rust toolchain ────────────────────────────────────
         if (!opts.skipToolchain) {
-            // rustup
             if (!commandExists("rustup")) {
                 const s = spinner("Rust", "Installing rustup...");
                 try {
@@ -76,7 +222,6 @@ export const initCommand = new Command("init")
                 console.log(`  ${green("✔")} rustup`);
             }
 
-            // nightly toolchain
             if (!hasRustNightly()) {
                 const s = spinner("Rust", "Installing nightly toolchain...");
                 try {
@@ -89,7 +234,6 @@ export const initCommand = new Command("init")
                 console.log(`  ${green("✔")} Rust nightly`);
             }
 
-            // rust-src component
             if (!hasRustSrc()) {
                 const s = spinner("Rust", "Installing rust-src...");
                 try {
@@ -104,11 +248,13 @@ export const initCommand = new Command("init")
                 console.log(`  ${green("✔")} rust-src`);
             }
 
-            // cargo-pvm-contract
             if (!hasCargoPvmContract()) {
                 const s = spinner("Rust", "Installing cargo-pvm-contract...");
                 try {
-                    const hostTarget = execSync("rustc -vV", { encoding: "utf-8", stdio: "pipe" })
+                    const hostTarget = execSync("rustc -vV", {
+                        encoding: "utf-8",
+                        stdio: "pipe",
+                    })
                         .split("\n")
                         .find((l) => l.startsWith("host:"))
                         ?.split(" ")[1];
@@ -125,10 +271,7 @@ export const initCommand = new Command("init")
             } else {
                 console.log(`  ${green("✔")} cargo-pvm-contract`);
             }
-        }
 
-        // ── Step 2: GitHub CLI ────────────────────────────────────────
-        if (!opts.skipToolchain) {
             if (!commandExists("gh")) {
                 console.log(`  ${yellow("!")} GitHub CLI not found`);
                 console.log(`    ${dim("Install: https://cli.github.com")}`);
@@ -140,23 +283,9 @@ export const initCommand = new Command("init")
             }
         }
 
-        // ── Step 3: QR Authentication ─────────────────────────────────
+        // ── Step 2: QR Authentication ─────────────────────────────────
         if (!opts.skipAuth) {
-            const dotDir = resolve(homedir(), ".polkadot");
-            const sessionExists = existsSync(resolve(dotDir, "sessions.json"));
-
-            if (sessionExists) {
-                console.log(`  ${green("✔")} Authenticated ${dim("(session found)")}`);
-            } else {
-                console.log();
-                console.log(`  ${yellow("!")} ${bold("Authentication")} — QR login coming soon`);
-                console.log(
-                    `    ${dim("Mobile signing will be available once the QR provider is implemented")}`,
-                );
-                console.log(
-                    `    ${dim("For now, use --suri //Alice for dev signing in deploy/publish commands")}`,
-                );
-            }
+            await doQrLogin();
         }
 
         console.log();

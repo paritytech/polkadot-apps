@@ -13,10 +13,33 @@ Follow the contributor guidelines in `README.md`.
 - **Format check:** `pnpm format:check`
 - **Generate descriptors:** `pnpm generate-descriptors`
 - **Generate docs:** `pnpm docs`
+- **Install CLI locally:** `pnpm cli:install`
+
+## CLI
+
+- The CLI lives at `apps/cli/` and installs as `dot`. Compiles to a standalone binary via `bun build --compile`.
+- **Dev:** `bun run apps/cli/src/index.ts` (runs TypeScript directly)
+- **Local install:** `pnpm cli:install` (builds all packages, compiles binary to `~/.polkadot/bin/dot`)
+- **End-user install:** `bash install.sh` (downloads binary from GitHub Releases, uses `gh` for private repo auth)
+- The CLI is `private: true` — not published to npm. Distributed as compiled binaries via GitHub Releases.
+- Commands are separate files in `apps/cli/src/commands/`, each exporting a `Command` instance registered via `program.addCommand()`.
+- Contract ABI (`cdm.json`) is managed by CDM — `postinstall` runs `cdm i` automatically if cdm is available.
+
+**Commands:** `init`, `remix`, `build`, `test`, `deploy`, `info`, `update`
+
+| Command | Purpose |
+|---------|---------|
+| `dot init` | Set up dev environment (Rust toolchain, gh CLI) and authenticate |
+| `dot remix [domain]` | Fork an app — interactive picker if no domain, `--quest` flag (stubbed) |
+| `dot build` | Detect and build contracts (Rust) and frontend |
+| `dot test` | Unified test runner: vitest for TS, cargo test for Rust |
+| `dot deploy` | Deploy contracts + frontend to Bulletin. `--playground` to also publish to registry |
+| `dot info <domain>` | Show detailed app information from the registry |
+| `dot update` | Self-update from GitHub Releases |
 
 ## Key Conventions
 
-- All packages live in `packages/<name>/` and are scoped under `@polkadot-apps/`.
+- All packages live in `packages/<name>/` and are scoped under `@polkadot-apps/`. The CLI lives in `apps/cli/`.
 - Use in-source testing (`if (import.meta.vitest)` blocks) for unit tests. Separate `tests/*.test.ts` files are for integration tests only.
 - Internal deps use `"workspace:*"`, shared versions use `"catalog:"` from `pnpm-workspace.yaml`.
 - Packages must be framework-agnostic pure TypeScript. No React/Vue imports in core packages.

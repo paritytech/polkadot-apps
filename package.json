@@ -3,6 +3,7 @@
     "private": true,
     "packageManager": "pnpm@10.32.1",
     "scripts": {
+        "postinstall": "find node_modules -path '*/@polkadot-apps/terminal/scripts/patch-wasm.sh' -exec bash {} \\; 2>/dev/null || true",
         "build": "turbo build",
         "dev": "turbo dev",
         "clean": "turbo clean",

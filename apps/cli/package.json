@@ -8,7 +8,7 @@
         "dot": "./src/index.ts"
     },
     "scripts": {
-        "postinstall": "command -v cdm >/dev/null && cdm i || true",
+        "postinstall": "[ -d .cdm ] || (command -v cdm >/dev/null && cdm i || true)",
         "build": "echo 'No build needed - compiled via bun'",
         "compile": "bun build --compile src/index.ts --outfile dist/dot",
         "clean": "rm -rf dist"
@@ -19,8 +19,10 @@
         "@polkadot-apps/chain-client": "workspace:*",
         "@polkadot-apps/contracts": "workspace:*",
         "@polkadot-apps/keys": "workspace:*",
+        "@polkadot-apps/terminal": "file:/Users/charleshetterich/code/tmp2/polkadot-apps/packages/terminal",
         "@polkadot-labs/hdkd-helpers": "catalog:",
-        "polkadot-api": "catalog:"
+        "polkadot-api": "catalog:",
+        "ws": "^8.18.0"
     },
     "devDependencies": {
         "typescript": "catalog:"
