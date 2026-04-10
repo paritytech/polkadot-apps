@@ -1,4 +1,4 @@
-import type { ChainDefinition, PolkadotClient, TypedApi } from "polkadot-api";
+import type { ChainDefinition, PolkadotClient } from "polkadot-api";
 import { createClient } from "polkadot-api";
 import { createProvider, resetSmoldot } from "./providers.js";
 import { getClientCache, clearClientCache } from "./hmr.js";
@@ -69,16 +69,24 @@ export async function createChainClient<const TChains extends Record<string, Cha
     if (existing) return existing as Promise<ChainClient<TChains>>;
 
     const promise = initChainClient(config, fingerprint).catch((err) => {
+        // Clean up any clients created before the failure to avoid leaking
+        // WebSocket connections that are unreachable except via destroyAll().
+        const cache = getClientCache();
+        for (const [key, entry] of cache) {
+            if (key.startsWith(`${fingerprint}:`)) {
+                try {
+                    entry.client.destroy();
+                } catch {
+                    /* already destroyed */
+                }
+                cache.delete(key);
+            }
+        }
         clientInstances.delete(fingerprint);
         throw err;
     });
     clientInstances.set(fingerprint, promise);
     return promise;
-}
-
-/** @internal — exported for presets to clear when they delegate to createChainClient. */
-export function clearClientInstances(): void {
-    clientInstances.clear();
 }
 
 /* @integration */
@@ -192,7 +200,7 @@ export function isConnected(descriptor: ChainDefinition): boolean {
 }
 
 if (import.meta.vitest) {
-    const { test, expect, beforeEach, vi } = import.meta.vitest;
+    const { test, expect, beforeEach } = import.meta.vitest;
 
     const fakeDescriptor = { genesis: "0xtest" } as ChainDefinition;
     const fakeClient = {

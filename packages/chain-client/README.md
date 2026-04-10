@@ -88,7 +88,7 @@ Connections are established automatically based on the runtime environment:
 ```typescript
 import { isInsideContainer } from "@polkadot-apps/chain-client";
 
-if (isInsideContainer()) {
+if (await isInsideContainer()) {
     console.log("Connections routed through Host API");
 }
 ```
@@ -200,25 +200,6 @@ interface ChainMeta {
     mode?: ConnectionMode;
 }
 ```
-
-## Migration from v0.x
-
-```diff
-- import { getChainAPI } from "@polkadot-apps/chain-client";
-- const api = await getChainAPI("paseo");
-- const contract = api.contracts.getContract(descriptor, address);
-+ import { getChainAPI } from "@polkadot-apps/chain-client";
-+ import { createInkSdk } from "@polkadot-api/sdk-ink";
-+ const client = await getChainAPI("paseo");
-+ const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
-+ const contract = inkSdk.getContract(descriptor, address);
-```
-
-Key changes:
-- `.contracts` removed — create `InkSdk` yourself via `createInkSdk(client.raw.<chain>)`
-- `.raw` added — exposes `PolkadotClient` per chain name
-- `ChainAPI<E>` type replaced by `ChainClient<T>` / `PresetChains<E>`
-- New `createChainClient()` for BYOD — import only the chains you need
 
 ## License
 

@@ -178,9 +178,9 @@ See [references/chains.md](references/chains.md) for full details.
 3. **Using unavailable environments** — Only `"paseo"` works. `"polkadot"` and `"kusama"` throw.
 4. **Forgetting `await`** — `getChainAPI()` and `createChainClient()` return a Promise. Always `await` it.
 5. **Not cleaning up** — Call `client.destroy()` or `destroyAll()` when done to close WebSocket connections.
-6. **Using `api.contracts`** — There is no `.contracts` property on chain clients. Create InkSdk yourself: `createInkSdk(client.raw.assetHub, { atBest: true })`.
-6. **Dev signers in production** — `createDevSigner("Alice")` is testnet-only. Use `SignerManager` for production.
-7. **Wrong signer type** — `PolkadotSigner` (tx), `StatementSignerWithKey` (statement-store), and `SignerManager` (wallet UI) are distinct.
+6. **Using `api.contracts`** — There is no `.contracts` property on chain clients. Create InkSdk yourself: `createInkSdk(client.raw.assetHub, { atBest: true })`, or use `ContractManager.fromClient()` for convenience.
+7. **Dev signers in production** — `createDevSigner("Alice")` is testnet-only. Use `SignerManager` for production.
+8. **Wrong signer type** — `PolkadotSigner` (tx), `StatementSignerWithKey` (statement-store), and `SignerManager` (wallet UI) are distinct.
 
 ## Non-Developer Tier
 

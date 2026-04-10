@@ -15,7 +15,7 @@ export async function isInsideContainer(): Promise<boolean> {
         const sdk = await import("@novasamatech/product-sdk");
         return sdk.sandboxProvider.isCorrectEnvironment();
     } catch {
-        return manualDetection();
+        return isInsideContainerSync();
     }
 }
 
@@ -67,7 +67,14 @@ export async function getHostProvider(
     }
 }
 
-function manualDetection(): boolean {
+/**
+ * Synchronous container detection — fast heuristic check without product-sdk.
+ *
+ * Checks for iframe, webview marker, and host message port signals.
+ * Use this when you need a quick sync check (e.g., in hot code paths).
+ * For full detection including product-sdk, use {@link isInsideContainer} (async).
+ */
+export function isInsideContainerSync(): boolean {
     if (typeof window === "undefined") return false;
 
     const win = window as unknown as Record<string, unknown>;

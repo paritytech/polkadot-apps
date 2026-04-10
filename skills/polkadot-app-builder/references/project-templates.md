@@ -134,6 +134,7 @@ import { createChainClient, destroyAll } from "@polkadot-apps/chain-client";
 import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
 import { ContractManager } from "@polkadot-apps/contracts";
+import { createDevSigner } from "@polkadot-apps/tx";
 import cdmJson from "./cdm.json";
 
 async function main() {
@@ -150,7 +151,6 @@ async function main() {
     console.log("Count:", value);
 
     // Transaction (requires signer)
-    import { createDevSigner } from "@polkadot-apps/tx";
     const alice = createDevSigner("Alice");
     await counter.increment.tx({ signer: alice });
 

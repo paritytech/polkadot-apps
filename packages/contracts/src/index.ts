@@ -1,4 +1,4 @@
-export { ContractManager, createContract } from "./manager.js";
+export { ContractManager, createContract, createContractFromClient } from "./manager.js";
 export { generateContractTypes } from "./codegen.js";
 export {
     ContractError,

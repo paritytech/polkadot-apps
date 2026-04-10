@@ -36,12 +36,15 @@ Follow the contributor guidelines in `README.md`.
   - **Preset** (`getChainAPI`): zero-config with built-in descriptors and RPCs for known environments (paseo, polkadot, kusama).
 - Both return a `ChainClient<T>` with typed APIs per chain key, `.raw` for `PolkadotClient` access, and `.destroy()`.
 - `@polkadot-api/sdk-ink` is **not** a dependency of chain-client. Consumers who need contracts create `InkSdk` themselves: `createInkSdk(client.raw.assetHub, { atBest: true })`.
+- `isInsideContainerSync()` is available from both `@polkadot-apps/host` and `@polkadot-apps/chain-client` for synchronous container detection in performance-critical code paths. The async `isInsideContainer()` (which uses product-sdk) remains the primary API.
 
 ## Contracts
 
 - `@polkadot-apps/contracts` provides typed contract interactions on Asset Hub (Ink!/PolkaVM and Solidity). Contracts are defined via a `cdm.json` manifest or raw ABI arrays.
 - Key exports: `ContractManager` (loads contracts from cdm.json, resolves targets), `createContract` (standalone single-contract handle from an ABI + address), `generateContractTypes` (codegen that maps Solidity ABI types to TypeScript).
-- `InkSdk` is created by the consumer via `createInkSdk(client.raw.assetHub)` and passed to `ContractManager` or `createContract`. Uses `@polkadot-apps/signer` via `SignerManager` for automatic signer/origin resolution.
+- `InkSdk` is created by the consumer via `createInkSdk(client.raw.assetHub)` and passed to `ContractManager` or `createContract`. This is the size-optimized path recommended for production.
+- Convenience factories `ContractManager.fromClient(cdmJson, client, options)` and `createContractFromClient(client, address, abi, options)` create InkSdk internally from a `ChainClient`. These are simpler but pull in `@polkadot-api/sdk-ink` as a transitive dependency.
+- Uses `@polkadot-apps/signer` via `SignerManager` for automatic signer/origin resolution.
 - Each contract method exposes `.query()` (dry-run) and `.tx()` (submit transaction). Signer resolution order: explicit call option > `signerManager` > static `defaultSigner`.
 - The `@polkadot-apps/contracts/codegen` subpath export provides `generateContractTypes` separately for build-time use without pulling in runtime dependencies.
 - The `Contracts` interface in `types.ts` is augmentable via module augmentation — codegen extends it so `getContract()` returns fully-typed handles.

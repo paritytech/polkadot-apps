@@ -158,7 +158,7 @@ Query the free, reserved, and frozen balances for an address. Returns `{ free: b
 - **Using `formatPlanck` with the wrong `decimals` for a chain.** DOT uses 10, KSM uses 12, many parachains use 18. Always check the chain's token metadata.
 - **Assuming `parseToPlanck` rounds excess decimals.** It truncates, not rounds. `parseToPlanck("1.999999999999", 10)` gives the same result as `parseToPlanck("1.9999999999", 10)`.
 - **Using `Number()` to format large balances.** `Number(raw) / 10**decimals` loses precision for values > 2^53 planck (~900 DOT). Use `formatBalance` which preserves full BigInt precision.
-- **Passing the ChainAPI wrapper to `getBalance`.** Pass the chain-specific TypedApi (e.g., `api.assetHub`), not the multi-chain `ChainAPI` object.
+- **Passing the ChainClient wrapper to `getBalance`.** Pass the chain-specific TypedApi (e.g., `client.assetHub`), not the multi-chain `ChainClient` object.
 
 ## License
 

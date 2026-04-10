@@ -351,6 +351,9 @@ importers:
       '@polkadot-apps/address':
         specifier: workspace:*
         version: link:../address
+      '@polkadot-apps/host':
+        specifier: workspace:*
+        version: link:../host
       '@polkadot-apps/keys':
         specifier: workspace:*
         version: link:../keys

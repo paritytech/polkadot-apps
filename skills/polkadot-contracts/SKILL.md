@@ -14,10 +14,14 @@ This skill covers the `@polkadot-apps/contracts` package for typed contract inte
 | Export | Import | Purpose |
 |--------|--------|---------|
 | ContractManager | `@polkadot-apps/contracts` | CDM-managed contracts from cdm.json |
-| createContract | `@polkadot-apps/contracts` | Single contract from raw address + ABI |
+| ContractManager.fromClient | `@polkadot-apps/contracts` | Convenience: CDM-managed contracts from a ChainClient (creates InkSdk internally) |
+| createContract | `@polkadot-apps/contracts` | Single contract from raw address + ABI (size-optimized) |
+| createContractFromClient | `@polkadot-apps/contracts` | Convenience: single contract from a ChainClient (creates InkSdk internally) |
 | generateContractTypes | `@polkadot-apps/contracts/codegen` | Build-time type generation |
 
-## Quick Start: Query and Transact with a Contract
+## Quick Start: Size-Optimized Path (Recommended for Production)
+
+The constructor + explicit `createInkSdk` path gives you full control over the InkSdk instance and avoids pulling `@polkadot-api/sdk-ink` as a transitive dependency of `@polkadot-apps/contracts`.
 
 ```ts
 import { getChainAPI } from "@polkadot-apps/chain-client";
@@ -61,7 +65,30 @@ const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
 const manager = new ContractManager(cdmJson, inkSdk, { signerManager });
 ```
 
+## Convenience Path (fromClient)
+
+`ContractManager.fromClient()` and `createContractFromClient()` create the InkSdk internally from a `ChainClient`. Simpler to use, but pulls in `@polkadot-api/sdk-ink` as a transitive dependency.
+
+```ts
+import { getChainAPI } from "@polkadot-apps/chain-client";
+import { ContractManager } from "@polkadot-apps/contracts";
+import { SignerManager } from "@polkadot-apps/signer";
+import cdmJson from "./cdm.json";
+
+const client = await getChainAPI("paseo");
+const signerManager = new SignerManager();
+await signerManager.connect();
+
+const manager = await ContractManager.fromClient(cdmJson, client, { signerManager });
+const counter = manager.getContract("@example/counter");
+
+await counter.getCount.query();
+await counter.increment.tx();
+```
+
 ## Without CDM (Raw Address + ABI)
+
+### Size-optimized (explicit InkSdk)
 
 ```ts
 import { getChainAPI } from "@polkadot-apps/chain-client";
@@ -71,6 +98,19 @@ import { createContract } from "@polkadot-apps/contracts";
 const client = await getChainAPI("paseo");
 const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
 const counter = createContract(inkSdk, "0xC472...", abi, { signerManager });
+
+await counter.getCount.query();
+await counter.increment.tx();
+```
+
+### Convenience (fromClient)
+
+```ts
+import { getChainAPI } from "@polkadot-apps/chain-client";
+import { createContractFromClient } from "@polkadot-apps/contracts";
+
+const client = await getChainAPI("paseo");
+const counter = await createContractFromClient(client, "0xC472...", abi, { signerManager });
 
 await counter.getCount.query();
 await counter.increment.tx();

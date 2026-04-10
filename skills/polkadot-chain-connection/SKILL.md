@@ -207,10 +207,14 @@ destroyAll();
 ### Utility Functions
 
 ```ts
-import { getClient, isConnected, isInsideContainer } from "@polkadot-apps/chain-client";
+import { getClient, isConnected, isInsideContainer, isInsideContainerSync } from "@polkadot-apps/chain-client";
 
-// Check if running inside Polkadot Browser / Desktop
+// Check if running inside Polkadot Browser / Desktop (primary API, uses product-sdk)
 const inContainer = await isInsideContainer();
+
+// Synchronous variant for performance-critical code paths
+// Available from both @polkadot-apps/host and @polkadot-apps/chain-client
+const inContainerSync = isInsideContainerSync();
 
 // Check if a chain is connected (sync, no side effects)
 import { bulletin } from "@polkadot-apps/descriptors/bulletin";

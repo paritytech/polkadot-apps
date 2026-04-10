@@ -1,8 +1,5 @@
 {
     "name": "@polkadot-apps/descriptors-bulletin-internal",
     "private": true,
-    "type": "module",
-    "dependencies": {
-        "@polkadot-api/descriptors": "file:generated"
-    }
+    "type": "module"
 }

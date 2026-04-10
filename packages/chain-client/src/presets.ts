@@ -13,16 +13,6 @@ import type { individuality as IndividualityDef } from "@polkadot-apps/descripto
 /** Known network environment with built-in descriptors and RPC endpoints. */
 export type Environment = "polkadot" | "kusama" | "paseo";
 
-// Genesis hashes — fixed per chain, extracted as constants to avoid
-// importing descriptor bundles at module scope.
-const GENESIS = {
-    polkadot_asset_hub: "0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f",
-    kusama_asset_hub: "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
-    paseo_asset_hub: "0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2",
-    bulletin: "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea",
-    individuality: "0xe583155e68c7b71e9d2443f846eaba0016d0c38aa807884923545a7003f5bef0",
-} as const;
-
 /** Environments where all chains (asset hub, bulletin, individuality) are live. */
 const AVAILABLE_ENVIRONMENTS: Set<Environment> = new Set(["paseo"]);
 
@@ -150,11 +140,19 @@ export async function getChainAPI<E extends Environment>(
 
 if (import.meta.vitest) {
     const { test, expect, beforeEach } = import.meta.vitest;
-    const { clearClientInstances, destroyAll } = await import("./clients.js");
+    const { destroyAll } = await import("./clients.js");
+
+    // Test-only genesis hashes for assertion — not used in production code.
+    const GENESIS = {
+        polkadot_asset_hub: "0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f",
+        kusama_asset_hub: "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
+        paseo_asset_hub: "0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2",
+        bulletin: "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea",
+        individuality: "0xe583155e68c7b71e9d2443f846eaba0016d0c38aa807884923545a7003f5bef0",
+    } as const;
 
     beforeEach(() => {
         destroyAll();
-        clearClientInstances();
     });
 
     // --- GENESIS constants ---

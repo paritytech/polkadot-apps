@@ -9,4 +9,4 @@ export type { ChainClient, ChainClientConfig, ChainMeta, ConnectionMode } from "
 export type { Environment, PresetChains } from "./presets.js";
 
 // Re-export from host
-export { isInsideContainer } from "@polkadot-apps/host";
+export { isInsideContainer, isInsideContainerSync } from "@polkadot-apps/host";
