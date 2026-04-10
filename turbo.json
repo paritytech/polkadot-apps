@@ -8,7 +8,7 @@
         },
         "@polkadot-apps/descriptors#build": {
             "dependsOn": ["^build"],
-            "outputs": ["generated/dist/**"]
+            "outputs": ["chains/*/generated/dist/**"]
         },
         "dev": {
             "cache": false,

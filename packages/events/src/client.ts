@@ -32,9 +32,11 @@ type ApiResolver = (env: Environment) => Promise<ResolvedChain>;
 /** Default resolver uses chain-client's getChainAPI + getClient for the unsafe API. */
 async function defaultResolver(env: Environment): Promise<ResolvedChain> {
     const { getChainAPI, getClient } = await import("@polkadot-apps/chain-client");
-    const { paseo_asset_hub, polkadot_asset_hub, kusama_asset_hub } = await import(
-        "@polkadot-apps/descriptors"
-    );
+    const [{ paseo_asset_hub }, { polkadot_asset_hub }, { kusama_asset_hub }] = await Promise.all([
+        import("@polkadot-apps/descriptors/paseo-asset-hub"),
+        import("@polkadot-apps/descriptors/polkadot-asset-hub"),
+        import("@polkadot-apps/descriptors/kusama-asset-hub"),
+    ]);
     const descriptorMap: Record<string, any> = {
         paseo: paseo_asset_hub,
         polkadot: polkadot_asset_hub,
