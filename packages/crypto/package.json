@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/crypto",
     "description": "Cryptographic primitives for Polkadot apps — symmetric encryption, key derivation, and NaCl operations",
-    "version": "0.3.3",
+    "version": "1.0.0",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -13,6 +13,7 @@
         }
     },
     "files": ["dist"],
+    "sideEffects": false,
     "publishConfig": {
         "access": "public"
     },

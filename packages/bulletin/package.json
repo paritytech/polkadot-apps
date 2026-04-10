@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/bulletin",
     "description": "TypeScript SDK for uploading and retrieving data on the Polkadot Bulletin Chain",
-    "version": "0.4.0",
+    "version": "0.6.4",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -13,6 +13,7 @@
         }
     },
     "files": ["dist"],
+    "sideEffects": false,
     "publishConfig": {
         "access": "public"
     },
@@ -26,7 +27,7 @@
         "@polkadot-apps/host": "workspace:*",
         "@polkadot-apps/logger": "workspace:*",
         "@polkadot-apps/tx": "workspace:*",
-        "@noble/hashes": "catalog:",
+        "@polkadot-apps/utils": "workspace:*",
         "multiformats": "catalog:",
         "polkadot-api": "catalog:"
     },

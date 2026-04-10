@@ -1,0 +1,24 @@
+{
+    "name": "multi-chain-explorer",
+    "version": "0.0.9",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "tsc",
+        "start": "node --import tsx src/index.ts",
+        "start:built": "node dist/index.js"
+    },
+    "dependencies": {
+        "@polkadot-apps/address": "workspace:*",
+        "@polkadot-apps/bulletin": "workspace:*",
+        "@polkadot-apps/chain-client": "workspace:*",
+        "@polkadot-apps/logger": "workspace:*",
+        "@polkadot-apps/tx": "workspace:*",
+        "@polkadot-apps/utils": "workspace:*",
+        "polkadot-api": "catalog:"
+    },
+    "devDependencies": {
+        "tsx": "^4.19.4",
+        "typescript": "catalog:"
+    }
+}

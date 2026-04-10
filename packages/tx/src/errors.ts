@@ -81,6 +81,14 @@ export function formatDispatchError(result: { ok: boolean; dispatchError?: unkno
     }
 }
 
+/** Error specific to batch transaction construction (e.g., empty calls array). */
+export class TxBatchError extends TxError {
+    constructor(message: string) {
+        super(message);
+        this.name = "TxBatchError";
+    }
+}
+
 /**
  * A dry-run simulation failed before the transaction was submitted on-chain.
  *
@@ -265,6 +273,14 @@ if (import.meta.vitest) {
             const err = new TxSigningRejectedError();
             expect(err).toBeInstanceOf(TxError);
             expect(err.name).toBe("TxSigningRejectedError");
+        });
+
+        test("TxBatchError", () => {
+            const err = new TxBatchError("Cannot batch zero calls");
+            expect(err).toBeInstanceOf(TxError);
+            expect(err).toBeInstanceOf(Error);
+            expect(err.name).toBe("TxBatchError");
+            expect(err.message).toBe("Cannot batch zero calls");
         });
     });
 

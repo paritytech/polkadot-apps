@@ -1,4 +1,4 @@
-import { AccountId, Keccak256 } from "@polkadot-api/substrate-bindings";
+import { AccountId, Keccak256, type SS58String } from "@polkadot-api/substrate-bindings";
 
 const EVM_DERIVED_MARKER = 0xee;
 const H160_BYTE_LEN = 20;
@@ -52,7 +52,7 @@ export function deriveH160(publicKey: Uint8Array): `0x${string}` {
  * EVM-derived accounts (0xEE padding strip).
  */
 export function ss58ToH160(address: string): `0x${string}` {
-    const publicKey = AccountId().enc(address);
+    const publicKey = AccountId().enc(address as SS58String);
     return deriveH160(publicKey);
 }
 
@@ -62,7 +62,7 @@ export function ss58ToH160(address: string): `0x${string}` {
  * Constructs an "EVM-derived" AccountId32 by padding the H160 with 0xEE bytes.
  * These accounts are implicitly mapped in pallet-revive.
  */
-export function h160ToSs58(evmAddress: string, prefix: number = 42): string {
+export function h160ToSs58(evmAddress: string, prefix: number = 42): SS58String {
     const hex = evmAddress.startsWith("0x") ? evmAddress.slice(2) : evmAddress;
     if (hex.length !== H160_BYTE_LEN * 2 || !/^[a-fA-F0-9]+$/.test(hex)) {
         throw new Error(`Invalid H160 address: ${evmAddress}`);

@@ -1,4 +1,4 @@
-import { bulletin } from "@polkadot-apps/descriptors";
+import { bulletin } from "@polkadot-apps/descriptors/bulletin";
 import type { TypedApi } from "polkadot-api";
 import type { TxStatus, WaitFor } from "@polkadot-apps/tx";
 
@@ -104,6 +104,24 @@ export type BatchUploadResult =
 export interface BatchUploadOptions extends UploadOptions {
     /** Called after each item completes (success or failure). */
     onProgress?: (completed: number, total: number, current: BatchUploadResult) => void;
+}
+
+/**
+ * Authorization status for a Bulletin Chain account.
+ *
+ * Returned by {@link checkAuthorization} to enable pre-flight checks before
+ * uploading. Consumers can use this to show "not authorized" or "insufficient
+ * quota" messages instead of letting the transaction fail.
+ */
+export interface AuthorizationStatus {
+    /** Whether an authorization entry exists for this account. */
+    authorized: boolean;
+    /** Remaining transactions allowed. 0 if not authorized. */
+    remainingTransactions: number;
+    /** Remaining bytes allowed. 0n if not authorized. */
+    remainingBytes: bigint;
+    /** Block number when the authorization expires. 0 if not authorized. */
+    expiration: number;
 }
 
 /** Options for gateway fetch operations. */

@@ -8,8 +8,8 @@
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "declaration": true,
-        "declarationMap": true,
-        "sourceMap": true,
+        "declarationMap": false,
+        "sourceMap": false,
         "resolveJsonModule": true,
         "isolatedModules": true,
         "types": ["vitest/importMeta"]

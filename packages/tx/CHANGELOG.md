@@ -1,5 +1,64 @@
 # @polkadot-apps/tx
 
+## 0.3.2
+
+### Patch Changes
+
+- @polkadot-apps/keys@0.4.1
+
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [f047507]
+  - @polkadot-apps/keys@0.4.0
+
+## 0.3.0
+
+### Minor Changes
+
+- 5e3beb5: Add `batchSubmitAndWatch` for submitting multiple transactions as a single Substrate Utility batch. Supports `batch_all` (atomic, default), `batch` (best-effort), and `force_batch` modes. Handles Ink SDK AsyncTransaction wrappers and raw decoded calls transparently.
+
+## 0.2.12
+
+### Patch Changes
+
+- @polkadot-apps/keys@0.3.8
+
+## 0.2.11
+
+### Patch Changes
+
+- @polkadot-apps/keys@0.3.7
+
+## 0.2.10
+
+### Patch Changes
+
+- @polkadot-apps/keys@0.3.6
+
+## 0.2.9
+
+### Patch Changes
+
+- Updated dependencies [b9a8385]
+  - @polkadot-apps/keys@0.3.5
+
+## 0.2.8
+
+### Patch Changes
+
+- 648008e: Add `sideEffects: false` to all packages and disable source map generation to improve tree-shaking and reduce published package size.
+- Updated dependencies [648008e]
+  - @polkadot-apps/keys@0.3.4
+  - @polkadot-apps/logger@0.1.5
+
+## 0.2.7
+
+### Patch Changes
+
+- abd49ca: Remove unused variables and imports
+
 ## 0.2.6
 
 ### Patch Changes

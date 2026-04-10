@@ -2,7 +2,8 @@ import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
 import { getPolkadotSigner } from "polkadot-api/signer";
 
 import { deriveH160, ss58Encode } from "@polkadot-apps/address";
-import { deriveKey, hexToBytes, nacl } from "@polkadot-apps/crypto";
+import { deriveKey, nacl } from "@polkadot-apps/crypto";
+import { hexToBytes } from "@polkadot-apps/utils";
 
 import type { DerivedAccount, DerivedKeypairs } from "./types.js";
 

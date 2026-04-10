@@ -1,5 +1,19 @@
 # @polkadot-apps/crypto
 
+## 1.0.0
+
+### Major Changes
+
+- b9a8385: Add `@polkadot-apps/utils` package with encoding utilities (`bytesToHex`, `hexToBytes`, `utf8ToBytes`, `concatBytes`) and token formatting (`formatPlanck`, `parseToPlanck`).
+
+  **Breaking:** `bytesToHex`, `hexToBytes`, `utf8ToBytes`, and `concatBytes` are removed from `@polkadot-apps/crypto`. Import them from `@polkadot-apps/utils` instead. `randomBytes` remains in `@polkadot-apps/crypto`.
+
+## 0.3.4
+
+### Patch Changes
+
+- 648008e: Add `sideEffects: false` to all packages and disable source map generation to improve tree-shaking and reduce published package size.
+
 ## 0.3.3
 
 ### Patch Changes

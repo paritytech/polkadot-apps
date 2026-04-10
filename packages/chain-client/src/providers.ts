@@ -1,3 +1,4 @@
+import { getHostProvider } from "@polkadot-apps/host";
 import type { JsonRpcProvider } from "polkadot-api/ws-provider/web";
 import type { Client, Chain } from "polkadot-api/smoldot";
 import type { ChainMeta } from "./types.js";
@@ -12,9 +13,9 @@ declare global {
  *
  * Strategy:
  * 1. Build a standalone fallback provider (rpc or lightclient)
- * 2. Wrap with product-sdk's createPapiProvider if available —
+ * 2. Wrap with host provider if available (via `@polkadot-apps/host`) —
  *    it routes through the host inside a container, passes through to fallback outside.
- * 3. If product-sdk is not installed, use the fallback directly.
+ * 3. If host provider is unavailable, use the fallback directly.
  */
 export async function createProvider(
     genesisHash: string,
@@ -22,18 +23,16 @@ export async function createProvider(
 ): Promise<JsonRpcProvider> {
     const fallback = await createFallbackProvider(meta);
 
-    try {
-        const { createPapiProvider } = await import("@novasamatech/product-sdk");
-        return createPapiProvider(genesisHash as `0x${string}`, fallback ?? undefined);
-    } catch {
-        if (!fallback) {
-            throw new Error(
-                `No connection method available for chain ${genesisHash}. ` +
-                    `Provide rpcs or chain specs.`,
-            );
-        }
-        return fallback;
+    const hostProvider = await getHostProvider(genesisHash as `0x${string}`, fallback ?? undefined);
+    if (hostProvider) return hostProvider;
+
+    if (!fallback) {
+        throw new Error(
+            `No connection method available for chain ${genesisHash}. ` +
+                `Provide rpcs or chain specs.`,
+        );
     }
+    return fallback;
 }
 
 async function createFallbackProvider(meta: ChainMeta): Promise<JsonRpcProvider | null> {
@@ -138,23 +137,19 @@ if (import.meta.vitest) {
         fakeWrappedProvider: (() => {}) as unknown as JsonRpcProvider,
         fakeChain: {} as unknown as Chain,
         wsProviderCalls: [] as unknown[][],
-        papiProviderCalls: [] as unknown[][],
+        hostProviderCalls: [] as unknown[][],
         addChainCalls: [] as unknown[][],
         smoldotStartCount: 0,
         terminateCount: 0,
-        productSdkAvailable: true,
-        productSdkThrowsRuntime: false,
+        hostProviderAvailable: true,
     }));
 
-    vi.mock("@novasamatech/product-sdk", () => ({
-        get createPapiProvider() {
-            if (!state.productSdkAvailable) throw new Error("Module not installed");
-            return (...args: unknown[]) => {
-                if (state.productSdkThrowsRuntime)
-                    throw new Error("Runtime error in createPapiProvider");
-                state.papiProviderCalls.push(args);
-                return state.fakeWrappedProvider;
-            };
+    vi.mock("@polkadot-apps/host", async (importOriginal) => ({
+        ...(await importOriginal<typeof import("@polkadot-apps/host")>()),
+        getHostProvider: async (...args: unknown[]) => {
+            state.hostProviderCalls.push(args);
+            if (!state.hostProviderAvailable) return null;
+            return state.fakeWrappedProvider;
         },
     }));
 
@@ -187,51 +182,43 @@ if (import.meta.vitest) {
     beforeEach(() => {
         resetSmoldot();
         state.wsProviderCalls = [];
-        state.papiProviderCalls = [];
+        state.hostProviderCalls = [];
         state.addChainCalls = [];
         state.smoldotStartCount = 0;
         state.terminateCount = 0;
-        state.productSdkAvailable = true;
-        state.productSdkThrowsRuntime = false;
+        state.hostProviderAvailable = true;
     });
 
     // --- createProvider paths ---
 
-    test("wraps with product-sdk when available", async () => {
+    test("wraps with host provider when available", async () => {
         const result = await createProvider("0xabc", { rpcs: ["wss://rpc.example.com"] });
         expect(result).toBe(state.fakeWrappedProvider);
-        expect(state.papiProviderCalls.length).toBe(1);
-        expect(state.papiProviderCalls[0][0]).toBe("0xabc");
+        expect(state.hostProviderCalls.length).toBe(1);
+        expect(state.hostProviderCalls[0][0]).toBe("0xabc");
     });
 
-    test("falls back to direct rpc when product-sdk unavailable", async () => {
-        state.productSdkAvailable = false;
+    test("falls back to direct rpc when host provider unavailable", async () => {
+        state.hostProviderAvailable = false;
         const result = await createProvider("0xabc", { rpcs: ["wss://rpc.example.com"] });
         expect(result).toBe(state.fakeProvider);
         expect(state.wsProviderCalls.length).toBe(1);
-        expect(state.papiProviderCalls.length).toBe(0);
     });
 
-    test("throws when no product-sdk and no rpcs", async () => {
-        state.productSdkAvailable = false;
+    test("throws when no host provider and no rpcs", async () => {
+        state.hostProviderAvailable = false;
         await expect(createProvider("0xtest", {})).rejects.toThrow(
             /No connection method available/,
         );
     });
 
-    test("product-sdk failure falls back to direct provider", async () => {
-        state.productSdkThrowsRuntime = true;
-        const result = await createProvider("0xabc", { rpcs: ["wss://rpc.example.com"] });
-        expect(result).toBe(state.fakeProvider);
-    });
-
-    test("passes fallback provider to product-sdk", async () => {
+    test("passes fallback provider to host provider", async () => {
         await createProvider("0xabc", { rpcs: ["wss://rpc.example.com"] });
-        expect(state.papiProviderCalls[0][1]).toBe(state.fakeProvider);
+        expect(state.hostProviderCalls[0][1]).toBe(state.fakeProvider);
     });
 
     test("rpc mode requires endpoints", async () => {
-        state.productSdkAvailable = false;
+        state.hostProviderAvailable = false;
         await expect(createProvider("0xabc", { mode: "rpc" })).rejects.toThrow(
             /rpc mode requires at least one endpoint/,
         );
@@ -240,7 +227,7 @@ if (import.meta.vitest) {
     // --- smoldot singleton lifecycle ---
 
     test("smoldot starts once across multiple lightclient calls", async () => {
-        state.productSdkAvailable = false;
+        state.hostProviderAvailable = false;
         const spec = '{"id":"test-chain"}';
         await createProvider("0xa", { mode: "lightclient", relayChainSpec: spec });
         await createProvider("0xb", { mode: "lightclient", relayChainSpec: spec });
@@ -248,7 +235,7 @@ if (import.meta.vitest) {
     });
 
     test("resetSmoldot terminates and allows fresh start", async () => {
-        state.productSdkAvailable = false;
+        state.hostProviderAvailable = false;
         const spec = '{"id":"test-chain"}';
         await createProvider("0xa", { mode: "lightclient", relayChainSpec: spec });
         expect(state.smoldotStartCount).toBe(1);
@@ -265,7 +252,7 @@ if (import.meta.vitest) {
     });
 
     test("smoldot persists on globalThis (HMR-safe)", async () => {
-        state.productSdkAvailable = false;
+        state.hostProviderAvailable = false;
         const spec = '{"id":"test-chain"}';
         await createProvider("0xa", { mode: "lightclient", relayChainSpec: spec });
         expect(globalThis.__smoldotInstance).toBeDefined();
@@ -276,7 +263,7 @@ if (import.meta.vitest) {
     // --- relay chain caching ---
 
     test("relay chain is cached and reused for same spec", async () => {
-        state.productSdkAvailable = false;
+        state.hostProviderAvailable = false;
         const relay = '{"id":"relay"}';
         const para1 = '{"id":"para1"}';
         const para2 = '{"id":"para2"}';
@@ -297,7 +284,7 @@ if (import.meta.vitest) {
     });
 
     test("different relay specs get separate addChain calls", async () => {
-        state.productSdkAvailable = false;
+        state.hostProviderAvailable = false;
         const relay1 = '{"id":"relay1"}';
         const relay2 = '{"id":"relay2"}';
         const para = '{"id":"para"}';
@@ -318,7 +305,7 @@ if (import.meta.vitest) {
     });
 
     test("resetSmoldot clears relay cache", async () => {
-        state.productSdkAvailable = false;
+        state.hostProviderAvailable = false;
         const relay = '{"id":"relay"}';
         const para = '{"id":"para"}';
 
@@ -341,14 +328,14 @@ if (import.meta.vitest) {
     // --- fetchChainSpec ---
 
     test("fetchChainSpec rejects malformed JSON", async () => {
-        state.productSdkAvailable = false;
+        state.hostProviderAvailable = false;
         await expect(
             createProvider("0xa", { mode: "lightclient", relayChainSpec: "{not valid json" }),
         ).rejects.toThrow();
     });
 
     test("fetchChainSpec accepts valid inline JSON", async () => {
-        state.productSdkAvailable = false;
+        state.hostProviderAvailable = false;
         const spec = '{"id":"test"}';
         await createProvider("0xa", { mode: "lightclient", relayChainSpec: spec });
         expect(state.addChainCalls.length).toBe(1);

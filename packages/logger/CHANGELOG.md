@@ -1,5 +1,11 @@
 # @polkadot-apps/logger
 
+## 0.1.5
+
+### Patch Changes
+
+- 648008e: Add `sideEffects: false` to all packages and disable source map generation to improve tree-shaking and reduce published package size.
+
 ## 0.1.4
 
 ### Patch Changes
