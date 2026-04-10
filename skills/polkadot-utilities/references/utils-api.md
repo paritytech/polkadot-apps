@@ -250,7 +250,7 @@ function getBalance(api: BalanceApi, address: string): Promise<AccountBalance>
 ```
 
 **Parameters:**
-- `api` - A PAPI typed API with `query.System.Account`. Pass the chain-specific API (e.g., `api.assetHub`), not the multi-chain `ChainAPI` wrapper.
+- `api` - A PAPI typed API with `query.System.Account`. Pass the chain-specific API (e.g., `client.assetHub`), not the `ChainClient` wrapper.
 - `address` - The SS58 address to query.
 
 **Returns:** `AccountBalance` with `free`, `reserved`, and `frozen` fields (all `bigint` in planck).
@@ -258,7 +258,7 @@ function getBalance(api: BalanceApi, address: string): Promise<AccountBalance>
 ```ts
 import { getBalance, formatBalance } from "@polkadot-apps/utils";
 
-const balance = await getBalance(api.assetHub, aliceAddress);
+const balance = await getBalance(client.assetHub, aliceAddress);
 console.log(formatBalance(balance.free, { symbol: "DOT" }));     // "1,000.5 DOT"
 console.log(formatBalance(balance.reserved, { symbol: "DOT" })); // "50 DOT"
 console.log(balance.frozen);                                      // 0n

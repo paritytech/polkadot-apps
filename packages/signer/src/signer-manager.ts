@@ -10,7 +10,7 @@ import {
     SigningFailedError,
     SignerError,
 } from "./errors.js";
-import { isInsideContainer } from "./container.js";
+import { isInsideContainerSync } from "@polkadot-apps/host";
 import { DevProvider } from "./providers/dev.js";
 import { ExtensionProvider } from "./providers/extension.js";
 import type { ExtensionApi } from "./providers/extension.js";
@@ -56,7 +56,7 @@ function persistenceStorageKey(dappName: string): string {
  */
 async function detectPersistence(): Promise<AccountPersistence | null> {
     // Try host storage first (container environment)
-    if (isInsideContainer()) {
+    if (isInsideContainerSync()) {
         try {
             const sdk = await import("@novasamatech/product-sdk");
             if (sdk.hostLocalStorage) {
@@ -208,7 +208,7 @@ export class SignerManager {
         if (providerType) {
             // When explicitly requesting extension inside a container, inject
             // Spektr first so the host wallet appears as a browser extension.
-            if (providerType === "extension" && isInsideContainer()) {
+            if (providerType === "extension" && isInsideContainerSync()) {
                 await HostProvider.injectSpektr();
             }
             return this.connectToProvider(providerType, signal);
@@ -403,7 +403,7 @@ export class SignerManager {
      * Outside a container: browser extensions are the only viable path.
      */
     private async autoDetect(signal?: AbortSignal): Promise<Result<SignerAccount[], SignerError>> {
-        const inContainer = isInsideContainer();
+        const inContainer = isInsideContainerSync();
         log.info("auto-detecting provider", { inContainer });
 
         if (inContainer) {
@@ -927,7 +927,7 @@ if (import.meta.vitest) {
         });
 
         test("auto-detect outside container goes directly to extensions", async () => {
-            // In Node env, isInsideContainer() returns false
+            // In Node env, isInsideContainerSync() returns false
             const callOrder: string[] = [];
             const mockExtAccounts: SignerAccount[] = [
                 {
@@ -1157,9 +1157,9 @@ if (import.meta.vitest) {
         // ── Container auto-detect tests ──────────────────────────
 
         test("auto-detect inside container: host succeeds", async () => {
-            // Mock isInsideContainer to return true
-            const containerModule = await import("./container.js");
-            const spy = vi.spyOn(containerModule, "isInsideContainer").mockReturnValue(true);
+            // Mock isInsideContainerSync to return true
+            const containerModule = await import("@polkadot-apps/host");
+            const spy = vi.spyOn(containerModule, "isInsideContainerSync").mockReturnValue(true);
 
             const mockAccounts: SignerAccount[] = [
                 {
@@ -1196,8 +1196,8 @@ if (import.meta.vitest) {
         });
 
         test("auto-detect inside container: host fails, Spektr injection + extension succeeds", async () => {
-            const containerModule = await import("./container.js");
-            const spy = vi.spyOn(containerModule, "isInsideContainer").mockReturnValue(true);
+            const containerModule = await import("@polkadot-apps/host");
+            const spy = vi.spyOn(containerModule, "isInsideContainerSync").mockReturnValue(true);
 
             // Mock HostProvider.injectSpektr to succeed
             const spektrSpy = vi.spyOn(HostProvider, "injectSpektr").mockResolvedValue(true);
@@ -1252,8 +1252,8 @@ if (import.meta.vitest) {
         });
 
         test("auto-detect inside container: all paths fail returns host error", async () => {
-            const containerModule = await import("./container.js");
-            const spy = vi.spyOn(containerModule, "isInsideContainer").mockReturnValue(true);
+            const containerModule = await import("@polkadot-apps/host");
+            const spy = vi.spyOn(containerModule, "isInsideContainerSync").mockReturnValue(true);
             const spektrSpy = vi.spyOn(HostProvider, "injectSpektr").mockResolvedValue(false);
 
             const manager = new SignerManager({
@@ -1376,9 +1376,9 @@ if (import.meta.vitest) {
         });
 
         test("connect('extension') injects Spektr inside container", async () => {
-            const containerModule = await import("./container.js");
+            const containerModule = await import("@polkadot-apps/host");
             const containerSpy = vi
-                .spyOn(containerModule, "isInsideContainer")
+                .spyOn(containerModule, "isInsideContainerSync")
                 .mockReturnValue(true);
             const spektrSpy = vi.spyOn(HostProvider, "injectSpektr").mockResolvedValue(true);
 

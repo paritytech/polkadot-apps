@@ -1,5 +1,28 @@
 # @polkadot-apps/statement-store
 
+## 0.2.11
+
+### Patch Changes
+
+- af74940: BYOD chain client: new `createChainClient()` for user-provided descriptors and RPCs with zero size overhead from unused chains.
+
+  **Breaking changes:**
+
+  - `.contracts` removed from the chain client return type. Create InkSdk yourself: `createInkSdk(client.raw.assetHub, { atBest: true })`.
+  - `.raw` added: exposes `PolkadotClient` per chain name for advanced use.
+  - `ChainAPI<E>` type replaced by `ChainClient<T>` and `PresetChains<E>`.
+  - `@polkadot-api/sdk-ink` removed from chain-client dependencies (moved to consumer).
+
+  **New features:**
+
+  - `createChainClient({ chains, rpcs })` — BYOD path, import only the chains you need.
+  - `getChainAPI("paseo")` preserved as zero-config preset wrapper.
+  - Both return the same `ChainClient<T>` type with typed APIs + `.raw` + `.destroy()`.
+
+- Updated dependencies [af74940]
+- Updated dependencies [2692df9]
+  - @polkadot-apps/chain-client@2.0.0
+
 ## 0.2.10
 
 ### Patch Changes

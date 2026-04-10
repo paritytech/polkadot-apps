@@ -6,11 +6,12 @@ Full API surface of `@polkadot-apps/chain-client` (`packages/chain-client/src/`)
 
 ```ts
 // Functions
-export { getChainAPI, destroyAll, getClient, isConnected } from "./clients.js";
+export { createChainClient, destroyAll, getClient, isConnected } from "./clients.js";
+export { getChainAPI } from "./presets.js";
 
 // Types
-export type { Environment, ChainAPI } from "./clients.js";
-export type { ChainMeta, ConnectionMode } from "./types.js";
+export type { ChainClient, ChainClientConfig, ChainMeta, ConnectionMode } from "./types.js";
+export type { Environment, PresetChains } from "./presets.js";
 
 // Re-export from @polkadot-apps/host
 export { isInsideContainer } from "@polkadot-apps/host";
@@ -29,24 +30,89 @@ Only `"paseo"` is currently available. Calling `getChainAPI` with `"polkadot"` o
 Error: Chain API for "polkadot" is not yet available
 ```
 
-### ChainAPI\<E extends Environment\>
+### ChainClientConfig\<TChains\>
 
 ```ts
-type ChainAPI<E extends Environment> = {
-  assetHub: TypedApi<AssetHubDescriptors[E]>;
-  bulletin: TypedApi<typeof BulletinDef>;
-  individuality: TypedApi<typeof IndividualityDef>;
-  contracts: ContractSdk;
+/**
+ * Configuration for createChainClient.
+ *
+ * Provide named chain descriptors and their RPC endpoints.
+ * TypeScript enforces that `rpcs` has the same keys as `chains`.
+ */
+export interface ChainClientConfig<
+  TChains extends Record<string, ChainDefinition> = Record<string, ChainDefinition>,
+> {
+  /** Named chain descriptors (PAPI ChainDefinition objects). */
+  chains: TChains;
+  /** RPC endpoints per chain name. Must have an entry for each key in `chains`. */
+  rpcs: { [K in keyof TChains]: readonly string[] };
+  /** Optional per-chain connection metadata (lightclient specs, mode overrides). */
+  meta?: { [K in keyof TChains]?: Omit<ChainMeta, "rpcs"> };
+}
+```
+
+Example:
+```ts
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+import { bulletin } from "@polkadot-apps/descriptors/bulletin";
+
+const config: ChainClientConfig<{
+  assetHub: typeof paseo_asset_hub;
+  bulletin: typeof bulletin;
+}> = {
+  chains: { assetHub: paseo_asset_hub, bulletin },
+  rpcs: {
+    assetHub: ["wss://sys.ibp.network/asset-hub-paseo"],
+    bulletin: ["wss://paseo-bulletin-rpc.polkadot.io"],
+  },
+};
+```
+
+### ChainClient\<TChains\>
+
+```ts
+/**
+ * A connected chain client returned by createChainClient or getChainAPI.
+ *
+ * Each key from your config maps to a fully-typed PAPI TypedApi.
+ * Access raw PolkadotClient instances via `.raw` for advanced use cases
+ * like creating an InkSdk for contract interactions.
+ */
+export type ChainClient<TChains extends Record<string, ChainDefinition>> = {
+  [K in string & keyof TChains]: TypedApi<TChains[K]>;
+} & {
+  /** Raw PolkadotClient instances, keyed by chain name. Use for advanced APIs like createInkSdk. */
+  raw: { [K in string & keyof TChains]: PolkadotClient };
+  /** Destroy all connections managed by this client. */
   destroy: () => void;
 };
 ```
 
-Where:
-- `AssetHubDescriptors` maps each environment to its asset hub descriptor type (`polkadot_asset_hub`, `kusama_asset_hub`, or `paseo_asset_hub`)
-- `ContractSdk` is `ReturnType<typeof createInkSdk>` from `@polkadot-api/sdk-ink`
-- `TypedApi` is from `polkadot-api`
-- `BulletinDef` is `typeof bulletin` from `@polkadot-apps/descriptors/bulletin`
-- `IndividualityDef` is `typeof individuality` from `@polkadot-apps/descriptors/individuality`
+Properties:
+- **`[chainName]`** -- Typed API for each chain (e.g., `client.assetHub`, `client.bulletin`). Provides `query`, `tx`, `constants`, `event` access fully typed from the chain's descriptor.
+- **`raw`** -- Object mapping each chain name to its underlying `PolkadotClient`. Use for advanced operations like creating an `InkSdk` for contract interactions: `createInkSdk(client.raw.assetHub, { atBest: true })`.
+- **`destroy()`** -- Tears down all connections managed by this client and removes them from the internal cache.
+
+### PresetChains\<E extends Environment\>
+
+```ts
+/**
+ * The chain shape returned by getChainAPI for a given environment.
+ * Maps chain names to their descriptor types.
+ */
+export type PresetChains<E extends Environment> = {
+  assetHub: AssetHubDescriptors[E];
+  bulletin: typeof BulletinDef;
+  individuality: typeof IndividualityDef;
+};
+```
+
+Where `AssetHubDescriptors` maps:
+- `"polkadot"` -> `typeof polkadot_asset_hub` from `@polkadot-apps/descriptors/polkadot-asset-hub`
+- `"kusama"` -> `typeof kusama_asset_hub` from `@polkadot-apps/descriptors/kusama-asset-hub`
+- `"paseo"` -> `typeof paseo_asset_hub` from `@polkadot-apps/descriptors/paseo-asset-hub`
+
+So `getChainAPI("paseo")` returns `Promise<ChainClient<PresetChains<"paseo">>>`, which has typed `assetHub`, `bulletin`, and `individuality` properties.
 
 ### ConnectionMode
 
@@ -71,28 +137,76 @@ Connection metadata for a chain. Internal to the provider system.
 
 ## Functions
 
-### getChainAPI
+### createChainClient (BYOD)
 
 ```ts
-async function getChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>
+async function createChainClient<
+  const TChains extends Record<string, ChainDefinition>,
+>(config: ChainClientConfig<TChains>): Promise<ChainClient<TChains>>
 ```
 
-Get the typed chain API for a given environment. Returns asset hub, bulletin, individuality, and contracts -- fully typed from descriptors.
+Create a multi-chain client with user-provided descriptors and RPC endpoints. This is the **BYOD** path -- you import your own descriptors and specify your own RPCs.
 
-- **Caching:** First call creates connections; subsequent calls return the cached promise.
-- **Deduplication:** Concurrent calls for the same environment share one initialization promise.
+- **Caching:** Results are cached by a fingerprint of the chain names + genesis hashes. Calling with the same descriptors returns the same instance.
+- **Deduplication:** Concurrent calls for the same config share one initialization promise.
 - **Error recovery:** If initialization fails, the cache entry is removed so the next call retries.
-- **Lazy loading:** Descriptors are imported dynamically -- only the chains needed for the requested environment are loaded.
 
 **Connection strategy:**
 1. Uses host routing (via `@polkadot-apps/host`) when inside a container.
 2. Falls back to direct WebSocket RPC outside a container.
 
 ```ts
-const api = await getChainAPI("paseo");
-await api.assetHub.query.System.Account.getValue(addr);
-await api.bulletin.query.TransactionStorage.ByteFee.getValue();
-const contract = api.contracts.getContract(descriptor, address);
+import { createChainClient } from "@polkadot-apps/chain-client";
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+import { bulletin } from "@polkadot-apps/descriptors/bulletin";
+
+const client = await createChainClient({
+  chains: { assetHub: paseo_asset_hub, bulletin },
+  rpcs: {
+    assetHub: ["wss://sys.ibp.network/asset-hub-paseo"],
+    bulletin: ["wss://paseo-bulletin-rpc.polkadot.io"],
+  },
+});
+
+// Fully typed from your descriptors
+const account = await client.assetHub.query.System.Account.getValue(addr);
+const fee = await client.bulletin.query.TransactionStorage.ByteFee.getValue();
+
+// Raw client for advanced use (e.g., InkSdk for contracts)
+import { createInkSdk } from "@polkadot-api/sdk-ink";
+const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+
+client.destroy();
+```
+
+### getChainAPI (Preset)
+
+```ts
+async function getChainAPI<E extends Environment>(env: E): Promise<ChainClient<PresetChains<E>>>
+```
+
+Get a chain client for a known environment with built-in descriptors and RPCs. This is the **zero-config** path -- no need to import descriptors or specify endpoints.
+
+Internally delegates to `createChainClient` with pre-configured descriptors and RPC endpoints for Asset Hub, Bulletin, and Individuality.
+
+- **Caching:** First call creates connections; subsequent calls return the cached promise (via `createChainClient` deduplication).
+- **Lazy loading:** Descriptors are imported dynamically -- only the chains needed for the requested environment are loaded.
+- **Error recovery:** If initialization fails, the cache entry is removed so the next call retries.
+
+```ts
+import { getChainAPI } from "@polkadot-apps/chain-client";
+
+const client = await getChainAPI("paseo");
+
+// Fully typed -- no descriptor imports needed
+const account = await client.assetHub.query.System.Account.getValue(addr);
+const fee = await client.bulletin.query.TransactionStorage.ByteFee.getValue();
+
+// Raw client for advanced use (e.g., InkSdk for contracts)
+import { createInkSdk } from "@polkadot-api/sdk-ink";
+const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+
+client.destroy();
 ```
 
 ### destroyAll
@@ -101,7 +215,7 @@ const contract = api.contracts.getContract(descriptor, address);
 function destroyAll(): void
 ```
 
-Destroy all environments. Disconnects all clients, clears all caches (client cache, environment cache), and terminates the smoldot light client worker if running.
+Destroy all chain client instances and reset internal caches. Disconnects every connection created by `createChainClient` or `getChainAPI`, clears all caches, and terminates the smoldot light client worker if running.
 
 ### getClient
 
@@ -109,15 +223,17 @@ Destroy all environments. Disconnects all clients, clears all caches (client cac
 function getClient(descriptor: ChainDefinition): PolkadotClient
 ```
 
-Get the raw `PolkadotClient` (from `polkadot-api`) for a connected chain. The chain must have been initialized via `getChainAPI()` first.
+Get the raw `PolkadotClient` (from `polkadot-api`) for a connected chain. The chain must have been initialized via `createChainClient()` or `getChainAPI()` first.
+
+Alternatively, use `client.raw.<chainName>` on the returned `ChainClient` for direct access without needing a descriptor.
 
 - `descriptor` -- A papi `ChainDefinition` with a `genesis` field.
 - Throws if the descriptor has no genesis hash.
-- Throws if the chain is not connected: `"Chain not connected (genesis: 0x...). Call getChainAPI() first to establish connections."`
+- Throws if the chain is not connected: `"Chain not connected (genesis: 0x...). Call createChainClient() or getChainAPI() first to establish connections."`
 
 ```ts
 import { bulletin } from "@polkadot-apps/descriptors/bulletin";
-const client = getClient(bulletin); // raw PolkadotClient
+const rawClient = getClient(bulletin); // raw PolkadotClient
 ```
 
 ### isConnected
@@ -129,11 +245,11 @@ function isConnected(descriptor: ChainDefinition): boolean
 Check if a chain is currently connected. Synchronous -- no side effects, no initialization.
 
 - Returns `false` if the descriptor has no genesis hash.
-- Returns `false` if the chain has not been initialized via `getChainAPI()`.
+- Returns `false` if the chain has not been initialized via `createChainClient()` or `getChainAPI()`.
 
 ```ts
 import { bulletin } from "@polkadot-apps/descriptors/bulletin";
-isConnected(bulletin); // false (before getChainAPI)
+isConnected(bulletin); // false (before connecting)
 await getChainAPI("paseo");
 isConnected(bulletin); // true
 ```
@@ -166,7 +282,7 @@ Creates a papi-compatible JSON-RPC provider for a chain:
 
 ### HMR Cache (`hmr.ts`)
 
-Client connections are cached on `globalThis.__chainClientCache` to survive hot module replacement during development. Cache keys are `${env}:${genesis}` to avoid collisions when the same chain (e.g., bulletin) is used across environments.
+Client connections are cached on `globalThis.__chainClientCache` to survive hot module replacement during development. Cache keys are `${fingerprint}:${genesis}` where the fingerprint is derived from sorted chain names + genesis hashes.
 
 ### Available RPCs (paseo)
 

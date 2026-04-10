@@ -47,9 +47,6 @@ export type {
     RingLocation,
 } from "./providers/host.js";
 
-// Container detection
-export { isInsideContainer } from "./container.js";
-
 // Retry utility
 export { withRetry } from "./retry.js";
 export type { RetryOptions } from "./retry.js";

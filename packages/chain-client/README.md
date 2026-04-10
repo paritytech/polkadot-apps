@@ -1,47 +1,82 @@
 # @polkadot-apps/chain-client
 
-Multi-chain Polkadot API client with typed access to Asset Hub, Bulletin, and Individuality chains.
+Multi-chain Polkadot API client with two connection modes: **BYOD** (bring your own descriptors) for zero-overhead custom setups, or **Preset** for zero-config access to known environments.
 
 ## Install
 
 ```bash
-pnpm add @polkadot-apps/chain-client
+pnpm add @polkadot-apps/chain-client polkadot-api
 ```
 
-**Peer dependency**: `polkadot-api` must be installed in your project.
+For the BYOD path, also install descriptors for the chains you need:
 
 ```bash
-pnpm add polkadot-api
+pnpm add @polkadot-apps/descriptors
 ```
 
-**Host routing**: When running inside a Polkadot Desktop/Mobile container, connections are automatically routed through the host via `@polkadot-apps/host`.
-
 ## Quick start
+
+### BYOD — bring your own descriptors
+
+Import descriptors for exactly the chains you need. No unused chain metadata is bundled.
+
+```typescript
+import { createChainClient } from "@polkadot-apps/chain-client";
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+import { bulletin } from "@polkadot-apps/descriptors/bulletin";
+
+const client = await createChainClient({
+    chains: { assetHub: paseo_asset_hub, bulletin },
+    rpcs: {
+        assetHub: ["wss://sys.ibp.network/asset-hub-paseo"],
+        bulletin: ["wss://paseo-bulletin-rpc.polkadot.io"],
+    },
+});
+
+// Fully typed from your descriptors
+const account = await client.assetHub.query.System.Account.getValue(address);
+const fee = await client.bulletin.query.TransactionStorage.ByteFee.getValue();
+
+client.destroy();
+```
+
+### Preset — zero config
+
+No descriptor imports needed. Built-in descriptors and RPCs for known environments.
 
 ```typescript
 import { getChainAPI } from "@polkadot-apps/chain-client";
 
-const api = await getChainAPI("paseo");
+const client = await getChainAPI("paseo");
 
-// Query Asset Hub
-const account = await api.assetHub.query.System.Account.getValue(address);
+// Same fully-typed APIs — no imports needed
+const account = await client.assetHub.query.System.Account.getValue(address);
+const fee = await client.bulletin.query.TransactionStorage.ByteFee.getValue();
 
-// Query Bulletin chain
-const fee = await api.bulletin.query.TransactionStorage.ByteFee.getValue();
-
-// Use Ink contracts via the contracts SDK
-const contract = api.contracts.getContract(descriptor, contractAddress);
+client.destroy();
 ```
 
-## Supported environments
+### When to use which
 
-`getChainAPI` accepts an `Environment` value. Currently only `"paseo"` is fully configured with all three chains (Asset Hub, Bulletin, Individuality). Calling `getChainAPI("polkadot")` or `getChainAPI("kusama")` throws until those environments are live.
+| | BYOD (`createChainClient`) | Preset (`getChainAPI`) |
+|---|---|---|
+| **Bundle size** | Only your chosen chains | All chains for the environment |
+| **Configuration** | You provide descriptors + RPCs | Zero config |
+| **Custom chains** | Any PAPI-compatible chain | Only polkadot/kusama/paseo |
+| **Best for** | Production apps, libraries | Prototyping, scripts |
 
-| Environment | Asset Hub | Bulletin | Individuality | Status |
-|-------------|-----------|----------|---------------|--------|
-| `"paseo"` | Yes | Yes | Yes | Available |
-| `"polkadot"` | -- | -- | -- | Not yet available |
-| `"kusama"` | -- | -- | -- | Not yet available |
+## Contracts (InkSdk)
+
+Create an InkSdk from the raw `PolkadotClient` via `.raw`:
+
+```typescript
+import { createInkSdk } from "@polkadot-api/sdk-ink";
+import { ContractManager } from "@polkadot-apps/contracts";
+
+// Works with either createChainClient or getChainAPI
+const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+const manager = new ContractManager(cdmJson, inkSdk, { signerManager });
+```
 
 ## Connection routing
 
@@ -50,131 +85,119 @@ Connections are established automatically based on the runtime environment:
 - **Inside a container** (Polkadot Desktop/Mobile): routes through the Host API via `@polkadot-apps/host`.
 - **Outside a container** (standalone browser or Node.js): connects directly over WebSocket RPC.
 
-Detect the environment programmatically:
-
 ```typescript
 import { isInsideContainer } from "@polkadot-apps/chain-client";
 
-if (isInsideContainer()) {
-  console.log("Connections routed through Host API");
+if (await isInsideContainer()) {
+    console.log("Connections routed through Host API");
 }
 ```
 
-## Chain API structure
-
-The object returned by `getChainAPI` provides typed access to each chain's runtime, derived from on-chain descriptors. Every property and query method is fully typed -- no manual type assertions needed.
-
-```typescript
-const api = await getChainAPI("paseo");
-
-// api.assetHub  — typed API for Paseo Asset Hub
-// api.bulletin   — typed API for Bulletin chain
-// api.individuality — typed API for Individuality chain
-// api.contracts  — Ink SDK instance bound to Asset Hub
-// api.destroy()  — close all connections for this environment
-```
-
-## Contracts
-
-The `contracts` property is an Ink SDK instance (`createInkSdk`) pre-configured for the environment's Asset Hub. Use it to interact with ink! smart contracts.
-
-```typescript
-const api = await getChainAPI("paseo");
-
-const contract = api.contracts.getContract(descriptor, contractAddress);
-const result = await contract.query.myMethod(args);
-```
-
-## Bundle size
-
-Descriptors are lazy-loaded per environment. Calling `getChainAPI("paseo")` only bundles metadata for Paseo Asset Hub, Bulletin, and Individuality -- not all five supported chains. Unused environments (e.g., Polkadot, Kusama) are excluded from the bundle via dynamic imports.
-
 ## Raw client access
 
-For advanced use cases, access the underlying `PolkadotClient` directly or check connection status.
+Access the underlying `PolkadotClient` for advanced use cases:
 
 ```typescript
+// Via .raw (on the client instance)
+const polkadotClient = client.raw.assetHub;
+
+// Via getClient (global lookup by descriptor)
 import { getClient, isConnected } from "@polkadot-apps/chain-client";
 import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
 
-const client = getClient(paseo_asset_hub);
+const polkadotClient = getClient(paseo_asset_hub);
 const connected = isConnected(paseo_asset_hub); // boolean, synchronous
 ```
 
 ## Cleanup
 
-Destroy connections when they are no longer needed. You can destroy a single environment or all environments at once.
-
 ```typescript
-import { getChainAPI, destroyAll } from "@polkadot-apps/chain-client";
+// Destroy one client's connections
+client.destroy();
 
-const api = await getChainAPI("paseo");
-
-// Destroy one environment
-api.destroy();
-
-// Destroy all environments
+// Destroy ALL connections across all clients
+import { destroyAll } from "@polkadot-apps/chain-client";
 destroyAll();
 ```
 
+## Supported preset environments
+
+| Environment | Asset Hub | Bulletin | Individuality | Status |
+|-------------|-----------|----------|---------------|--------|
+| `"paseo"` | Yes | Yes | Yes | Available |
+| `"polkadot"` | -- | -- | -- | Not yet available |
+| `"kusama"` | -- | -- | -- | Not yet available |
+
 ## API
 
-### `getChainAPI<E extends Environment>(env: E): Promise<ChainAPI<E>>`
+### `createChainClient<TChains>(config): Promise<ChainClient<TChains>>`
 
-Return the typed chain API for a given environment. Results are cached -- calling `getChainAPI("paseo")` twice returns the same instance.
+Create a chain client with user-provided descriptors and RPC endpoints. Results are cached by genesis-hash fingerprint.
+
+```typescript
+const client = await createChainClient({
+    chains: { assetHub: paseo_asset_hub, bulletin },
+    rpcs: { assetHub: ["wss://..."], bulletin: ["wss://..."] },
+    meta: { assetHub: { mode: "lightclient", relayChainSpec: "..." } }, // optional
+});
+```
+
+**Returns**: `ChainClient<TChains>` — typed APIs per chain key + `.raw` + `.destroy()`.
+
+### `getChainAPI<E extends Environment>(env): Promise<ChainClient<PresetChains<E>>>`
+
+Get a chain client for a known environment with built-in descriptors and RPCs. Internally calls `createChainClient` with preset configuration.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `env` | `Environment` | `"polkadot"`, `"kusama"`, or `"paseo"`. |
 
-**Returns**: `Promise<ChainAPI<E>>` with typed `assetHub`, `bulletin`, `individuality`, `contracts`, and `destroy()`.
+**Returns**: `ChainClient` with `assetHub`, `bulletin`, `individuality`, `.raw`, and `.destroy()`.
 
 **Throws** when the requested environment is not yet available.
 
 ### `destroyAll(): void`
 
-Destroy all cached chain API instances and close their connections.
+Destroy all chain client instances and reset internal caches including the smoldot worker.
 
 ### `getClient(descriptor): PolkadotClient`
 
-Return the raw `PolkadotClient` for a connected chain identified by its descriptor.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `descriptor` | `ChainDefinition` | A chain descriptor from `@polkadot-apps/descriptors`. |
+Return the raw `PolkadotClient` for a connected chain identified by its descriptor. The chain must have been initialized first.
 
 ### `isConnected(descriptor): boolean`
 
-Check whether a chain is currently connected. Synchronous.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `descriptor` | `ChainDefinition` | A chain descriptor from `@polkadot-apps/descriptors`. |
+Check whether a chain is currently connected. Synchronous, no side effects.
 
 ### `isInsideContainer(): boolean`
 
-Synchronous check for whether the app is running inside a Polkadot Desktop/Mobile container. Re-exported from `@polkadot-apps/host`.
+Check whether the app is running inside a Polkadot Desktop/Mobile container. Re-exported from `@polkadot-apps/host`.
 
 ## Types
 
 ```typescript
-type Environment = "polkadot" | "kusama" | "paseo";
+/** Configuration for createChainClient. */
+interface ChainClientConfig<TChains extends Record<string, ChainDefinition>> {
+    chains: TChains;
+    rpcs: { [K in keyof TChains]: readonly string[] };
+    meta?: { [K in keyof TChains]?: Omit<ChainMeta, "rpcs"> };
+}
 
-type ChainAPI<E extends Environment> = {
-  assetHub: TypedApi;        // typed from descriptors for the given environment
-  bulletin: TypedApi;        // typed from the bulletin descriptor
-  individuality: TypedApi;   // typed from the individuality descriptor
-  contracts: InkSdk;         // Ink SDK bound to Asset Hub
-  destroy: () => void;
+/** Connected chain client — typed APIs + raw clients + destroy. */
+type ChainClient<TChains extends Record<string, ChainDefinition>> = {
+    [K in keyof TChains]: TypedApi<TChains[K]>;
+} & {
+    raw: { [K in keyof TChains]: PolkadotClient };
+    destroy: () => void;
 };
 
+type Environment = "polkadot" | "kusama" | "paseo";
 type ConnectionMode = "rpc" | "lightclient";
 
 interface ChainMeta {
-  rpcs?: readonly string[];
-  relayChainSpec?: string;
-  paraChainSpec?: string;
-  mode?: ConnectionMode;
+    rpcs?: readonly string[];
+    relayChainSpec?: string;
+    paraChainSpec?: string;
+    mode?: ConnectionMode;
 }
 ```
 

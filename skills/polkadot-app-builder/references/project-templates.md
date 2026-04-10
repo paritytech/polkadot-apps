@@ -38,10 +38,12 @@ Starter configurations for new Polkadot apps using `@polkadot-apps` packages.
   },
   "dependencies": {
     "@polkadot-apps/chain-client": "latest",
+    "@polkadot-apps/contracts": "latest",
     "@polkadot-apps/tx": "latest",
     "@polkadot-apps/bulletin": "latest",
     "@polkadot-apps/address": "latest",
     "@polkadot-apps/logger": "latest",
+    "@polkadot-api/sdk-ink": "latest",
     "polkadot-api": "^1.23.3"
   },
   "devDependencies": {
@@ -81,14 +83,14 @@ Starter configurations for new Polkadot apps using `@polkadot-apps` packages.
 import { getChainAPI, destroyAll } from "@polkadot-apps/chain-client";
 
 async function main() {
-    const api = await getChainAPI("paseo");
+    const client = await getChainAPI("paseo");
 
     // Query block number
-    const blockNumber = await api.assetHub.query.System.Number.getValue();
+    const blockNumber = await client.assetHub.query.System.Number.getValue();
     console.log("Block number:", blockNumber);
 
     // Query account balance
-    const account = await api.assetHub.query.System.Account.getValue(
+    const account = await client.assetHub.query.System.Account.getValue(
         "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", // Alice
     );
     console.log("Free balance:", account.data.free);
@@ -107,17 +109,50 @@ import { submitAndWatch, createDevSigner } from "@polkadot-apps/tx";
 import { Binary } from "polkadot-api";
 
 async function main() {
-    const api = await getChainAPI("paseo");
+    const client = await getChainAPI("paseo");
     const signer = createDevSigner("Alice");
 
     // Build a System.remark transaction
-    const tx = api.assetHub.tx.System.remark({
+    const tx = client.assetHub.tx.System.remark({
         remark: Binary.fromText("Hello from my Polkadot app!"),
     });
 
     // Submit and watch lifecycle
     const result = await submitAndWatch(tx, signer, { waitFor: "finalized" });
     console.log("Transaction finalized in block:", result.block.hash);
+
+    destroyAll();
+}
+
+main().catch(console.error);
+```
+
+### Interact with a smart contract
+
+```typescript
+import { createChainClient, destroyAll } from "@polkadot-apps/chain-client";
+import { createInkSdk } from "@polkadot-api/sdk-ink";
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+import { ContractManager } from "@polkadot-apps/contracts";
+import { createDevSigner } from "@polkadot-apps/tx";
+import cdmJson from "./cdm.json";
+
+async function main() {
+    const client = await createChainClient({
+        chains: { assetHub: paseo_asset_hub },
+        rpcs: { assetHub: ["wss://sys.ibp.network/asset-hub-paseo"] },
+    });
+    const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+    const manager = new ContractManager(cdmJson, inkSdk);
+    const counter = manager.getContract("@example/counter");
+
+    // Query (read-only, no signer needed)
+    const { value } = await counter.getCount.query();
+    console.log("Count:", value);
+
+    // Transaction (requires signer)
+    const alice = createDevSigner("Alice");
+    await counter.increment.tx({ signer: alice });
 
     destroyAll();
 }

@@ -1,6 +1,40 @@
 # Supported Chains and Environments
 
-## Environments
+## Two Paths to Chain Connection
+
+### Preset: `getChainAPI(env)`
+
+Zero-config connection to a known environment. Returns a `ChainClient` with `assetHub`, `bulletin`, and `individuality` chains plus `.raw` access to raw `PolkadotClient` instances.
+
+```ts
+import { getChainAPI } from "@polkadot-apps/chain-client";
+
+const client = await getChainAPI("paseo");
+// client.assetHub, client.bulletin, client.individuality — typed APIs
+// client.raw.assetHub, client.raw.bulletin — raw PolkadotClient instances
+```
+
+### BYOD: `createChainClient(config)`
+
+Bring Your Own Descriptors. Connect to any combination of chains with your own descriptors and RPC endpoints.
+
+```ts
+import { createChainClient } from "@polkadot-apps/chain-client";
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+import { bulletin } from "@polkadot-apps/descriptors/bulletin";
+
+const client = await createChainClient({
+    chains: { assetHub: paseo_asset_hub, bulletin },
+    rpcs: {
+        assetHub: ["wss://sys.ibp.network/asset-hub-paseo"],
+        bulletin: ["wss://paseo-bulletin-rpc.polkadot.io"],
+    },
+});
+// client.assetHub, client.bulletin — typed APIs (names match your config keys)
+// client.raw.assetHub, client.raw.bulletin — raw PolkadotClient instances
+```
+
+## Preset Environments
 
 > **WARNING:** Only `"paseo"` is currently available. `"polkadot"` and `"kusama"` will throw: `Chain API for "<env>" is not yet available`.
 
@@ -45,10 +79,10 @@ Identity and personhood chain.
 
 ## Connection Modes
 
-`@polkadot-apps/chain-client` supports three connection modes (auto-detected):
+Both `getChainAPI` and `createChainClient` support three connection modes (auto-detected):
 
 1. **Host API** — When inside Polkadot Desktop/Mobile container (via `@novasamatech/product-sdk`)
-2. **Direct WebSocket** — Fallback using RPC endpoints listed above
+2. **Direct WebSocket** — Fallback using RPC endpoints (preset or user-provided)
 3. **Smoldot light client** — Embedded light client with relay chain caching
 
 ## Genesis Hashes

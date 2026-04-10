@@ -105,6 +105,9 @@ importers:
       '@polkadot-apps/chain-client':
         specifier: workspace:*
         version: link:../../packages/chain-client
+      '@polkadot-apps/descriptors':
+        specifier: workspace:*
+        version: link:../../packages/descriptors
       '@polkadot-apps/logger':
         specifier: workspace:*
         version: link:../../packages/logger
@@ -367,6 +370,9 @@ importers:
       '@polkadot-apps/address':
         specifier: workspace:*
         version: link:../address
+      '@polkadot-apps/host':
+        specifier: workspace:*
+        version: link:../host
       '@polkadot-apps/keys':
         specifier: workspace:*
         version: link:../keys

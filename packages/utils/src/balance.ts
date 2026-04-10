@@ -34,7 +34,7 @@ export interface BalanceApi {
  * PAPI typed API that has the System pallet — no chain-specific imports needed.
  *
  * @param api - A PAPI typed API with `query.System.Account`. Pass the chain-specific
- *   API (e.g., `api.assetHub`), not the multi-chain `ChainAPI` wrapper.
+ *   API (e.g., `client.assetHub`), not the multi-chain `ChainClient` wrapper.
  * @param address - The SS58 address to query.
  * @returns The account's balance breakdown.
  *

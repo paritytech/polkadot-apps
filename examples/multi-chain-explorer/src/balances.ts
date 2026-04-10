@@ -1,11 +1,11 @@
-import type { getChainAPI } from "@polkadot-apps/chain-client";
+import type { connect } from "./connect.js";
 import { ss58Encode, truncateAddress } from "@polkadot-apps/address";
 import { getDevPublicKey } from "@polkadot-apps/tx";
 import { getBalance, formatBalance } from "@polkadot-apps/utils";
 
-type ChainAPI = Awaited<ReturnType<typeof getChainAPI>>;
+type Client = Awaited<ReturnType<typeof connect>>;
 
-export async function queryBalance(api: ChainAPI) {
+export async function queryBalance(api: Client) {
   console.log("\n--- Alice's Balance ---");
 
   const alicePubKey = getDevPublicKey("Alice");

@@ -1,4 +1,4 @@
-import type { HexString } from "polkadot-api";
+import type { HexString, PolkadotClient } from "polkadot-api";
 import type { InkSdk } from "@polkadot-api/sdk-ink";
 import { wrapContract } from "./wrap.js";
 import { ContractNotFoundError } from "./errors.js";
@@ -23,12 +23,18 @@ import type {
  *
  * @example
  * ```ts
- * import { getChainAPI } from "@polkadot-apps/chain-client";
+ * import { createChainClient } from "@polkadot-apps/chain-client";
+ * import { createInkSdk } from "@polkadot-api/sdk-ink";
+ * import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
  * import { ContractManager } from "@polkadot-apps/contracts";
  * import cdmJson from "./cdm.json";
  *
- * const api = await getChainAPI("paseo");
- * const manager = new ContractManager(cdmJson, api.contracts, {
+ * const client = await createChainClient({
+ *     chains: { assetHub: paseo_asset_hub },
+ *     rpcs: { assetHub: ["wss://sys.ibp.network/asset-hub-paseo"] },
+ * });
+ * const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+ * const manager = new ContractManager(cdmJson, inkSdk, {
  *     signerManager: signerManager, // from @polkadot-apps/signer
  * });
  *
@@ -71,6 +77,45 @@ export class ContractManager {
         if (defaults.signer !== undefined) this.defaults.signer = defaults.signer;
     }
 
+    /**
+     * Create a ContractManager from a raw `PolkadotClient`.
+     *
+     * Convenience factory that creates the InkSdk internally via dynamic import
+     * of `@polkadot-api/sdk-ink`. The ~4 MB sdk-ink metadata is loaded lazily
+     * only when this method is called.
+     *
+     * For size-sensitive apps, prefer the constructor with a pre-created `InkSdk`
+     * to control exactly when `@polkadot-api/sdk-ink` is loaded.
+     *
+     * @param cdmJson - The CDM manifest.
+     * @param client - A `PolkadotClient` for the chain where contracts are deployed (e.g., `client.raw.assetHub`).
+     * @param options - Optional configuration (signerManager, defaults).
+     *
+     * @example
+     * ```ts
+     * import { createChainClient } from "@polkadot-apps/chain-client";
+     * import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+     * import { ContractManager } from "@polkadot-apps/contracts";
+     *
+     * const client = await createChainClient({
+     *     chains: { assetHub: paseo_asset_hub },
+     *     rpcs: { assetHub: ["wss://sys.ibp.network/asset-hub-paseo"] },
+     * });
+     * const manager = await ContractManager.fromClient(cdmJson, client.raw.assetHub, {
+     *     signerManager,
+     * });
+     * ```
+     */
+    static async fromClient(
+        cdmJson: CdmJson,
+        client: PolkadotClient,
+        options?: ContractManagerOptions,
+    ): Promise<ContractManager> {
+        const { createInkSdk } = await import("@polkadot-api/sdk-ink");
+        const inkSdk = createInkSdk(client, { atBest: true });
+        return new ContractManager(cdmJson, inkSdk, options);
+    }
+
     private getContractData(library: string): CdmJsonContract {
         const contractsForTarget = this.cdmJson.contracts?.[this.targetHash];
         if (!contractsForTarget || !(library in contractsForTarget)) {
@@ -108,8 +153,10 @@ export class ContractManager {
  *
  * @example
  * ```ts
- * const api = await getChainAPI("paseo");
- * const counter = createContract(api.contracts, "0xC472...", abi, {
+ * import { createInkSdk } from "@polkadot-api/sdk-ink";
+ *
+ * const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+ * const counter = createContract(inkSdk, "0xC472...", abi, {
  *     signerManager: signerManager,
  * });
  * await counter.getCount.query();
@@ -131,8 +178,31 @@ export function createContract(
     return wrapContract(inkContract, abi, defaults);
 }
 
+/**
+ * Create a contract handle from a raw `PolkadotClient`, address, and ABI.
+ *
+ * Convenience wrapper that creates the InkSdk internally via dynamic import.
+ * For size-sensitive apps, use {@link createContract} with a pre-created `InkSdk`.
+ *
+ * @example
+ * ```ts
+ * const counter = await createContractFromClient(client.raw.assetHub, "0xC472...", abi);
+ * const { value } = await counter.getCount.query();
+ * ```
+ */
+export async function createContractFromClient(
+    client: PolkadotClient,
+    address: HexString,
+    abi: AbiEntry[],
+    options?: ContractOptions,
+): Promise<Contract<ContractDef>> {
+    const { createInkSdk } = await import("@polkadot-api/sdk-ink");
+    const inkSdk = createInkSdk(client, { atBest: true });
+    return createContract(inkSdk, address, abi, options);
+}
+
 if (import.meta.vitest) {
-    const { test, expect, describe } = import.meta.vitest;
+    const { test, expect, describe, vi } = import.meta.vitest;
 
     function mockSigner(opts: {
         address?: string | null;
@@ -471,6 +541,65 @@ if (import.meta.vitest) {
 
             await contract.increment.tx();
             expect(capturedSigner).toBe(hostSigner);
+        });
+    });
+
+    describe("ContractManager.fromClient", () => {
+        test("creates ContractManager from PolkadotClient via dynamic import", async () => {
+            const fakeInkSdk = {
+                getContract: (_descriptor: any, _address: any) => ({
+                    query: async () => ({ success: true, value: { response: 1, gasRequired: 1n } }),
+                    send: () => ({ waited: Promise.resolve({ ok: true, value: undefined }) }),
+                }),
+            };
+
+            vi.doMock("@polkadot-api/sdk-ink", () => ({
+                createInkSdk: () => fakeInkSdk,
+            }));
+
+            const fakeClient = {} as any;
+            const manager = await ContractManager.fromClient(cdmJson, fakeClient);
+            expect(manager).toBeInstanceOf(ContractManager);
+
+            vi.doUnmock("@polkadot-api/sdk-ink");
+        });
+    });
+
+    describe("createContractFromClient", () => {
+        const abi: import("./types.js").AbiEntry[] = [
+            {
+                type: "function",
+                name: "getCount",
+                inputs: [],
+                outputs: [{ name: "", type: "uint32" }],
+                stateMutability: "view",
+            },
+        ];
+
+        test("creates contract handle from PolkadotClient via dynamic import", async () => {
+            const fakeInkSdk = {
+                getContract: (_descriptor: any, _address: any) => ({
+                    query: async (method: string) => ({
+                        success: true,
+                        value: { response: 42, gasRequired: 100n },
+                    }),
+                    send: () => fakeSendResult("0xabc", true),
+                }),
+            };
+
+            vi.doMock("@polkadot-api/sdk-ink", () => ({
+                createInkSdk: () => fakeInkSdk,
+            }));
+
+            const fakeClient = {} as any;
+            const contract = await createContractFromClient(fakeClient, "0xABC" as any, abi, {
+                defaultOrigin: "5X" as any,
+                defaultSigner: {} as any,
+            });
+            expect(contract.getCount).toBeDefined();
+            expect(contract.getCount.query).toBeTypeOf("function");
+
+            vi.doUnmock("@polkadot-api/sdk-ink");
         });
     });
 }
