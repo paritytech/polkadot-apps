@@ -417,7 +417,10 @@ export class StatementStoreClient {
      * Returns true if the statement was new and delivered.
      */
     private handleStatementReceived(hex: string): boolean {
-        log.debug("Processing statement", { hexLength: hex.length, preview: hex.slice(0, 40) + "..." });
+        log.debug("Processing statement", {
+            hexLength: hex.length,
+            preview: hex.slice(0, 40) + "...",
+        });
 
         const parsed = this.parseStatement<unknown>(hex);
         if (!parsed) {

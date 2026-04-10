@@ -161,9 +161,17 @@ export class RpcTransport implements StatementTransport {
                                     onStatement(hex);
                                 }
                             } else {
-                                log.warn("Could not extract statement event from subscription payload", {
-                                    keys: event != null && typeof event === "object" ? Object.keys(event as Record<string, unknown>).join(", ") : "N/A",
-                                });
+                                log.warn(
+                                    "Could not extract statement event from subscription payload",
+                                    {
+                                        keys:
+                                            event != null && typeof event === "object"
+                                                ? Object.keys(
+                                                      event as Record<string, unknown>,
+                                                  ).join(", ")
+                                                : "N/A",
+                                    },
+                                );
                             }
                         },
                         error: (e: Error) => {
