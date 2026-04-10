@@ -46,7 +46,11 @@ export function createNodeStorageAdapter(appId: string, storageDir?: string): St
         const subs = subscribers.get(key);
         if (subs) {
             for (const cb of subs) {
-                try { cb(value); } catch { /* ignore */ }
+                try {
+                    cb(value);
+                } catch {
+                    /* ignore */
+                }
             }
         }
     }
@@ -63,7 +67,9 @@ export function createNodeStorageAdapter(appId: string, storageDir?: string): St
             return fromPromise(
                 ensureDir()
                     .then(() => writeFile(fp(key), value, "utf-8"))
-                    .then(() => { notifySubscribers(key, value); }),
+                    .then(() => {
+                        notifySubscribers(key, value);
+                    }),
                 toError,
             ).map(() => undefined as void);
         },
@@ -72,7 +78,9 @@ export function createNodeStorageAdapter(appId: string, storageDir?: string): St
             return fromPromise(
                 unlink(fp(key))
                     .catch(() => {})
-                    .then(() => { notifySubscribers(key, null); }),
+                    .then(() => {
+                        notifySubscribers(key, null);
+                    }),
                 toError,
             ).map(() => undefined as void);
         },
@@ -102,7 +110,11 @@ if (import.meta.vitest) {
 
     afterAll(async () => {
         // Clean up any remaining test dirs
-        try { await rm(testDir, { recursive: true }); } catch { /* ignore */ }
+        try {
+            await rm(testDir, { recursive: true });
+        } catch {
+            /* ignore */
+        }
     });
 
     describe("createNodeStorageAdapter", () => {
@@ -185,8 +197,12 @@ if (import.meta.vitest) {
         test("subscriber errors do not break other subscribers", async () => {
             const store = createNodeStorageAdapter("test", testDir);
             const values: string[] = [];
-            store.subscribe("key1", () => { throw new Error("boom"); });
-            store.subscribe("key1", (v) => { if (v) values.push(v); });
+            store.subscribe("key1", () => {
+                throw new Error("boom");
+            });
+            store.subscribe("key1", (v) => {
+                if (v) values.push(v);
+            });
 
             await store.write("key1", "hello");
             expect(values).toEqual(["hello"]);

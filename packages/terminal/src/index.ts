@@ -1,5 +1,9 @@
 // Terminal Adapter
-export { createTerminalAdapter, SS_STABLE_STAGE_ENDPOINTS, SS_PASEO_STABLE_STAGE_ENDPOINTS } from "./adapter.js";
+export {
+    createTerminalAdapter,
+    SS_STABLE_STAGE_ENDPOINTS,
+    SS_PASEO_STABLE_STAGE_ENDPOINTS,
+} from "./adapter.js";
 export type { TerminalAdapterOptions, TerminalAdapter } from "./adapter.js";
 
 // QR Encoding
