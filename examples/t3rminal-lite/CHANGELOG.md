@@ -1,5 +1,15 @@
 # t3rminal-lite
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [af74940]
+- Updated dependencies [2692df9]
+  - @polkadot-apps/chain-client@2.0.0
+  - @polkadot-apps/signer@1.0.0
+  - @polkadot-apps/tx@0.3.3
+
 ## 0.0.7
 
 ### Patch Changes
