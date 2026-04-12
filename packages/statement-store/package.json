@@ -1,6 +1,6 @@
 {
     "name": "@polkadot-apps/statement-store",
-    "description": "Publish/subscribe client for the Polkadot Statement Store with topic-based routing and SCALE encoding",
+    "description": "Publish/subscribe client for the Polkadot Statement Store with host-first transport and topic-based routing",
     "version": "0.2.11",
     "type": "module",
     "main": "./dist/index.js",
@@ -21,13 +21,23 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
-        "@polkadot-apps/chain-client": "workspace:*",
-        "@polkadot-apps/descriptors": "workspace:*",
+        "@novasamatech/sdk-statement": "catalog:",
+        "@polkadot-api/substrate-client": "catalog:",
+        "@polkadot-apps/host": "workspace:*",
         "@polkadot-apps/logger": "workspace:*",
         "@polkadot-apps/utils": "workspace:*",
         "polkadot-api": "catalog:"
     },
+    "peerDependencies": {
+        "@novasamatech/product-sdk": ">=0.6.0"
+    },
+    "peerDependenciesMeta": {
+        "@novasamatech/product-sdk": {
+            "optional": true
+        }
+    },
     "devDependencies": {
+        "@novasamatech/product-sdk": "catalog:",
         "typescript": "catalog:"
     }
 }

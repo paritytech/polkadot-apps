@@ -1,298 +1,241 @@
 import { createLogger } from "@polkadot-apps/logger";
+import { DEFAULT_BULLETIN_ENDPOINT } from "@polkadot-apps/host";
 
 import { StatementConnectionError, StatementSubscriptionError } from "./errors.js";
-import { serializeTopicFilter, topicToHex } from "./topics.js";
-import type {
-    StatementEvent,
-    StatementTransport,
-    SubmitStatus,
-    TopicFilter,
-    TopicHash,
-    Unsubscribable,
-} from "./types.js";
+import type { ConnectionCredentials, StatementTransport, Unsubscribable } from "./types.js";
+
+import type { Statement, TopicFilter as SdkTopicFilter } from "@novasamatech/sdk-statement";
 
 const log = createLogger("statement-store:transport");
 
 // ============================================================================
-// Statement Event Extraction
+// Host Transport — uses the Host API's native binary protocol
 // ============================================================================
 
 /**
- * Extract a {@link StatementEvent} from the various response formats
- * that different node versions produce.
+ * Statement transport that uses the Host API inside containers.
  *
- * Handles:
- * - Direct: `{ statements: [...] }`
- * - Wrapped: `{ NewStatements: { statements: [...] } }`
- * - Data-wrapped: `{ data: { statements: [...] } }` (most common in practice)
+ * Communicates through the host's native `remote_statement_store_*` protocol
+ * which bypasses JSON-RPC entirely. Subscriptions, proof creation, and submission
+ * all go through typed binary messages over the host transport.
  */
-function extractStatementEvent(event: unknown): StatementEvent | null {
-    if (event == null || typeof event !== "object") return null;
+class HostTransport implements StatementTransport {
+    private readonly store: HostStore;
 
-    const obj = event as Record<string, unknown>;
-
-    // Direct format
-    if (Array.isArray(obj.statements)) {
-        return obj as unknown as StatementEvent;
+    constructor(store: HostStore) {
+        this.store = store;
     }
 
-    // NewStatements wrapped format
-    if (
-        obj.NewStatements != null &&
-        typeof obj.NewStatements === "object" &&
-        Array.isArray((obj.NewStatements as Record<string, unknown>).statements)
-    ) {
-        return obj.NewStatements as unknown as StatementEvent;
-    }
-
-    // Data-wrapped format (what the node actually sends)
-    if (
-        obj.data != null &&
-        typeof obj.data === "object" &&
-        Array.isArray((obj.data as Record<string, unknown>).statements)
-    ) {
-        return obj.data as unknown as StatementEvent;
-    }
-
-    return null;
-}
-
-// ============================================================================
-// RPC Transport
-// ============================================================================
-
-/**
- * A PolkadotClient-compatible interface for raw RPC operations.
- *
- * This matches the subset of `PolkadotClient` methods we need.
- * Using an interface allows easy mocking in tests.
- */
-export interface RpcClient {
-    /** Make a one-shot RPC request. */
-    request: (method: string, params: unknown[]) => Promise<unknown>;
-    /** Start a subscription. Returns an unsubscribe function. */
-    _request: <T, S>(
-        method: string,
-        params: unknown[],
-        callbacks: {
-            onSuccess: (
-                subscriptionId: T,
-                followSubscription: (
-                    id: T,
-                    handlers: { next: (event: S) => void; error: (e: Error) => void },
-                ) => void,
-            ) => void;
-            onError: (error: Error) => void;
-        },
-    ) => () => void;
-    /** Destroy the client and close the connection. */
-    destroy: () => void;
-}
-
-/**
- * Statement store transport using JSON-RPC over WebSocket.
- *
- * Communicates with a statement store node via the standard `statement_*` RPC methods.
- * Supports both subscription-based real-time delivery and polling-based queries
- * with graceful fallback across multiple RPC methods.
- */
-export class RpcTransport implements StatementTransport {
-    private readonly client: RpcClient;
-    private readonly ownsClient: boolean;
-
-    /**
-     * @param client - The RPC client to use for communication.
-     * @param ownsClient - If true, `destroy()` will also destroy the client.
-     *   Set to false when sharing a client from chain-client.
-     */
-    constructor(client: RpcClient, ownsClient: boolean) {
-        this.client = client;
-        this.ownsClient = ownsClient;
-    }
-
-    /**
-     * Subscribe to statements matching a topic filter.
-     *
-     * Uses the `statement_subscribeStatement` RPC method which returns
-     * batched events via a subscription stream. Handles all three event formats
-     * (raw hex, StatementEvent, nested wrappers) for cross-node compatibility.
-     *
-     * If the node does not support subscriptions, `onError` is called
-     * and the caller should fall back to polling.
-     */
     subscribe(
-        filter: TopicFilter,
-        onStatement: (statementHex: string) => void,
+        filter: SdkTopicFilter,
+        onStatements: (statements: Statement[]) => void,
         onError: (error: Error) => void,
     ): Unsubscribable {
-        const serializedFilter = serializeTopicFilter(filter);
-
-        let unsubFn: (() => void) | null = null;
+        const topics = extractTopicBytes(filter);
 
         try {
-            unsubFn = this.client._request("statement_subscribeStatement", [serializedFilter], {
-                onSuccess: (_subscriptionId, followSubscription) => {
-                    log.info("Subscription active");
-                    followSubscription(_subscriptionId, {
-                        next: (event: unknown) => {
-                            // Handle raw hex string (legacy format)
-                            if (typeof event === "string") {
-                                onStatement(event);
-                                return;
-                            }
-
-                            // Extract batched event from various wrapper formats
-                            const statementEvent = extractStatementEvent(event);
-                            if (statementEvent) {
-                                for (const hex of statementEvent.statements) {
-                                    onStatement(hex);
-                                }
-                            }
-                        },
-                        error: (e: Error) => {
-                            log.warn("Subscription stream error", { error: e.message });
-                            onError(new StatementSubscriptionError(e.message, { cause: e }));
-                        },
-                    });
-                },
-                onError: (e: Error) => {
-                    log.warn("Subscription not available", { error: e.message });
-                    onError(new StatementSubscriptionError(e.message, { cause: e }));
-                },
+            const unsub = this.store.subscribe(topics, (statements) => {
+                // product-sdk delivers SignedStatement[] — map to Statement[] shape
+                onStatements(statements as unknown as Statement[]);
             });
+
+            log.info("Host subscription active");
+
+            return {
+                unsubscribe: () => {
+                    if (typeof unsub === "function") {
+                        unsub();
+                    } else if (
+                        unsub &&
+                        typeof (unsub as { unsubscribe?: () => void }).unsubscribe === "function"
+                    ) {
+                        (unsub as { unsubscribe: () => void }).unsubscribe();
+                    }
+                },
+            };
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
-            log.warn("Failed to start subscription", { error: msg });
+            log.warn("Host subscription failed", { error: msg });
             onError(new StatementSubscriptionError(msg));
+            return { unsubscribe: () => {} };
         }
-
-        return {
-            unsubscribe: () => {
-                if (unsubFn) {
-                    unsubFn();
-                    unsubFn = null;
-                }
-            },
-        };
     }
 
-    /**
-     * Submit a signed statement via the `statement_submit` RPC method.
-     *
-     * @returns The submission status extracted from the RPC response.
-     */
-    async submit(statementHex: string): Promise<SubmitStatus> {
-        const result = await this.client.request("statement_submit", [statementHex]);
+    async signAndSubmit(statement: Statement, credentials: ConnectionCredentials): Promise<void> {
+        if (credentials.mode !== "host") {
+            throw new StatementConnectionError(
+                "HostTransport requires host credentials. Use { mode: 'host', accountId } to connect.",
+            );
+        }
 
-        const status = extractSubmitStatus(result);
-        log.debug("Statement submitted", { status });
-        return status;
+        // Map our Statement to the host's expected format
+        const hostStatement = statement as unknown as Record<string, unknown>;
+        const proof = await this.store.createProof(credentials.accountId, hostStatement);
+        const signedStatement = { ...hostStatement, proof };
+        await this.store.submit(signedStatement as never);
+
+        log.debug("Statement submitted via host");
     }
 
-    /**
-     * Query existing statements from the store.
-     *
-     * Tries multiple RPC methods with graceful fallback:
-     * 1. `statement_posted` — filtered by topics + decryptionKey (most efficient)
-     * 2. `statement_broadcasts` — filtered by topics only
-     * 3. `statement_dump` — unfiltered, returns all statements
-     *
-     * Each method returns hex-encoded statements. If a method is not supported
-     * by the node, the next one is tried.
-     */
-    async query(topics: TopicHash[], decryptionKey?: string): Promise<string[]> {
-        const topicHexes = topics.map(topicToHex);
-
-        // Try statement_posted (for statements with decryptionKey)
-        if (decryptionKey) {
-            try {
-                const result = await this.client.request("statement_posted", [
-                    topicHexes,
-                    decryptionKey,
-                ]);
-                return asStringArray(result);
-            } catch (error) {
-                log.debug("statement_posted unavailable", {
-                    error: error instanceof Error ? error.message : String(error),
-                });
-            }
-        }
-
-        // Try statement_broadcasts
-        try {
-            const result = await this.client.request("statement_broadcasts", [topicHexes]);
-            return asStringArray(result);
-        } catch (error) {
-            log.debug("statement_broadcasts unavailable", {
-                error: error instanceof Error ? error.message : String(error),
-            });
-        }
-
-        // Fallback to statement_dump (all statements, unfiltered)
-        try {
-            const result = await this.client.request("statement_dump", []);
-            return asStringArray(result);
-        } catch (error) {
-            log.debug("statement_dump unavailable", {
-                error: error instanceof Error ? error.message : String(error),
-            });
-        }
-
-        return [];
-    }
-
-    /**
-     * Destroy the transport and release resources.
-     *
-     * If this transport owns the RPC client (created via `endpoint` config),
-     * the client is also destroyed. If the client is shared from chain-client,
-     * only the transport's state is cleaned up.
-     */
     destroy(): void {
-        if (this.ownsClient) {
-            this.client.destroy();
+        // Host owns the transport — nothing to clean up
+    }
+}
+
+// ============================================================================
+// RPC Transport — uses substrate-client + sdk-statement
+// ============================================================================
+
+/**
+ * Statement transport using JSON-RPC over WebSocket.
+ *
+ * Uses `@polkadot-api/substrate-client` (routes subscriptions by ID, not method name)
+ * with `@novasamatech/sdk-statement` for statement SCALE encoding/decoding.
+ *
+ * This is the fallback transport for outside-container usage (development, testing).
+ */
+class RpcTransport implements StatementTransport {
+    private readonly sdk: ReturnType<
+        typeof import("@novasamatech/sdk-statement").createStatementSdk
+    >;
+    private readonly destroyClient: () => void;
+
+    private constructor(sdk: RpcTransport["sdk"], destroyClient: () => void) {
+        this.sdk = sdk;
+        this.destroyClient = destroyClient;
+    }
+
+    static async create(endpoint: string): Promise<RpcTransport> {
+        const { getWsProvider } = await import("polkadot-api/ws-provider/web");
+        const { createClient: createSubstrateClient } = await import(
+            "@polkadot-api/substrate-client"
+        );
+        const { createStatementSdk } = await import("@novasamatech/sdk-statement");
+
+        const provider = getWsProvider(endpoint);
+        const client = createSubstrateClient(provider);
+
+        // Build request/subscribe functions from the substrate client
+        // following the lazyClient pattern from triangle-js-sdks
+        const requestFn = <Reply>(method: string, params: unknown[]) =>
+            new Promise<Reply>((resolve, reject) => {
+                client._request<Reply, unknown>(method, params, {
+                    onSuccess: (result) => resolve(result),
+                    onError: (e) => reject(e),
+                });
+            });
+
+        const subscribeFn = <T>(
+            method: string,
+            params: unknown[],
+            onMessage: (message: T) => void,
+            onError: (error: Error) => void,
+        ) => {
+            return client._request<string, T>(method, params, {
+                onSuccess: (subscriptionId, followSubscription) => {
+                    followSubscription(subscriptionId, { next: onMessage, error: onError });
+                },
+                onError,
+            });
+        };
+
+        const sdk = createStatementSdk(requestFn, subscribeFn);
+
+        // Warm up the WebSocket connection — substrate-client's _request throws
+        // synchronously if the WS isn't ready, unlike request() which queues.
+        try {
+            await requestFn("system_name", []);
+        } catch {
+            // Non-fatal — connection may still be usable
+        }
+
+        log.info("Connected via direct RPC", { endpoint });
+        return new RpcTransport(sdk, () => client.destroy());
+    }
+
+    subscribe(
+        filter: SdkTopicFilter,
+        onStatements: (statements: Statement[]) => void,
+        onError: (error: Error) => void,
+    ): Unsubscribable {
+        try {
+            const unsub = this.sdk.subscribeStatements(
+                filter,
+                (statement) => {
+                    // sdk-statement delivers one statement at a time — batch it
+                    onStatements([statement]);
+                },
+                (error) => {
+                    log.warn("RPC subscription error", { error: error.message });
+                    onError(new StatementSubscriptionError(error.message, { cause: error }));
+                },
+            );
+
+            log.info("RPC subscription active");
+
+            return {
+                unsubscribe: () => {
+                    unsub();
+                },
+            };
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            log.warn("Failed to start RPC subscription", { error: msg });
+            onError(new StatementSubscriptionError(msg));
+            return { unsubscribe: () => {} };
         }
     }
-}
 
-/** Extract a SubmitStatus from a potentially nested RPC response. */
-function extractSubmitStatus(result: unknown): SubmitStatus {
-    if (result == null) return "rejected";
-
-    if (typeof result === "string") {
-        const lower = result.toLowerCase();
-        if (lower === "new" || lower === "known") return lower as SubmitStatus;
-        return "rejected";
-    }
-
-    if (typeof result === "object") {
-        const obj = result as Record<string, unknown>;
-        if (typeof obj.status === "string") {
-            return extractSubmitStatus(obj.status);
+    async signAndSubmit(statement: Statement, credentials: ConnectionCredentials): Promise<void> {
+        if (credentials.mode !== "local") {
+            throw new StatementConnectionError(
+                "RpcTransport requires local credentials. Use { mode: 'local', signer } to connect.",
+            );
         }
+
+        const { getStatementSigner } = await import("@novasamatech/sdk-statement");
+
+        const signer = getStatementSigner(credentials.signer.publicKey, "sr25519", (data) =>
+            credentials.signer.sign(data),
+        );
+
+        const signed = await signer.sign(statement);
+        const result = await this.sdk.submit(signed);
+
+        if (result.status === "new" || result.status === "known") {
+            log.debug("Statement submitted via RPC", { status: result.status });
+            return;
+        }
+
+        throw new Error(
+            `Statement submission failed: ${result.status}${
+                "reason" in result ? ` (${(result as { reason: string }).reason})` : ""
+            }`,
+        );
     }
 
-    return "rejected";
+    async query(filter: SdkTopicFilter): Promise<Statement[]> {
+        return this.sdk.getStatements(filter);
+    }
+
+    destroy(): void {
+        this.destroyClient();
+    }
 }
 
-/** Safely cast an unknown RPC result to a string array. */
-function asStringArray(value: unknown): string[] {
-    if (Array.isArray(value)) {
-        return value.filter((item): item is string => typeof item === "string");
-    }
-    return [];
-}
+// ============================================================================
+// Transport Factory
+// ============================================================================
 
 /**
  * Create a statement store transport.
  *
  * Strategy (Host API first):
- * 1. Try chain-client's bulletin chain connection — this uses product-sdk's
- *    `createPapiProvider` which routes through the Host API when inside a container,
- *    falling back to direct RPC outside.
- * 2. If chain-client is unavailable (not initialized, not installed), fall back
- *    to a direct WebSocket connection using the provided `endpoint`.
- * 3. If neither works, throw {@link StatementConnectionError}.
+ * 1. Try the Host API via `@polkadot-apps/host` — uses the container's native
+ *    statement store protocol (binary, not JSON-RPC). This is the production path.
+ * 2. If the host is unavailable (not inside a container, product-sdk not installed),
+ *    fall back to a direct WebSocket connection using `@polkadot-api/substrate-client`
+ *    with `@novasamatech/sdk-statement`.
  *
  * @param config - Configuration with an optional fallback `endpoint`.
  * @returns A configured {@link StatementTransport}.
@@ -301,61 +244,77 @@ function asStringArray(value: unknown): string[] {
 export async function createTransport(config: {
     endpoint?: string;
 }): Promise<StatementTransport> {
-    // Always try chain-client first (routes through Host API in containers)
+    // 1. Try Host API first (inside container)
     try {
-        return await createChainClientTransport();
-    } catch (chainClientError) {
-        log.debug("Chain-client transport unavailable, trying direct endpoint", {
-            error:
-                chainClientError instanceof Error
-                    ? chainClientError.message
-                    : String(chainClientError),
+        const { getStatementStore } = await import("@polkadot-apps/host");
+        const store = await getStatementStore();
+        if (store) {
+            log.info("Using host API statement store transport");
+            return new HostTransport(store as unknown as HostStore);
+        }
+    } catch (error) {
+        log.debug("Host API unavailable", {
+            error: error instanceof Error ? error.message : String(error),
         });
     }
 
-    // Fall back to direct WebSocket if endpoint is provided
-    if (config.endpoint) {
-        return createDirectTransport(config.endpoint);
+    // 2. Fall back to direct RPC
+    const endpoint = config.endpoint ?? DEFAULT_BULLETIN_ENDPOINT;
+    if (endpoint) {
+        try {
+            return await RpcTransport.create(endpoint);
+        } catch (error) {
+            throw new StatementConnectionError(
+                `Failed to connect to ${endpoint}: ${error instanceof Error ? error.message : String(error)}`,
+                { cause: error instanceof Error ? error : undefined },
+            );
+        }
     }
 
     throw new StatementConnectionError(
-        "No connection method available. Either initialize chain-client " +
-            "(call createChainClient() or getChainAPI() first) or provide an explicit endpoint.",
+        "No connection method available. Run inside a container or provide an explicit endpoint.",
     );
 }
 
-/* @integration */
-async function createDirectTransport(endpoint: string): Promise<RpcTransport> {
-    try {
-        const { getWsProvider } = await import("polkadot-api/ws-provider/web");
-        const { createClient } = await import("polkadot-api");
-        const provider = getWsProvider(endpoint);
-        const client = createClient(provider);
-        log.info("Connected to statement store via direct endpoint", { endpoint });
-        return new RpcTransport(client as unknown as RpcClient, true);
-    } catch (error) {
-        throw new StatementConnectionError(
-            `Failed to connect to ${endpoint}: ${error instanceof Error ? error.message : String(error)}`,
-            { cause: error instanceof Error ? error : undefined },
-        );
-    }
+// ============================================================================
+// Internal Helpers
+// ============================================================================
+
+/** Minimal type for the host statement store returned by product-sdk. */
+interface HostStore {
+    subscribe(
+        topics: Uint8Array[],
+        callback: (statements: unknown[]) => void,
+    ): (() => void) | { unsubscribe: () => void };
+    createProof(accountId: [string, number], statement: Record<string, unknown>): Promise<unknown>;
+    submit(signedStatement: never): Promise<void>;
 }
 
-/* @integration */
-async function createChainClientTransport(): Promise<RpcTransport> {
-    try {
-        const { getClient } = await import("@polkadot-apps/chain-client");
-        const { bulletin } = await import("@polkadot-apps/descriptors/bulletin");
-        const client = getClient(bulletin);
-        log.info("Connected to statement store via chain-client bulletin");
-        return new RpcTransport(client as unknown as RpcClient, false);
-    } catch (error) {
-        throw new StatementConnectionError(
-            `Chain-client bulletin not available: ${error instanceof Error ? error.message : String(error)}`,
-            { cause: error instanceof Error ? error : undefined },
-        );
+/** Extract topic Uint8Arrays from an sdk-statement TopicFilter for the host API. */
+function extractTopicBytes(filter: SdkTopicFilter): Uint8Array[] {
+    if (filter === "any") return [];
+    if ("matchAll" in filter) {
+        return filter.matchAll.map(hexToBytes);
     }
+    if ("matchAny" in filter) {
+        return filter.matchAny.map(hexToBytes);
+    }
+    return [];
 }
+
+/** Convert a 0x-prefixed hex string to Uint8Array. */
+function hexToBytes(hex: string): Uint8Array {
+    const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
+    const bytes = new Uint8Array(clean.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(clean.substring(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 if (import.meta.vitest) {
     const { describe, test, expect, vi, beforeEach } = import.meta.vitest;
@@ -365,375 +324,78 @@ if (import.meta.vitest) {
         configure({ handler: () => {} });
     });
 
-    function createMockClient() {
-        const requestCalls: unknown[][] = [];
-        const _requestCalls: unknown[][] = [];
-        let destroyCalled = false;
-
-        const client: RpcClient = {
-            request: async (method: string, params: unknown[]) => {
-                requestCalls.push([method, params]);
-                return { status: "new" } as unknown;
-            },
-            _request: (method, params, callbacks) => {
-                _requestCalls.push([method, params, callbacks]);
-                return () => {};
-            },
-            destroy: () => {
-                destroyCalled = true;
-            },
-        };
-
-        return {
-            client,
-            requestCalls,
-            _requestCalls,
-            get destroyCalled() {
-                return destroyCalled;
-            },
-            /** Replace the request handler for a specific test. */
-            setRequest(fn: (method: string, params: unknown[]) => Promise<unknown>) {
-                client.request = fn;
-            },
-            /** Replace the _request handler for a specific test. */
-            set_Request(fn: RpcClient["_request"]) {
-                client._request = fn;
-            },
-        };
-    }
-
-    describe("RpcTransport", () => {
-        describe("subscribe", () => {
-            test("calls statement_subscribeStatement with serialized filter", () => {
-                const mock = createMockClient();
-                const transport = new RpcTransport(mock.client, false);
-
-                transport.subscribe(
-                    "any",
-                    () => {},
-                    () => {},
-                );
-
-                expect(mock._requestCalls.length).toBe(1);
-                expect(mock._requestCalls[0][0]).toBe("statement_subscribeStatement");
-                expect(mock._requestCalls[0][1]).toEqual(["any"]);
-            });
-
-            test("returns unsubscribable handle", () => {
-                const mock = createMockClient();
-                const unsubFn = vi.fn();
-                mock.set_Request(() => unsubFn);
-
-                const transport = new RpcTransport(mock.client, false);
-                const sub = transport.subscribe(
-                    "any",
-                    () => {},
-                    () => {},
-                );
-
-                sub.unsubscribe();
-                expect(unsubFn).toHaveBeenCalledOnce();
-            });
-
-            test("unsubscribe is idempotent", () => {
-                const mock = createMockClient();
-                const unsubFn = vi.fn();
-                mock.set_Request(() => unsubFn);
-
-                const transport = new RpcTransport(mock.client, false);
-                const sub = transport.subscribe(
-                    "any",
-                    () => {},
-                    () => {},
-                );
-
-                sub.unsubscribe();
-                sub.unsubscribe();
-                expect(unsubFn).toHaveBeenCalledOnce();
-            });
-
-            test("calls onError when _request throws", () => {
-                const mock = createMockClient();
-                mock.set_Request(() => {
-                    throw new Error("not supported");
-                });
-
-                const transport = new RpcTransport(mock.client, false);
-                const onError = vi.fn();
-
-                transport.subscribe("any", () => {}, onError);
-                expect(onError).toHaveBeenCalledOnce();
-                expect(onError.mock.calls[0][0]).toBeInstanceOf(StatementSubscriptionError);
-            });
-        });
-
-        describe("submit", () => {
-            test("calls statement_submit and returns status", async () => {
-                const mock = createMockClient();
-                const transport = new RpcTransport(mock.client, false);
-
-                const status = await transport.submit("0xdeadbeef");
-
-                expect(mock.requestCalls[0][0]).toBe("statement_submit");
-                expect(status).toBe("new");
-            });
-
-            test("returns 'rejected' for null response", async () => {
-                const mock = createMockClient();
-                mock.setRequest(async () => null);
-                const transport = new RpcTransport(mock.client, false);
-
-                expect(await transport.submit("0x")).toBe("rejected");
-            });
-
-            test("returns 'known' for known status", async () => {
-                const mock = createMockClient();
-                mock.setRequest(async () => ({ status: "known" }));
-                const transport = new RpcTransport(mock.client, false);
-
-                expect(await transport.submit("0x")).toBe("known");
-            });
-
-            test("returns 'rejected' for unexpected status", async () => {
-                const mock = createMockClient();
-                mock.setRequest(async () => "unexpected");
-                const transport = new RpcTransport(mock.client, false);
-
-                expect(await transport.submit("0x")).toBe("rejected");
-            });
-        });
-
-        describe("query", () => {
-            test("tries statement_broadcasts when no decryptionKey", async () => {
-                const mock = createMockClient();
-                mock.setRequest(async (method: string) => {
-                    if (method === "statement_broadcasts") return ["0xaaa", "0xbbb"];
-                    throw new Error("not supported");
-                });
-
-                const transport = new RpcTransport(mock.client, false);
-                const result = await transport.query([]);
-
-                expect(result).toEqual(["0xaaa", "0xbbb"]);
-            });
-
-            test("tries statement_posted first when decryptionKey provided", async () => {
-                const mock = createMockClient();
-                mock.setRequest(async (method: string) => {
-                    if (method === "statement_posted") return ["0xccc"];
-                    throw new Error("not supported");
-                });
-
-                const transport = new RpcTransport(mock.client, false);
-                const result = await transport.query([], "0xkey");
-
-                expect(result).toEqual(["0xccc"]);
-            });
-
-            test("falls back through methods gracefully", async () => {
-                const mock = createMockClient();
-                const calledMethods: string[] = [];
-                mock.setRequest(async (method: string) => {
-                    calledMethods.push(method);
-                    if (method === "statement_dump") return ["0xfallback"];
-                    throw new Error("not supported");
-                });
-
-                const transport = new RpcTransport(mock.client, false);
-                const result = await transport.query([], "0xkey");
-
-                expect(calledMethods).toEqual([
-                    "statement_posted",
-                    "statement_broadcasts",
-                    "statement_dump",
-                ]);
-                expect(result).toEqual(["0xfallback"]);
-            });
-
-            test("returns empty array when all methods fail", async () => {
-                const mock = createMockClient();
-                mock.setRequest(async () => {
-                    throw new Error("not supported");
-                });
-
-                const transport = new RpcTransport(mock.client, false);
-                const result = await transport.query([]);
-
-                expect(result).toEqual([]);
-            });
-
-            test("filters non-string elements from results", async () => {
-                const mock = createMockClient();
-                mock.setRequest(async () => ["0xvalid", 42, null, "0xalso"]);
-
-                const transport = new RpcTransport(mock.client, false);
-                const result = await transport.query([]);
-
-                expect(result).toEqual(["0xvalid", "0xalso"]);
-            });
-        });
-
-        describe("destroy", () => {
-            test("destroys owned client", () => {
-                const mock = createMockClient();
-                const transport = new RpcTransport(mock.client, true);
-                transport.destroy();
-                expect(mock.destroyCalled).toBe(true);
-            });
-
-            test("does not destroy shared client", () => {
-                const mock = createMockClient();
-                const transport = new RpcTransport(mock.client, false);
-                transport.destroy();
-                expect(mock.destroyCalled).toBe(false);
-            });
-        });
-    });
-
-    describe("extractStatementEvent", () => {
-        test("extracts direct format", () => {
-            const event = { statements: ["0xaa", "0xbb"], remaining: 0 };
-            const result = extractStatementEvent(event);
-            expect(result?.statements).toEqual(["0xaa", "0xbb"]);
-            expect(result?.remaining).toBe(0);
-        });
-
-        test("extracts NewStatements wrapped format", () => {
-            const event = {
-                NewStatements: { statements: ["0xcc"], remaining: 5 },
+    describe("HostTransport", () => {
+        function createMockHostStore(): HostStore & {
+            subscribeCalls: unknown[];
+            submitCalls: unknown[];
+            createProofCalls: unknown[];
+        } {
+            const mock = {
+                subscribeCalls: [] as unknown[],
+                submitCalls: [] as unknown[],
+                createProofCalls: [] as unknown[],
+                subscribe: vi.fn((topics: Uint8Array[], callback: (stmts: unknown[]) => void) => {
+                    mock.subscribeCalls.push({ topics, callback });
+                    return () => {};
+                }),
+                createProof: vi.fn(
+                    async (accountId: [string, number], statement: Record<string, unknown>) => {
+                        mock.createProofCalls.push({ accountId, statement });
+                        return {
+                            type: "sr25519",
+                            value: {
+                                signature: "0x" + "aa".repeat(64),
+                                signer: "0x" + "bb".repeat(32),
+                            },
+                        };
+                    },
+                ),
+                submit: vi.fn(async () => {}),
             };
-            const result = extractStatementEvent(event);
-            expect(result?.statements).toEqual(["0xcc"]);
-        });
+            return mock;
+        }
 
-        test("extracts data-wrapped format", () => {
-            const event = { data: { statements: ["0xdd"] } };
-            const result = extractStatementEvent(event);
-            expect(result?.statements).toEqual(["0xdd"]);
-        });
+        test("subscribe calls store.subscribe with topic bytes", () => {
+            const store = createMockHostStore();
+            const transport = new HostTransport(store);
 
-        test("returns null for unrecognized format", () => {
-            expect(extractStatementEvent({ foo: "bar" })).toBeNull();
-            expect(extractStatementEvent(null)).toBeNull();
-            expect(extractStatementEvent("string")).toBeNull();
-        });
-    });
-
-    describe("extractSubmitStatus", () => {
-        test("extracts 'new' from string", () => {
-            expect(extractSubmitStatus("new")).toBe("new");
-        });
-
-        test("extracts 'known' from string", () => {
-            expect(extractSubmitStatus("known")).toBe("known");
-        });
-
-        test("extracts from nested object", () => {
-            expect(extractSubmitStatus({ status: "new" })).toBe("new");
-        });
-
-        test("returns 'rejected' for null", () => {
-            expect(extractSubmitStatus(null)).toBe("rejected");
-        });
-
-        test("returns 'rejected' for unknown string", () => {
-            expect(extractSubmitStatus("badvalue")).toBe("rejected");
-        });
-    });
-
-    // Helper to create a mock _request that invokes callbacks immediately
-    type AnyRequestCallbacks = {
-        onSuccess: (
-            subscriptionId: unknown,
-            followSubscription: (
-                id: unknown,
-                handlers: { next: (event: unknown) => void; error: (e: Error) => void },
-            ) => void,
-        ) => void;
-        onError: (error: Error) => void;
-    };
-
-    describe("RpcTransport subscription delivery", () => {
-        test("delivers raw hex string events to onStatement", () => {
-            const mock = createMockClient();
-            const received: string[] = [];
-
-            mock.set_Request(((
-                _method: string,
-                _params: unknown[],
-                callbacks: AnyRequestCallbacks,
-            ) => {
-                callbacks.onSuccess("sub-id", (_id, handlers) => {
-                    handlers.next("0xdeadbeef");
-                    handlers.next("0xcafebabe");
-                });
-                return () => {};
-            }) as RpcClient["_request"]);
-
-            const transport = new RpcTransport(mock.client, false);
             transport.subscribe(
-                "any",
-                (hex) => received.push(hex),
+                { matchAll: ["0x" + "11".repeat(32)] as `0x${string}`[] },
+                () => {},
                 () => {},
             );
 
-            expect(received).toEqual(["0xdeadbeef", "0xcafebabe"]);
+            expect(store.subscribeCalls.length).toBe(1);
+            const call = store.subscribeCalls[0] as { topics: Uint8Array[] };
+            expect(call.topics[0]).toEqual(new Uint8Array(32).fill(0x11));
         });
 
-        test("delivers batched statement events to onStatement", () => {
-            const mock = createMockClient();
-            const received: string[] = [];
+        test("subscribe delivers statements to callback", () => {
+            const store = createMockHostStore();
+            const transport = new HostTransport(store);
+            const received: Statement[][] = [];
 
-            mock.set_Request(((_m: string, _p: unknown[], cb: AnyRequestCallbacks) => {
-                cb.onSuccess("sub-id", (_id, handlers) => {
-                    handlers.next({ statements: ["0xaa", "0xbb"], remaining: 0 });
-                });
-                return () => {};
-            }) as RpcClient["_request"]);
-
-            const transport = new RpcTransport(mock.client, false);
             transport.subscribe(
                 "any",
-                (hex) => received.push(hex),
+                (stmts) => received.push(stmts),
                 () => {},
             );
 
-            expect(received).toEqual(["0xaa", "0xbb"]);
+            // Simulate store delivering statements
+            const call = store.subscribeCalls[0] as { callback: (s: unknown[]) => void };
+            call.callback([{ data: new Uint8Array([1, 2, 3]) }]);
+
+            expect(received.length).toBe(1);
         });
 
-        test("delivers data-wrapped events to onStatement", () => {
-            const mock = createMockClient();
-            const received: string[] = [];
-
-            mock.set_Request(((_m: string, _p: unknown[], cb: AnyRequestCallbacks) => {
-                cb.onSuccess("sub-id", (_id, handlers) => {
-                    handlers.next({ data: { statements: ["0xcc"] } });
-                });
-                return () => {};
-            }) as RpcClient["_request"]);
-
-            const transport = new RpcTransport(mock.client, false);
-            transport.subscribe(
-                "any",
-                (hex) => received.push(hex),
-                () => {},
-            );
-
-            expect(received).toEqual(["0xcc"]);
-        });
-
-        test("calls onError on subscription stream error", () => {
-            const mock = createMockClient();
+        test("subscribe calls onError when store throws", () => {
+            const store = createMockHostStore();
+            store.subscribe = vi.fn(() => {
+                throw new Error("store down");
+            });
+            const transport = new HostTransport(store);
             const errors: Error[] = [];
 
-            mock.set_Request(((_m: string, _p: unknown[], cb: AnyRequestCallbacks) => {
-                cb.onSuccess("sub-id", (_id, handlers) => {
-                    handlers.error(new Error("stream died"));
-                });
-                return () => {};
-            }) as RpcClient["_request"]);
-
-            const transport = new RpcTransport(mock.client, false);
             transport.subscribe(
                 "any",
                 () => {},
@@ -744,55 +406,73 @@ if (import.meta.vitest) {
             expect(errors[0]).toBeInstanceOf(StatementSubscriptionError);
         });
 
-        test("calls onError when onError callback fires", () => {
-            const mock = createMockClient();
-            const errors: Error[] = [];
+        test("signAndSubmit calls createProof then submit", async () => {
+            const store = createMockHostStore();
+            const transport = new HostTransport(store);
 
-            mock.set_Request(((_m: string, _p: unknown[], cb: AnyRequestCallbacks) => {
-                cb.onError(new Error("method not found"));
-                return () => {};
-            }) as RpcClient["_request"]);
+            await transport.signAndSubmit({ data: new Uint8Array([1]) } as Statement, {
+                mode: "host",
+                accountId: ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 42],
+            });
 
-            const transport = new RpcTransport(mock.client, false);
-            transport.subscribe(
-                "any",
-                () => {},
-                (e) => errors.push(e),
-            );
-
-            expect(errors.length).toBe(1);
-            expect(errors[0]).toBeInstanceOf(StatementSubscriptionError);
+            expect(store.createProofCalls.length).toBe(1);
+            expect(store.submit).toHaveBeenCalledOnce();
         });
 
-        test("ignores unrecognized event formats silently", () => {
-            const mock = createMockClient();
-            const received: string[] = [];
+        test("signAndSubmit throws for local credentials", async () => {
+            const store = createMockHostStore();
+            const transport = new HostTransport(store);
 
-            mock.set_Request(((_m: string, _p: unknown[], cb: AnyRequestCallbacks) => {
-                cb.onSuccess("sub-id", (_id, handlers) => {
-                    handlers.next({ unrecognized: true });
-                    handlers.next(42);
-                    handlers.next("0xvalid");
-                });
-                return () => {};
-            }) as RpcClient["_request"]);
+            await expect(
+                transport.signAndSubmit({} as Statement, {
+                    mode: "local",
+                    signer: { publicKey: new Uint8Array(32), sign: () => new Uint8Array(64) },
+                }),
+            ).rejects.toThrow("HostTransport requires host credentials");
+        });
 
-            const transport = new RpcTransport(mock.client, false);
-            transport.subscribe(
-                "any",
-                (hex) => received.push(hex),
-                () => {},
-            );
-
-            // Only the raw string event should be delivered
-            expect(received).toEqual(["0xvalid"]);
+        test("destroy is safe to call", () => {
+            const store = createMockHostStore();
+            const transport = new HostTransport(store);
+            expect(() => transport.destroy()).not.toThrow();
         });
     });
 
     describe("createTransport", () => {
         test("throws StatementConnectionError when no method available", async () => {
-            // No endpoint and chain-client will fail (dynamic import)
-            await expect(createTransport({})).rejects.toThrow(StatementConnectionError);
+            // Mock host to return null (not inside container)
+            vi.doMock("@polkadot-apps/host", () => ({
+                getStatementStore: async () => null,
+                DEFAULT_BULLETIN_ENDPOINT: "",
+            }));
+            try {
+                await expect(createTransport({ endpoint: "" })).rejects.toThrow(
+                    StatementConnectionError,
+                );
+            } finally {
+                vi.doUnmock("@polkadot-apps/host");
+            }
+        });
+    });
+
+    describe("extractTopicBytes", () => {
+        test("returns empty array for 'any' filter", () => {
+            expect(extractTopicBytes("any")).toEqual([]);
+        });
+
+        test("converts matchAll hex to bytes", () => {
+            const result = extractTopicBytes({
+                matchAll: ["0x" + "ff".repeat(32)] as `0x${string}`[],
+            });
+            expect(result.length).toBe(1);
+            expect(result[0]).toEqual(new Uint8Array(32).fill(0xff));
+        });
+
+        test("converts matchAny hex to bytes", () => {
+            const result = extractTopicBytes({
+                matchAny: ["0x" + "aa".repeat(32), "0x" + "bb".repeat(32)] as `0x${string}`[],
+            });
+            expect(result.length).toBe(2);
         });
     });
 }

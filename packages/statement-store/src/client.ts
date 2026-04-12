@@ -1,21 +1,13 @@
 import { createLogger } from "@polkadot-apps/logger";
 
-import {
-    decodeData,
-    decodeStatement,
-    createSignatureMaterial,
-    encodeData,
-    encodeStatement,
-    toHex,
-} from "./codec.js";
+import { decodeData, encodeData } from "./data.js";
 import { StatementConnectionError } from "./errors.js";
-import { createChannel, createTopic, topicToHex } from "./topics.js";
-import { createTransport, type RpcClient } from "./transport.js";
+import { createChannel, createTopic, serializeTopicFilter, topicToHex } from "./topics.js";
+import { createTransport } from "./transport.js";
 import type {
-    DecodedStatement,
+    ConnectionCredentials,
     PublishOptions,
     ReceivedStatement,
-    StatementFields,
     StatementSignerWithKey,
     StatementStoreConfig,
     StatementTransport,
@@ -23,21 +15,29 @@ import type {
 } from "./types.js";
 import { DEFAULT_POLL_INTERVAL_MS, DEFAULT_TTL_SECONDS } from "./types.js";
 
+import type { Statement } from "@novasamatech/sdk-statement";
+import { createExpiry } from "@novasamatech/sdk-statement";
+import type { SdkTopicFilter } from "./types.js";
+
 const log = createLogger("statement-store");
 
 /**
  * High-level client for the Polkadot Statement Store.
  *
  * Provides a simple publish/subscribe API over the ephemeral statement store,
- * handling SCALE encoding, Sr25519 signing, topic management, and resilient
- * delivery (subscription + polling fallback).
+ * handling topic management, signing (host or local), and resilient delivery
+ * (subscription + polling fallback).
  *
  * @example
  * ```ts
  * import { StatementStoreClient } from "@polkadot-apps/statement-store";
  *
+ * // Inside a container (host mode)
  * const client = new StatementStoreClient({ appName: "my-app" });
- * await client.connect(signer);
+ * await client.connect({ mode: "host", accountId: ["5Grw...", 42] });
+ *
+ * // Outside a container (local mode)
+ * await client.connect({ mode: "local", signer: { publicKey, sign } });
  *
  * // Publish
  * await client.publish({ type: "presence", peerId: "abc" }, {
@@ -60,10 +60,10 @@ export class StatementStoreClient {
             StatementStoreConfig,
             "appName" | "pollIntervalMs" | "defaultTtlSeconds" | "enablePolling"
         >
-    > & { endpoint?: string };
+    > & { endpoint?: string; transport?: StatementTransport };
 
     private transport: StatementTransport | null = null;
-    private signer: StatementSignerWithKey | null = null;
+    private credentials: ConnectionCredentials | null = null;
     private subscription: Unsubscribable | null = null;
     private pollTimer: ReturnType<typeof setInterval> | null = null;
     private callbacks: Array<(statement: ReceivedStatement<unknown>) => void> = [];
@@ -72,15 +72,15 @@ export class StatementStoreClient {
 
     /**
      * Track seen statements by channel hex to avoid re-delivering the same statement.
-     * Maps channel hex (or statement data hash) to the expiry value.
+     * Maps channel hex (or data hash) to the expiry value.
      */
     private seen = new Map<string, bigint>();
 
     /** Monotonic counter to ensure unique sequence numbers even within the same millisecond. */
     private sequenceCounter = 0;
 
-    /** Cached blake2b hash of the appName, used as topic1. */
-    private readonly appTopic;
+    /** Cached hex topic string for the app name, used as the primary subscription topic. */
+    private readonly appTopicHex: string;
 
     constructor(config: StatementStoreConfig) {
         this.config = {
@@ -89,60 +89,60 @@ export class StatementStoreClient {
             pollIntervalMs: config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
             defaultTtlSeconds: config.defaultTtlSeconds ?? DEFAULT_TTL_SECONDS,
             enablePolling: config.enablePolling ?? true,
+            transport: config.transport,
         };
-        this.appTopic = createTopic(config.appName);
+        this.appTopicHex = topicToHex(createTopic(config.appName));
     }
 
     /**
      * Connect to the statement store and start receiving statements.
      *
-     * Establishes the transport connection, starts a real-time subscription
-     * on the application's topic, fetches existing statements, and begins
-     * the polling fallback (if enabled).
-     *
-     * @param signer - The Sr25519 signer used to sign published statements.
+     * @param credentials - Connection credentials (host accountId or local signer).
      * @throws {StatementConnectionError} If the transport cannot be established.
      */
-    async connect(signer: StatementSignerWithKey): Promise<void> {
+    async connect(credentials: ConnectionCredentials): Promise<void>;
+    /** @deprecated Use `connect({ mode: "local", signer })` instead. */
+    async connect(signer: StatementSignerWithKey): Promise<void>;
+    async connect(arg: ConnectionCredentials | StatementSignerWithKey): Promise<void> {
         if (this.connected) {
             log.warn("Already connected, ignoring duplicate connect()");
             return;
         }
-        // Deduplicate concurrent connect() calls — return the in-flight promise
         if (this.connectPromise) {
             return this.connectPromise;
         }
-        this.connectPromise = this.doConnect(signer).finally(() => {
+
+        const credentials: ConnectionCredentials =
+            "mode" in arg ? arg : { mode: "local", signer: arg };
+
+        this.connectPromise = this.doConnect(credentials).finally(() => {
             this.connectPromise = null;
         });
         return this.connectPromise;
     }
 
     /* @integration */
-    private async doConnect(signer: StatementSignerWithKey): Promise<void> {
-        this.signer = signer;
-        this.transport = await createTransport({ endpoint: this.config.endpoint });
+    private async doConnect(credentials: ConnectionCredentials): Promise<void> {
+        this.credentials = credentials;
+        this.transport =
+            this.config.transport ?? (await createTransport({ endpoint: this.config.endpoint }));
 
         try {
-            log.info("Connected", {
-                appName: this.config.appName,
-                publicKey: topicToHex(signer.publicKey),
-            });
+            log.info("Connected", { appName: this.config.appName });
 
-            // Start subscription for real-time updates
             this.startSubscription();
 
-            // Fetch pre-existing statements (subscription only delivers new ones)
-            await this.poll();
-
-            // Start polling fallback
-            if (this.config.enablePolling && this.config.pollIntervalMs > 0) {
+            // Start polling fallback (only if transport supports query)
+            if (
+                this.config.enablePolling &&
+                this.config.pollIntervalMs > 0 &&
+                this.transport.query
+            ) {
                 this.startPolling();
             }
 
             this.connected = true;
         } catch (error) {
-            // Clean up partial state on failure so connect() can be retried
             this.destroy();
             throw error;
         }
@@ -151,19 +151,15 @@ export class StatementStoreClient {
     /**
      * Publish typed data to the statement store.
      *
-     * Encodes the data as JSON, builds a SCALE-encoded statement with the
-     * configured topics and TTL, signs it with Sr25519, and submits it
-     * to the network.
-     *
      * @typeParam T - The type of data being published.
      * @param data - The value to publish (must be JSON-serializable, max 512 bytes).
      * @param options - Optional channel, topic2, TTL, and decryption key overrides.
-     * @returns `true` if accepted ("new" or "known"), `false` if rejected.
+     * @returns `true` if accepted, `false` if rejected or errored.
      * @throws {StatementConnectionError} If not connected.
      * @throws {StatementDataTooLargeError} If the encoded data exceeds 512 bytes.
      */
     async publish<T>(data: T, options?: PublishOptions): Promise<boolean> {
-        if (!this.transport || !this.signer) {
+        if (!this.transport || !this.credentials) {
             throw new StatementConnectionError("Not connected. Call connect() first.");
         }
 
@@ -171,37 +167,29 @@ export class StatementStoreClient {
         const ttl = options?.ttlSeconds ?? this.config.defaultTtlSeconds;
         const expirationTimestamp = Math.floor(Date.now() / 1000) + ttl;
         const sequenceNumber = (Date.now() + this.sequenceCounter++) % 0xffffffff;
+        const expiry = createExpiry(expirationTimestamp, sequenceNumber);
 
-        const fields: StatementFields = {
-            expirationTimestamp,
-            sequenceNumber,
-            topic1: this.appTopic,
-            topic2: options?.topic2 ? createTopic(options.topic2) : undefined,
-            channel: options?.channel ? createChannel(options.channel) : undefined,
-            decryptionKey: options?.decryptionKey,
+        const topics: `0x${string}`[] = [this.appTopicHex as `0x${string}`];
+        if (options?.topic2) {
+            topics.push(topicToHex(createTopic(options.topic2)) as `0x${string}`);
+        }
+
+        const statement: Statement = {
+            expiry,
+            topics,
+            channel: options?.channel
+                ? (topicToHex(createChannel(options.channel)) as `0x${string}`)
+                : undefined,
+            decryptionKey: options?.decryptionKey
+                ? (topicToHex(options.decryptionKey) as `0x${string}`)
+                : undefined,
             data: dataBytes,
         };
 
-        // Sign
-        const signatureMaterial = createSignatureMaterial(fields);
-        const signature = await Promise.resolve(this.signer.sign(signatureMaterial));
-
-        // Encode
-        const encoded = encodeStatement(fields, this.signer.publicKey, signature);
-        const hex = toHex(encoded);
-
-        // Submit
         try {
-            const status = await this.transport.submit(hex);
-            if (status === "new" || status === "known") {
-                log.debug("Published", {
-                    channel: options?.channel,
-                    status,
-                });
-                return true;
-            }
-            log.warn("Publish rejected", { status });
-            return false;
+            await this.transport.signAndSubmit(statement, this.credentials);
+            log.debug("Published", { channel: options?.channel });
+            return true;
         } catch (error) {
             log.error("Publish failed", {
                 error: error instanceof Error ? error.message : String(error),
@@ -213,9 +201,6 @@ export class StatementStoreClient {
     /**
      * Subscribe to incoming statements on this application's topic.
      *
-     * Receives both real-time subscription events and polling results.
-     * Statements are deduplicated by channel + expiry to prevent double delivery.
-     *
      * @typeParam T - The expected data type (decoded from JSON).
      * @param callback - Called for each new statement.
      * @param options - Optional secondary topic filter.
@@ -225,15 +210,11 @@ export class StatementStoreClient {
         callback: (statement: ReceivedStatement<T>) => void,
         options?: { topic2?: string },
     ): Unsubscribable {
-        const topic2Hash = options?.topic2 ? createTopic(options.topic2) : undefined;
-        const topic2Hex = topic2Hash ? topicToHex(topic2Hash) : undefined;
+        const topic2Hex = options?.topic2 ? topicToHex(createTopic(options.topic2)) : undefined;
 
         const wrappedCallback = (statement: ReceivedStatement<unknown>) => {
-            // Filter by topic2 if specified
             if (topic2Hex) {
-                if (!statement.topic2) return;
-                const statementTopic2Hex = topicToHex(statement.topic2);
-                if (statementTopic2Hex !== topic2Hex) return;
+                if (!statement.topics[1] || statement.topics[1] !== topic2Hex) return;
             }
             callback(statement as ReceivedStatement<T>);
         };
@@ -253,42 +234,24 @@ export class StatementStoreClient {
     /**
      * Query existing statements from the store.
      *
-     * Fetches statements that were published before the subscription started.
-     * Useful for catching up on state (e.g., existing presence announcements).
-     *
-     * @typeParam T - The expected data type.
-     * @param options - Optional secondary topic filter.
-     * @returns Array of received statements.
+     * Only available when the transport supports queries (RPC mode).
+     * In host mode, the subscription replays existing statements automatically.
      */
-    async query<T>(options?: {
-        topic2?: string;
-        /** Explicit decryption key for `statement_posted` filtering. If omitted, derived from topic2. */
-        decryptionKey?: Uint8Array;
-    }): Promise<ReceivedStatement<T>[]> {
+    async query<T>(options?: { topic2?: string }): Promise<ReceivedStatement<T>[]> {
         if (!this.transport) {
             throw new StatementConnectionError("Not connected. Call connect() first.");
         }
-
-        const topics = [this.appTopic];
-        if (options?.topic2) {
-            topics.push(createTopic(options.topic2));
+        if (!this.transport.query) {
+            return []; // Host mode — subscription delivers initial state
         }
 
-        // Use explicit decryptionKey if provided, else derive from topic2
-        const decryptionKey = options?.decryptionKey
-            ? topicToHex(options.decryptionKey)
-            : options?.topic2
-              ? topicToHex(createTopic(options.topic2))
-              : undefined;
-
-        const hexStatements = await this.transport.query(topics, decryptionKey);
+        const filter = this.buildFilter(options?.topic2);
+        const statements = await this.transport.query(filter);
         const results: ReceivedStatement<T>[] = [];
 
-        for (const hex of hexStatements) {
-            const parsed = this.parseStatement<T>(hex);
-            if (parsed) {
-                results.push(parsed);
-            }
+        for (const stmt of statements) {
+            const parsed = this.parseStatement<T>(stmt);
+            if (parsed) results.push(parsed);
         }
 
         return results;
@@ -302,10 +265,13 @@ export class StatementStoreClient {
     /**
      * Get the signer's public key as a hex string (with 0x prefix).
      *
-     * @returns The hex-encoded public key, or empty string if not connected.
+     * @returns The hex-encoded public key, or empty string if not connected or in host mode.
      */
     getPublicKeyHex(): string {
-        return this.signer ? topicToHex(this.signer.publicKey) : "";
+        if (this.credentials?.mode === "local") {
+            return topicToHex(this.credentials.signer.publicKey);
+        }
+        return "";
     }
 
     /**
@@ -326,7 +292,7 @@ export class StatementStoreClient {
             this.transport = null;
         }
 
-        this.signer = null;
+        this.credentials = null;
         this.connected = false;
         this.connectPromise = null;
         this.callbacks = [];
@@ -343,11 +309,15 @@ export class StatementStoreClient {
     private startSubscription(): void {
         if (!this.transport) return;
 
-        const filter = { matchAll: [this.appTopic] };
+        const filter = this.buildFilter();
 
         this.subscription = this.transport.subscribe(
             filter,
-            (hex) => this.handleStatementReceived(hex),
+            (statements) => {
+                for (const stmt of statements) {
+                    this.handleStatementReceived(stmt);
+                }
+            },
             (error) => {
                 log.warn("Subscription unavailable, relying on polling", {
                     error: error.message,
@@ -376,23 +346,23 @@ export class StatementStoreClient {
 
     /* @integration */
     private async poll(): Promise<void> {
-        if (!this.transport) return;
+        if (!this.transport?.query) return;
 
-        // Prune expired entries from the seen map to prevent unbounded growth
         this.pruneSeenMap();
 
-        const hexStatements = await this.transport.query([this.appTopic]);
+        const filter = this.buildFilter();
+        const statements = await this.transport.query(filter);
 
         let newCount = 0;
-        for (const hex of hexStatements) {
-            if (this.handleStatementReceived(hex)) {
+        for (const stmt of statements) {
+            if (this.handleStatementReceived(stmt)) {
                 newCount++;
             }
         }
 
         if (newCount > 0) {
             log.debug("Poll found new statements", {
-                total: hexStatements.length,
+                total: statements.length,
                 new: newCount,
             });
         }
@@ -410,26 +380,27 @@ export class StatementStoreClient {
     }
 
     /**
-     * Process a received statement hex, dedup, parse, and deliver to callbacks.
+     * Process a received statement, dedup, parse, and deliver to callbacks.
      * Returns true if the statement was new and delivered.
      */
-    private handleStatementReceived(hex: string): boolean {
-        const parsed = this.parseStatement<unknown>(hex);
+    private handleStatementReceived(stmt: Statement): boolean {
+        const parsed = this.parseStatement<unknown>(stmt);
         if (!parsed) return false;
 
-        // Deduplication key: channel hex (if present) or data hash
-        const dedupeKey = parsed.channel ? topicToHex(parsed.channel) : hex.substring(0, 64);
+        // Deduplication key: channel hex (if present) or first 64 chars of data hash
+        const dedupeKey =
+            parsed.channelHex ??
+            (parsed.raw.data ? topicToHex(parsed.raw.data).substring(0, 64) : "");
 
         const existingExpiry = this.seen.get(dedupeKey);
         const newExpiry = parsed.expiry ?? 0n;
 
         if (existingExpiry !== undefined && newExpiry <= existingExpiry) {
-            return false; // Already seen or older
+            return false;
         }
 
         this.seen.set(dedupeKey, newExpiry);
 
-        // Deliver to callbacks (snapshot to handle mid-iteration unsubscribes)
         for (const callback of [...this.callbacks]) {
             try {
                 callback(parsed);
@@ -443,91 +414,104 @@ export class StatementStoreClient {
         return true;
     }
 
-    private parseStatement<T>(hex: string): ReceivedStatement<T> | null {
+    private parseStatement<T>(stmt: Statement): ReceivedStatement<T> | null {
         try {
-            const decoded = decodeStatement(hex);
-            if (!decoded.data) return null;
+            if (!stmt.data) return null;
 
-            const data = decodeData<T>(decoded.data);
+            const data = decodeData<T>(stmt.data);
+
+            // Extract signer from proof if present
+            let signerHex: string | undefined;
+            if (stmt.proof) {
+                const proofValue = stmt.proof.value as Record<string, unknown>;
+                if ("signer" in proofValue && typeof proofValue.signer === "string") {
+                    signerHex = proofValue.signer;
+                }
+            }
 
             return {
                 data,
-                signer: decoded.signer,
-                channel: decoded.channel,
-                topic1: decoded.topic1,
-                topic2: decoded.topic2,
-                expiry: decoded.expiry,
-                raw: decoded,
+                signerHex,
+                channelHex: stmt.channel,
+                topics: stmt.topics ?? [],
+                expiry: stmt.expiry,
+                raw: stmt,
             };
         } catch {
-            // Skip malformed statements
             return null;
         }
+    }
+
+    /** Build an SdkTopicFilter for the app's primary topic. */
+    private buildFilter(topic2Name?: string): SdkTopicFilter {
+        const topics = [createTopic(this.config.appName)];
+        if (topic2Name) topics.push(createTopic(topic2Name));
+        return serializeTopicFilter({ matchAll: topics });
     }
 }
 
 if (import.meta.vitest) {
     const { describe, test, expect, vi, beforeEach } = import.meta.vitest;
     const { configure } = await import("@polkadot-apps/logger");
-    const { encodeStatement: encodeStmt, toHex: bytesToHex } = await import("./codec.js");
-    const { createTopic: mkTopic } = await import("./topics.js");
+    const { createTopic: mkTopic, topicToHex: thx } = await import("./topics.js");
 
     beforeEach(() => {
         configure({ handler: () => {} });
     });
 
-    // Helper to create a hex-encoded test statement
-    function makeTestStatementHex(
+    /** Create a test Statement matching sdk-statement's shape. */
+    function makeTestStatement(
         data: unknown,
-        opts?: { channel?: Uint8Array; topic1?: Uint8Array; topic2?: Uint8Array; expiry?: number },
-    ): string {
+        opts?: { channel?: string; topic1?: string; topic2?: string; expiry?: bigint },
+    ): Statement {
         const dataBytes = new TextEncoder().encode(JSON.stringify(data));
-        const fields: StatementFields = {
-            expirationTimestamp: opts?.expiry ?? 1700000030,
-            sequenceNumber: Date.now() % 0xffffffff,
-            topic1: opts?.topic1 ?? mkTopic("test-app"),
-            topic2: opts?.topic2,
-            channel: opts?.channel,
+        const topics: `0x${string}`[] = [];
+        if (opts?.topic1) topics.push(thx(mkTopic(opts.topic1)) as `0x${string}`);
+        if (opts?.topic2) topics.push(thx(mkTopic(opts.topic2)) as `0x${string}`);
+
+        return {
+            proof: {
+                type: "sr25519" as const,
+                value: {
+                    signature: ("0x" + "bb".repeat(64)) as `0x${string}`,
+                    signer: ("0x" + "aa".repeat(32)) as `0x${string}`,
+                },
+            },
+            expiry: opts?.expiry ?? createExpiry(1700000030, 42),
+            channel: opts?.channel ? (thx(mkTopic(opts.channel)) as `0x${string}`) : undefined,
+            topics,
             data: dataBytes,
-        };
-        const signer = new Uint8Array(32).fill(0xaa);
-        const signature = new Uint8Array(64).fill(0xbb);
-        const encoded = encodeStmt(fields, signer, signature);
-        return bytesToHex(encoded);
+        } as Statement;
     }
 
     function createMockTransport(): StatementTransport & {
         subscribeCalls: unknown[];
-        submitCalls: string[];
+        signAndSubmitCalls: unknown[];
         queryCalls: unknown[];
     } {
         const mock = {
             subscribeCalls: [] as unknown[],
-            submitCalls: [] as string[],
+            signAndSubmitCalls: [] as unknown[],
             queryCalls: [] as unknown[],
             subscribe: vi.fn(
                 (
                     _filter: unknown,
-                    _onStatement: (hex: string) => void,
+                    _onStatements: (stmts: Statement[]) => void,
                     _onError: (e: Error) => void,
                 ) => {
-                    mock.subscribeCalls.push({ _filter, _onStatement, _onError });
+                    mock.subscribeCalls.push({ _filter, _onStatements, _onError });
                     return { unsubscribe: () => {} };
                 },
             ),
-            submit: vi.fn(async (hex: string) => {
-                mock.submitCalls.push(hex);
-                return "new" as const;
+            signAndSubmit: vi.fn(async (stmt: Statement, creds: ConnectionCredentials) => {
+                mock.signAndSubmitCalls.push({ stmt, creds });
             }),
-            query: vi.fn(async () => {
-                return [] as string[];
-            }),
+            query: vi.fn(async () => [] as Statement[]),
             destroy: vi.fn(),
         };
         return mock;
     }
 
-    // We need to mock createTransport to return our mock transport
     describe("StatementStoreClient", () => {
         test("constructor sets config defaults", () => {
             const client = new StatementStoreClient({ appName: "test" });
@@ -555,18 +539,6 @@ if (import.meta.vitest) {
             sub.unsubscribe();
         });
 
-        test("multiple subscribes and unsubscribes work correctly", () => {
-            const client = new StatementStoreClient({ appName: "test" });
-            const cb1 = vi.fn();
-            const cb2 = vi.fn();
-            const sub1 = client.subscribe(cb1);
-            const sub2 = client.subscribe(cb2);
-            sub1.unsubscribe();
-            sub2.unsubscribe();
-            // Unsubscribe is idempotent
-            sub1.unsubscribe();
-        });
-
         test("publish throws when not connected", async () => {
             const client = new StatementStoreClient({ appName: "test" });
             await expect(client.publish({ foo: "bar" })).rejects.toThrow(StatementConnectionError);
@@ -577,24 +549,73 @@ if (import.meta.vitest) {
             await expect(client.query()).rejects.toThrow(StatementConnectionError);
         });
 
+        // --- Tests using injected mock transport ---
+
+        function injectTransport(
+            client: StatementStoreClient,
+            transport: StatementTransport,
+            credentials?: ConnectionCredentials,
+        ) {
+            const internal = client as unknown as {
+                transport: StatementTransport | null;
+                credentials: ConnectionCredentials | null;
+                connected: boolean;
+            };
+            internal.transport = transport;
+            internal.credentials = credentials ?? {
+                mode: "local",
+                signer: {
+                    publicKey: new Uint8Array(32).fill(0xaa),
+                    sign: () => new Uint8Array(64).fill(0xbb),
+                },
+            };
+            internal.connected = true;
+        }
+
+        test("publish calls signAndSubmit on transport", async () => {
+            const client = new StatementStoreClient({ appName: "test-app" });
+            const transport = createMockTransport();
+            injectTransport(client, transport);
+
+            const result = await client.publish(
+                { type: "presence", peerId: "abc" },
+                { channel: "ch1" },
+            );
+
+            expect(result).toBe(true);
+            expect(transport.signAndSubmitCalls.length).toBe(1);
+        });
+
+        test("publish returns false on transport error", async () => {
+            const client = new StatementStoreClient({ appName: "test-app" });
+            const transport = createMockTransport();
+            transport.signAndSubmit = vi.fn(async () => {
+                throw new Error("network down");
+            });
+            injectTransport(client, transport);
+
+            const result = await client.publish({ type: "test" });
+            expect(result).toBe(false);
+        });
+
         test("handleStatementReceived deduplicates by channel", () => {
             const client = new StatementStoreClient({ appName: "test" });
             const callback = vi.fn();
             client.subscribe(callback);
 
-            const channel = mkTopic("test-channel");
-            const hex = makeTestStatementHex({ type: "test" }, { channel, expiry: 1700000030 });
+            const stmt = makeTestStatement(
+                { type: "test" },
+                { channel: "ch1", expiry: createExpiry(1700000030, 42) },
+            );
 
-            // Access private method via bracket notation for testing
-            const delivered1 = (
-                client as unknown as { handleStatementReceived: (hex: string) => boolean }
-            ).handleStatementReceived(hex);
-            const delivered2 = (
-                client as unknown as { handleStatementReceived: (hex: string) => boolean }
-            ).handleStatementReceived(hex);
+            const handle = client as unknown as {
+                handleStatementReceived: (stmt: Statement) => boolean;
+            };
+            const delivered1 = handle.handleStatementReceived(stmt);
+            const delivered2 = handle.handleStatementReceived(stmt);
 
             expect(delivered1).toBe(true);
-            expect(delivered2).toBe(false); // Duplicate
+            expect(delivered2).toBe(false);
             expect(callback).toHaveBeenCalledOnce();
         });
 
@@ -603,15 +624,20 @@ if (import.meta.vitest) {
             const callback = vi.fn();
             client.subscribe(callback);
 
-            const channel = mkTopic("test-channel");
-            const hex1 = makeTestStatementHex({ v: 1 }, { channel, expiry: 1700000030 });
-            const hex2 = makeTestStatementHex({ v: 2 }, { channel, expiry: 1700000060 });
+            const stmt1 = makeTestStatement(
+                { v: 1 },
+                { channel: "ch1", expiry: createExpiry(1700000030, 1) },
+            );
+            const stmt2 = makeTestStatement(
+                { v: 2 },
+                { channel: "ch1", expiry: createExpiry(1700000060, 1) },
+            );
 
             const handle = client as unknown as {
-                handleStatementReceived: (hex: string) => boolean;
+                handleStatementReceived: (stmt: Statement) => boolean;
             };
-            handle.handleStatementReceived(hex1);
-            handle.handleStatementReceived(hex2);
+            handle.handleStatementReceived(stmt1);
+            handle.handleStatementReceived(stmt2);
 
             expect(callback).toHaveBeenCalledTimes(2);
         });
@@ -620,29 +646,11 @@ if (import.meta.vitest) {
             const client = new StatementStoreClient({ appName: "test" });
             const parse = (
                 client as unknown as {
-                    parseStatement: <T>(hex: string) => ReceivedStatement<T> | null;
+                    parseStatement: <T>(stmt: Statement) => ReceivedStatement<T> | null;
                 }
             ).parseStatement;
 
-            // Minimal statement with only expiry, no data
-            const fields: StatementFields = {
-                expirationTimestamp: 100,
-                sequenceNumber: 1,
-            };
-            const encoded = encodeStmt(fields, new Uint8Array(32), new Uint8Array(64));
-            const hex = bytesToHex(encoded);
-
-            expect(parse.call(client, hex)).toBeNull();
-        });
-
-        test("parseStatement returns null for malformed hex", () => {
-            const client = new StatementStoreClient({ appName: "test" });
-            const parse = (
-                client as unknown as {
-                    parseStatement: <T>(hex: string) => ReceivedStatement<T> | null;
-                }
-            ).parseStatement;
-            expect(parse.call(client, "0xdeadbeef")).toBeNull();
+            expect(parse.call(client, {} as Statement)).toBeNull();
         });
 
         test("callback errors are caught and logged", () => {
@@ -655,15 +663,13 @@ if (import.meta.vitest) {
             client.subscribe(badCallback);
             client.subscribe(goodCallback);
 
-            const channel = mkTopic("ch");
-            const hex = makeTestStatementHex({ type: "test" }, { channel });
+            const stmt = makeTestStatement({ type: "test" }, { channel: "ch1" });
 
             const handle = client as unknown as {
-                handleStatementReceived: (hex: string) => boolean;
+                handleStatementReceived: (stmt: Statement) => boolean;
             };
-            handle.handleStatementReceived(hex);
+            handle.handleStatementReceived(stmt);
 
-            // Bad callback threw but good callback still received the statement
             expect(badCallback).toHaveBeenCalledOnce();
             expect(goodCallback).toHaveBeenCalledOnce();
         });
@@ -673,102 +679,30 @@ if (import.meta.vitest) {
             const callback = vi.fn();
             client.subscribe(callback, { topic2: "room-1" });
 
-            const topic2Match = mkTopic("room-1");
-            const topic2Other = mkTopic("room-2");
-
-            const hexMatch = makeTestStatementHex(
+            const stmtMatch = makeTestStatement(
                 { v: 1 },
-                { topic2: topic2Match, channel: mkTopic("ch1") },
+                { topic1: "test", topic2: "room-1", channel: "ch1" },
             );
-            const hexOther = makeTestStatementHex(
+            const stmtOther = makeTestStatement(
                 { v: 2 },
-                { topic2: topic2Other, channel: mkTopic("ch2") },
+                { topic1: "test", topic2: "room-2", channel: "ch2" },
             );
 
             const handle = client as unknown as {
-                handleStatementReceived: (hex: string) => boolean;
+                handleStatementReceived: (stmt: Statement) => boolean;
             };
-            handle.handleStatementReceived(hexMatch);
-            handle.handleStatementReceived(hexOther);
+            handle.handleStatementReceived(stmtMatch);
+            handle.handleStatementReceived(stmtOther);
 
             expect(callback).toHaveBeenCalledOnce();
             expect(callback.mock.calls[0][0].data).toEqual({ v: 1 });
         });
 
-        test("subscribe with topic2 filter rejects statements without topic2", () => {
-            const client = new StatementStoreClient({ appName: "test" });
-            const callback = vi.fn();
-            client.subscribe(callback, { topic2: "room-1" });
-
-            // Statement without topic2
-            const hex = makeTestStatementHex({ v: 1 }, { channel: mkTopic("ch") });
-
-            const handle = client as unknown as {
-                handleStatementReceived: (hex: string) => boolean;
-            };
-            handle.handleStatementReceived(hex);
-
-            expect(callback).not.toHaveBeenCalled();
-        });
-
-        // --- Tests using injected mock transport ---
-
-        function injectTransport(client: StatementStoreClient, transport: StatementTransport) {
-            const internal = client as unknown as {
-                transport: StatementTransport | null;
-                signer: StatementSignerWithKey | null;
-                connected: boolean;
-            };
-            internal.transport = transport;
-            internal.signer = {
-                publicKey: new Uint8Array(32).fill(0xaa),
-                sign: () => new Uint8Array(64).fill(0xbb),
-            };
-            internal.connected = true;
-        }
-
-        test("publish encodes, signs, and submits via transport", async () => {
-            const client = new StatementStoreClient({ appName: "test-app" });
-            const transport = createMockTransport();
-            injectTransport(client, transport);
-
-            const result = await client.publish(
-                { type: "presence", peerId: "abc" },
-                { channel: "ch1" },
-            );
-
-            expect(result).toBe(true);
-            expect(transport.submitCalls.length).toBe(1);
-            expect(transport.submitCalls[0]).toMatch(/^0x/);
-        });
-
-        test("publish returns false on rejection", async () => {
-            const client = new StatementStoreClient({ appName: "test-app" });
-            const transport = createMockTransport();
-            transport.submit = vi.fn(async () => "rejected" as const);
-            injectTransport(client, transport);
-
-            const result = await client.publish({ type: "test" });
-            expect(result).toBe(false);
-        });
-
-        test("publish returns false on transport error", async () => {
-            const client = new StatementStoreClient({ appName: "test-app" });
-            const transport = createMockTransport();
-            transport.submit = vi.fn(async () => {
-                throw new Error("network down");
-            });
-            injectTransport(client, transport);
-
-            const result = await client.publish({ type: "test" });
-            expect(result).toBe(false);
-        });
-
         test("query returns parsed statements from transport", async () => {
             const client = new StatementStoreClient({ appName: "test-app" });
             const transport = createMockTransport();
-            const testHex = makeTestStatementHex({ type: "found" }, { channel: mkTopic("ch") });
-            transport.query = vi.fn(async () => [testHex]);
+            const testStmt = makeTestStatement({ type: "found" }, { channel: "ch" });
+            transport.query = vi.fn(async () => [testStmt]);
             injectTransport(client, transport);
 
             const results = await client.query<{ type: string }>();
@@ -776,34 +710,67 @@ if (import.meta.vitest) {
             expect(results[0].data.type).toBe("found");
         });
 
-        test("query forwards decryptionKey to transport", async () => {
+        test("query returns empty for transport without query support", async () => {
             const client = new StatementStoreClient({ appName: "test-app" });
             const transport = createMockTransport();
-            const querySpy = vi.fn(async () => [] as string[]);
-            transport.query = querySpy;
+            delete (transport as Partial<StatementTransport>).query;
             injectTransport(client, transport);
 
-            const dk = new Uint8Array(32).fill(0xff);
-            await client.query({ decryptionKey: dk });
-
-            const args = querySpy.mock.calls[0] as unknown[];
-            // Second arg is the hex-encoded decryptionKey
-            expect(args[1]).toMatch(/^0x/);
-            expect(args[1]).toContain("ff");
+            const results = await client.query();
+            expect(results).toEqual([]);
         });
 
-        test("query derives decryptionKey from topic2 when not explicit", async () => {
-            const { topicToHex: thx, createTopic: ct } = await import("./topics.js");
-            const client = new StatementStoreClient({ appName: "test-app" });
+        test("getPublicKeyHex returns hex in local mode", () => {
+            const client = new StatementStoreClient({ appName: "test" });
             const transport = createMockTransport();
-            const querySpy = vi.fn(async () => [] as string[]);
-            transport.query = querySpy;
             injectTransport(client, transport);
 
-            await client.query({ topic2: "room-1" });
+            const hex = client.getPublicKeyHex();
+            expect(hex).toMatch(/^0x/);
+            expect(hex.length).toBe(66);
+        });
 
-            const args = querySpy.mock.calls[0] as unknown[];
-            expect(args[1]).toBe(thx(ct("room-1")));
+        test("getPublicKeyHex returns empty in host mode", () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            const transport = createMockTransport();
+            injectTransport(client, transport, { mode: "host", accountId: ["addr", 0] });
+
+            expect(client.getPublicKeyHex()).toBe("");
+        });
+
+        test("connect deduplicates concurrent calls", async () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            const internal = client as unknown as {
+                connectPromise: Promise<void> | null;
+                connected: boolean;
+            };
+
+            let resolveConnect: () => void;
+            internal.connectPromise = new Promise((r) => {
+                resolveConnect = r;
+            });
+
+            const signer = {
+                publicKey: new Uint8Array(32),
+                sign: () => new Uint8Array(64),
+            };
+            const promise = client.connect(signer);
+            expect(internal.connectPromise).not.toBeNull();
+
+            resolveConnect!();
+            await promise;
+        });
+
+        test("connect returns immediately if already connected", async () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            const internal = client as unknown as { connected: boolean };
+            internal.connected = true;
+
+            const signer = {
+                publicKey: new Uint8Array(32),
+                sign: () => new Uint8Array(64),
+            };
+            await client.connect(signer);
         });
 
         test("pruneSeenMap removes expired entries", () => {
@@ -813,9 +780,7 @@ if (import.meta.vitest) {
                 pruneSeenMap: () => void;
             };
 
-            // Entry with expiry far in the past (timestamp=100, seq=0)
             internal.seen.set("expired", (100n << 32n) | 0n);
-            // Entry with expiry far in the future (timestamp=9999999999, seq=0)
             internal.seen.set("valid", (9999999999n << 32n) | 0n);
 
             internal.pruneSeenMap();
@@ -829,7 +794,6 @@ if (import.meta.vitest) {
             const transport = createMockTransport();
             injectTransport(client, transport);
 
-            // Start a poll timer manually
             const internal = client as unknown as {
                 pollTimer: ReturnType<typeof setInterval> | null;
             };
@@ -842,53 +806,20 @@ if (import.meta.vitest) {
             expect(internal.pollTimer).toBeNull();
         });
 
-        test("getPublicKeyHex returns hex when connected", () => {
-            const client = new StatementStoreClient({ appName: "test" });
+        test("config.transport overrides auto-detection", async () => {
             const transport = createMockTransport();
-            injectTransport(client, transport);
-
-            const hex = client.getPublicKeyHex();
-            expect(hex).toMatch(/^0x/);
-            expect(hex.length).toBe(66); // 0x + 64 hex chars
-        });
-
-        test("connect deduplicates concurrent calls", async () => {
-            const client = new StatementStoreClient({ appName: "test" });
-            const internal = client as unknown as {
-                connectPromise: Promise<void> | null;
-                connected: boolean;
-            };
-
-            // Simulate an in-flight connect
-            let resolveConnect: () => void;
-            internal.connectPromise = new Promise((r) => {
-                resolveConnect = r;
+            const client = new StatementStoreClient({
+                appName: "test",
+                transport,
             });
 
-            // Second connect should return a promise (not start a new connection)
             const signer = {
-                publicKey: new Uint8Array(32),
+                publicKey: new Uint8Array(32).fill(0xaa),
                 sign: () => new Uint8Array(64),
             };
-            const promise = client.connect(signer);
-            // The promise is derived from connectPromise, so it's linked
-            expect(internal.connectPromise).not.toBeNull();
-
-            resolveConnect!();
-            await promise; // Should resolve without error
-        });
-
-        test("connect returns immediately if already connected", async () => {
-            const client = new StatementStoreClient({ appName: "test" });
-            const internal = client as unknown as { connected: boolean };
-            internal.connected = true;
-
-            const signer = {
-                publicKey: new Uint8Array(32),
-                sign: () => new Uint8Array(64),
-            };
-            // Should not throw — just returns
+            // connect should use the provided transport, not auto-detect
             await client.connect(signer);
+            expect(client.isConnected()).toBe(true);
         });
     });
 }

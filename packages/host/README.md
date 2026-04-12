@@ -99,6 +99,36 @@ if (provider) {
 }
 ```
 
+## Statement Store
+
+When running inside a container, `getStatementStore` returns a statement store client that communicates through the host's native binary protocol — bypassing JSON-RPC entirely.
+
+```typescript
+import { getStatementStore } from "@polkadot-apps/host";
+
+const store = await getStatementStore();
+
+if (store) {
+  // Inside container — subscribe, createProof, submit go through host API
+  store.subscribe(topics, (statements) => { /* ... */ });
+} else {
+  // Outside container — fall back to direct WebSocket
+}
+```
+
+This is used internally by `@polkadot-apps/statement-store` for its host-first transport strategy.
+
+## Chain Config
+
+Shared bulletin chain endpoint configuration, used by both `@polkadot-apps/chain-client` and `@polkadot-apps/statement-store`:
+
+```typescript
+import { BULLETIN_RPCS, DEFAULT_BULLETIN_ENDPOINT } from "@polkadot-apps/host";
+
+// BULLETIN_RPCS.paseo → ["wss://paseo-bulletin-rpc.polkadot.io"]
+// DEFAULT_BULLETIN_ENDPOINT → "wss://paseo-bulletin-rpc.polkadot.io"
+```
+
 ## API
 
 | Function | Signature | Description |
@@ -106,6 +136,7 @@ if (provider) {
 | `isInsideContainer` | `() => Promise<boolean>` | Detect if running inside the Polkadot Desktop/Mobile container. Uses product-sdk as the primary signal, with manual fallbacks. |
 | `getHostLocalStorage` | `() => Promise<HostLocalStorage \| null>` | Get the host localStorage bridge when inside a container. Returns `null` outside a container. |
 | `getHostProvider` | `(genesisHash, fallback?) => Promise<JsonRpcProvider \| null>` | Get a host-routed PAPI provider. Returns `null` when product-sdk is unavailable. |
+| `getStatementStore` | `() => Promise<HostStatementStore \| null>` | Get the host statement store (subscribe/createProof/submit). Returns `null` when product-sdk is unavailable. |
 
 ## Types
 

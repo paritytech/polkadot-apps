@@ -11,20 +11,11 @@ export {
     topicsEqual,
 } from "./topics.js";
 
-// Codec (advanced use — for consumers that need direct SCALE access)
-export {
-    encodeData,
-    decodeData,
-    encodeStatement,
-    decodeStatement,
-    createSignatureMaterial,
-    toHex,
-    fromHex,
-} from "./codec.js";
+// Data encoding (JSON <-> Uint8Array)
+export { encodeData, decodeData, toHex, fromHex } from "./data.js";
 
 // Transport (advanced use — for consumers that need custom transport implementations)
-export { RpcTransport, createTransport } from "./transport.js";
-export type { RpcClient } from "./transport.js";
+export { createTransport } from "./transport.js";
 
 // Errors
 export {
@@ -36,23 +27,29 @@ export {
     StatementDataTooLargeError,
 } from "./errors.js";
 
-// Types
+// Types — re-exported from @novasamatech/sdk-statement
+export type {
+    Statement,
+    SignedStatement,
+    UnsignedStatement,
+    Proof,
+    SubmitResult,
+    SdkTopicFilter,
+} from "./types.js";
+
+// Types — package-specific
 export type {
     TopicHash,
     ChannelHash,
-    StatementFields,
-    DecodedStatement,
     TopicFilter,
-    SerializedTopicFilter,
+    ConnectionCredentials,
     StatementStoreConfig,
     PublishOptions,
     ReceivedStatement,
     StatementSigner,
     StatementSignerWithKey,
-    SubmitStatus,
     StatementTransport,
     Unsubscribable,
-    StatementEvent,
 } from "./types.js";
 
 // Constants
