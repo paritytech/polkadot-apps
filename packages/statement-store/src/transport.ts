@@ -35,8 +35,11 @@ class HostTransport implements StatementTransport {
 
         try {
             const unsub = this.store.subscribe(topics, (statements) => {
-                // product-sdk delivers SignedStatement[] — map to Statement[] shape
-                onStatements(statements as unknown as Statement[]);
+                // product-sdk delivers statements with Uint8Array fields and { tag } enums.
+                // sdk-statement expects hex-string fields and { type } enums.
+                // Convert each statement to sdk-statement's shape.
+                const converted = statements.map(hostStatementToSdk);
+                onStatements(converted);
             });
 
             log.info("Host subscription active");
@@ -68,11 +71,12 @@ class HostTransport implements StatementTransport {
             );
         }
 
-        // Map our Statement to the host's expected format
-        const hostStatement = statement as unknown as Record<string, unknown>;
+        // Convert sdk-statement format (hex strings) → product-sdk format (Uint8Array)
+        // so the host's SCALE codec can encode it correctly.
+        const hostStatement = sdkStatementToHost(statement);
         const proof = await this.store.createProof(credentials.accountId, hostStatement);
         const signedStatement = { ...hostStatement, proof };
-        await this.store.submit(signedStatement as never);
+        await this.store.submit(signedStatement as unknown);
 
         log.debug("Statement submitted via host");
     }
@@ -280,14 +284,117 @@ export async function createTransport(config: {
 // Internal Helpers
 // ============================================================================
 
-/** Minimal type for the host statement store returned by product-sdk. */
+/**
+ * Minimal type for the host statement store returned by product-sdk.
+ *
+ * Uses loose types (`unknown`) intentionally to avoid a hard dependency
+ * on product-sdk's type definitions — the package is an optional peer dep.
+ */
 interface HostStore {
     subscribe(
         topics: Uint8Array[],
         callback: (statements: unknown[]) => void,
     ): (() => void) | { unsubscribe: () => void };
-    createProof(accountId: [string, number], statement: Record<string, unknown>): Promise<unknown>;
-    submit(signedStatement: never): Promise<void>;
+    createProof(accountId: [string, number], statement: unknown): Promise<unknown>;
+    submit(signedStatement: unknown): Promise<void>;
+}
+
+// ============================================================================
+// Host ↔ SDK Type Bridge
+//
+// product-sdk types (SCALE-decoded): Uint8Array fields, { tag: "Sr25519" } enums
+// sdk-statement types:               hex string fields, { type: "sr25519" } enums
+//
+// These converters bridge between the two so HostTransport can speak both
+// languages correctly.
+// ============================================================================
+
+/** Convert a product-sdk statement (Uint8Array fields) → sdk-statement shape (hex strings). */
+function hostStatementToSdk(hostStmt: unknown): Statement {
+    const raw = hostStmt as Record<string, unknown>;
+    const result: Record<string, unknown> = {};
+
+    // data: Uint8Array → Uint8Array (same in both formats)
+    if (raw.data instanceof Uint8Array) {
+        result.data = raw.data;
+    }
+
+    // expiry: bigint → bigint (same in both formats)
+    if (typeof raw.expiry === "bigint") {
+        result.expiry = raw.expiry;
+    }
+
+    // topics: Uint8Array[] → hex string[]
+    if (Array.isArray(raw.topics)) {
+        result.topics = (raw.topics as unknown[]).map((t) =>
+            t instanceof Uint8Array ? bytesToHex(t) : String(t),
+        );
+    }
+
+    // channel: Uint8Array → hex string
+    if (raw.channel instanceof Uint8Array) {
+        result.channel = bytesToHex(raw.channel);
+    }
+
+    // decryptionKey: Uint8Array → hex string
+    if (raw.decryptionKey instanceof Uint8Array) {
+        result.decryptionKey = bytesToHex(raw.decryptionKey);
+    }
+
+    // proof: { tag: "Sr25519", value: { signature: Uint8Array, signer: Uint8Array } }
+    //      → { type: "sr25519", value: { signature: hexString, signer: hexString } }
+    if (raw.proof != null && typeof raw.proof === "object") {
+        const proof = raw.proof as Record<string, unknown>;
+        const tag = proof.tag as string | undefined;
+        const value = proof.value as Record<string, unknown> | undefined;
+
+        if (tag && value) {
+            const mapped: Record<string, unknown> = {};
+            if (value.signature instanceof Uint8Array) {
+                mapped.signature = bytesToHex(value.signature);
+            }
+            if (value.signer instanceof Uint8Array) {
+                mapped.signer = bytesToHex(value.signer);
+            }
+            // Convert PascalCase tag → camelCase type
+            result.proof = { type: tag.charAt(0).toLowerCase() + tag.slice(1), value: mapped };
+        }
+    }
+
+    return result as unknown as Statement;
+}
+
+/** Convert an sdk-statement Statement (hex strings) → product-sdk shape (Uint8Array). */
+function sdkStatementToHost(stmt: Statement): Record<string, unknown> {
+    const raw = stmt as unknown as Record<string, unknown>;
+    const result: Record<string, unknown> = {};
+
+    // data: Uint8Array → Uint8Array (same)
+    if (raw.data instanceof Uint8Array) {
+        result.data = raw.data;
+    }
+
+    // expiry: bigint → bigint (same)
+    if (typeof raw.expiry === "bigint") {
+        result.expiry = raw.expiry;
+    }
+
+    // topics: hex string[] → Uint8Array[]
+    if (Array.isArray(raw.topics)) {
+        result.topics = (raw.topics as string[]).map(hexToBytes);
+    }
+
+    // channel: hex string → Uint8Array
+    if (typeof raw.channel === "string") {
+        result.channel = hexToBytes(raw.channel);
+    }
+
+    // decryptionKey: hex string → Uint8Array
+    if (typeof raw.decryptionKey === "string") {
+        result.decryptionKey = hexToBytes(raw.decryptionKey);
+    }
+
+    return result;
 }
 
 /** Extract topic Uint8Arrays from an sdk-statement TopicFilter for the host API. */
@@ -310,6 +417,15 @@ function hexToBytes(hex: string): Uint8Array {
         bytes[i] = parseInt(clean.substring(i * 2, i * 2 + 2), 16);
     }
     return bytes;
+}
+
+/** Convert Uint8Array to 0x-prefixed hex string. */
+function bytesToHex(bytes: Uint8Array): string {
+    let hex = "0x";
+    for (let i = 0; i < bytes.length; i++) {
+        hex += bytes[i].toString(16).padStart(2, "0");
+    }
+    return hex;
 }
 
 // ============================================================================
@@ -370,7 +486,7 @@ if (import.meta.vitest) {
             expect(call.topics[0]).toEqual(new Uint8Array(32).fill(0x11));
         });
 
-        test("subscribe delivers statements to callback", () => {
+        test("subscribe converts product-sdk statements to sdk-statement shape", () => {
             const store = createMockHostStore();
             const transport = new HostTransport(store);
             const received: Statement[][] = [];
@@ -381,11 +497,38 @@ if (import.meta.vitest) {
                 () => {},
             );
 
-            // Simulate store delivering statements
+            // Simulate host delivering a product-sdk-shaped statement
+            // (Uint8Array fields, { tag: "Sr25519" } proof)
             const call = store.subscribeCalls[0] as { callback: (s: unknown[]) => void };
-            call.callback([{ data: new Uint8Array([1, 2, 3]) }]);
+            call.callback([
+                {
+                    data: new Uint8Array([1, 2, 3]),
+                    topics: [new Uint8Array(32).fill(0x11)],
+                    channel: new Uint8Array(32).fill(0x22),
+                    expiry: 100n,
+                    proof: {
+                        tag: "Sr25519",
+                        value: {
+                            signature: new Uint8Array(64).fill(0xaa),
+                            signer: new Uint8Array(32).fill(0xbb),
+                        },
+                    },
+                },
+            ]);
 
             expect(received.length).toBe(1);
+            const stmt = received[0][0];
+            // Verify conversion: fields should now be hex strings
+            expect(stmt.data).toBeInstanceOf(Uint8Array); // data stays as Uint8Array
+            expect(typeof stmt.topics?.[0]).toBe("string"); // topics converted to hex
+            expect(stmt.topics?.[0]).toBe("0x" + "11".repeat(32));
+            expect(typeof stmt.channel).toBe("string"); // channel converted to hex
+            expect(stmt.channel).toBe("0x" + "22".repeat(32));
+            expect(stmt.expiry).toBe(100n);
+            // Proof: tag → type, PascalCase → camelCase
+            const proof = stmt.proof as { type: string; value: { signer: string } };
+            expect(proof.type).toBe("sr25519"); // converted from "Sr25519"
+            expect(typeof proof.value.signer).toBe("string"); // converted from Uint8Array
         });
 
         test("subscribe calls onError when store throws", () => {
@@ -406,16 +549,34 @@ if (import.meta.vitest) {
             expect(errors[0]).toBeInstanceOf(StatementSubscriptionError);
         });
 
-        test("signAndSubmit calls createProof then submit", async () => {
+        test("signAndSubmit converts sdk-statement to host format and calls createProof then submit", async () => {
             const store = createMockHostStore();
             const transport = new HostTransport(store);
 
-            await transport.signAndSubmit({ data: new Uint8Array([1]) } as Statement, {
+            // Pass sdk-statement-shaped Statement (hex string fields)
+            const sdkStatement = {
+                data: new Uint8Array([1]),
+                topics: ["0x" + "11".repeat(32)] as `0x${string}`[],
+                channel: ("0x" + "22".repeat(32)) as `0x${string}`,
+                expiry: 100n,
+            } as Statement;
+
+            await transport.signAndSubmit(sdkStatement, {
                 mode: "host",
                 accountId: ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 42],
             });
 
             expect(store.createProofCalls.length).toBe(1);
+            // Verify the statement was converted to host format (Uint8Array fields)
+            const proofCall = store.createProofCalls[0] as {
+                statement: Record<string, unknown>;
+            };
+            expect(proofCall.statement.topics).toBeInstanceOf(Array);
+            expect((proofCall.statement.topics as Uint8Array[])[0]).toBeInstanceOf(Uint8Array);
+            expect((proofCall.statement.topics as Uint8Array[])[0]).toEqual(
+                new Uint8Array(32).fill(0x11),
+            );
+            expect(proofCall.statement.channel).toBeInstanceOf(Uint8Array);
             expect(store.submit).toHaveBeenCalledOnce();
         });
 
@@ -452,6 +613,70 @@ if (import.meta.vitest) {
             } finally {
                 vi.doUnmock("@polkadot-apps/host");
             }
+        });
+    });
+
+    describe("hostStatementToSdk", () => {
+        test("converts Uint8Array topics/channel to hex strings", () => {
+            const result = hostStatementToSdk({
+                topics: [new Uint8Array(32).fill(0xaa)],
+                channel: new Uint8Array(32).fill(0xbb),
+                data: new Uint8Array([1, 2]),
+                expiry: 42n,
+            });
+
+            expect(result.topics?.[0]).toBe("0x" + "aa".repeat(32));
+            expect(result.channel).toBe("0x" + "bb".repeat(32));
+            expect(result.data).toEqual(new Uint8Array([1, 2]));
+            expect(result.expiry).toBe(42n);
+        });
+
+        test("converts proof tag from PascalCase to camelCase", () => {
+            const result = hostStatementToSdk({
+                proof: {
+                    tag: "Sr25519",
+                    value: {
+                        signature: new Uint8Array(64).fill(0xcc),
+                        signer: new Uint8Array(32).fill(0xdd),
+                    },
+                },
+            });
+
+            const proof = result.proof as { type: string; value: { signer: string } };
+            expect(proof.type).toBe("sr25519");
+            expect(proof.value.signer).toBe("0x" + "dd".repeat(32));
+        });
+
+        test("handles missing optional fields", () => {
+            const result = hostStatementToSdk({ expiry: 1n });
+            expect(result.topics).toBeUndefined();
+            expect(result.channel).toBeUndefined();
+            expect(result.data).toBeUndefined();
+            expect(result.proof).toBeUndefined();
+        });
+    });
+
+    describe("sdkStatementToHost", () => {
+        test("converts hex string topics/channel to Uint8Array", () => {
+            const result = sdkStatementToHost({
+                topics: ["0x" + "aa".repeat(32)],
+                channel: "0x" + "bb".repeat(32),
+                data: new Uint8Array([3, 4]),
+                expiry: 99n,
+            } as unknown as Statement);
+
+            expect((result.topics as Uint8Array[])[0]).toBeInstanceOf(Uint8Array);
+            expect((result.topics as Uint8Array[])[0]).toEqual(new Uint8Array(32).fill(0xaa));
+            expect(result.channel).toBeInstanceOf(Uint8Array);
+            expect(result.channel).toEqual(new Uint8Array(32).fill(0xbb));
+            expect(result.data).toEqual(new Uint8Array([3, 4]));
+            expect(result.expiry).toBe(99n);
+        });
+
+        test("handles missing optional fields", () => {
+            const result = sdkStatementToHost({ expiry: 1n } as unknown as Statement);
+            expect(result.topics).toBeUndefined();
+            expect(result.channel).toBeUndefined();
         });
     });
 

@@ -1,6 +1,7 @@
 import { createLogger } from "@polkadot-apps/logger";
+import { blake2b256 } from "@polkadot-apps/utils";
 
-import { decodeData, encodeData } from "./data.js";
+import { decodeData, encodeData, toHex } from "./data.js";
 import { StatementConnectionError } from "./errors.js";
 import { createChannel, createTopic, serializeTopicFilter, topicToHex } from "./topics.js";
 import { createTransport } from "./transport.js";
@@ -387,10 +388,10 @@ export class StatementStoreClient {
         const parsed = this.parseStatement<unknown>(stmt);
         if (!parsed) return false;
 
-        // Deduplication key: channel hex (if present) or first 64 chars of data hash
+        // Deduplication key: channel hex (if present) or blake2b hash of data
         const dedupeKey =
             parsed.channelHex ??
-            (parsed.raw.data ? topicToHex(parsed.raw.data).substring(0, 64) : "");
+            (parsed.raw.data ? toHex(blake2b256(parsed.raw.data)) : "");
 
         const existingExpiry = this.seen.get(dedupeKey);
         const newExpiry = parsed.expiry ?? 0n;
