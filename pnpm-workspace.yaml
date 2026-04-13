@@ -4,7 +4,8 @@ packages:
 
 catalog:
     polkadot-api: ^1.23.3
-    "@novasamatech/product-sdk": ^0.6.12
+    "@novasamatech/product-sdk": ^0.6.17
+    "@novasamatech/host-api": ^0.6.17
     dexie: ^4.0.11
     tweetnacl: ^1.0.3
     "@noble/ciphers": ^2.1.0
@@ -16,6 +17,8 @@ catalog:
     vitest: ^3.1.4
     "@types/node": ^24.10.1
     "@polkadot-api/sdk-ink": ^0.6.2
+    "@novasamatech/sdk-statement": ^0.5.0
+    "@polkadot-api/substrate-client": ^0.5.0
     "@polkadot-api/substrate-bindings": ^0.17.0
     typedoc: ^0.28.0
     "@vitest/coverage-istanbul": ^3.1.4

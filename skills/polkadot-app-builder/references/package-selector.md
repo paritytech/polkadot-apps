@@ -102,7 +102,6 @@ polkadot-api
 
 ### Real-Time Messaging App
 ```
-@polkadot-apps/chain-client
 @polkadot-apps/statement-store
 @polkadot-apps/keys
 polkadot-api
@@ -140,7 +139,7 @@ signer ← address, keys, logger
 chain-client ← descriptors, host  (provides .raw for InkSdk creation)
 contracts ← tx, signer, keys, logger  (needs InkSdk from @polkadot-api/sdk-ink)
 bulletin ← chain-client, descriptors, host, logger, tx
-statement-store ← chain-client, descriptors, logger
+statement-store ← host, logger, utils  (+ @novasamatech/sdk-statement, @polkadot-api/substrate-client)
 ```
 
 Note: `contracts` no longer depends on `chain-client`. Create InkSdk yourself from `client.raw.<chain>` and pass it to `ContractManager` or `createContract`.

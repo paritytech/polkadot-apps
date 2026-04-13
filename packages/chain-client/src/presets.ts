@@ -1,4 +1,5 @@
 import type { ChainDefinition } from "polkadot-api";
+import { BULLETIN_RPCS } from "@polkadot-apps/host";
 import { createChainClient } from "./clients.js";
 import type { ChainClient } from "./types.js";
 
@@ -22,7 +23,7 @@ const rpcs = {
             "wss://polkadot-asset-hub-rpc.polkadot.io",
             "wss://sys.ibp.network/asset-hub-polkadot",
         ],
-        bulletin: [] as string[],
+        bulletin: [...BULLETIN_RPCS.polkadot],
         individuality: [] as string[],
     },
     kusama: {
@@ -30,7 +31,7 @@ const rpcs = {
             "wss://kusama-asset-hub-rpc.polkadot.io",
             "wss://sys.ibp.network/asset-hub-kusama",
         ],
-        bulletin: [] as string[],
+        bulletin: [...BULLETIN_RPCS.kusama],
         individuality: [] as string[],
     },
     paseo: {
@@ -38,7 +39,7 @@ const rpcs = {
             "wss://sys.ibp.network/asset-hub-paseo",
             "wss://asset-hub-paseo-rpc.dwellir.com",
         ],
-        bulletin: ["wss://paseo-bulletin-rpc.polkadot.io"],
+        bulletin: [...BULLETIN_RPCS.paseo],
         individuality: ["wss://pop3-testnet.parity-lab.parity.io/people"],
     },
 } as const;

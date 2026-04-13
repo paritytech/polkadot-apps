@@ -9,6 +9,7 @@
         "clean": "turbo clean",
         "test": "vitest run",
         "test:coverage": "vitest run --coverage",
+        "test:e2e": "pnpm --filter \"@polkadot-apps/*-demo\" test:e2e",
         "format": "biome format --write .",
         "format:check": "biome format .",
         "generate-descriptors": "bash packages/descriptors/scripts/generate.sh",

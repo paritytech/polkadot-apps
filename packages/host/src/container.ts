@@ -96,6 +96,24 @@ export function isInsideContainerSync(): boolean {
     return false;
 }
 
+/**
+ * Get the host API statement store when running inside a container.
+ *
+ * Returns a statement store with `subscribe`, `createProof`, and `submit` methods
+ * that communicate through the host's native binary protocol — bypassing JSON-RPC
+ * entirely. Returns `null` when `@novasamatech/product-sdk` is unavailable.
+ *
+ * @returns The host statement store, or `null` if unavailable.
+ */
+export async function getStatementStore(): Promise<import("./types.js").HostStatementStore | null> {
+    try {
+        const sdk = await import("@novasamatech/product-sdk");
+        return sdk.createStatementStore();
+    } catch {
+        return null;
+    }
+}
+
 if (import.meta.vitest) {
     const { test, expect, vi } = import.meta.vitest;
 
@@ -229,6 +247,28 @@ if (import.meta.vitest) {
 
     test("getHostProvider returns null when product-sdk unavailable", async () => {
         const result = await getHostProvider("0xabc");
+        expect(result).toBeNull();
+    });
+
+    test("getStatementStore returns store when product-sdk available", async () => {
+        const fakeStore = {
+            subscribe: () => {},
+            createProof: async () => ({}),
+            submit: async () => {},
+        };
+        vi.doMock("@novasamatech/product-sdk", () => ({
+            createStatementStore: () => fakeStore,
+        }));
+        try {
+            const result = await getStatementStore();
+            expect(result).toBe(fakeStore);
+        } finally {
+            vi.doUnmock("@novasamatech/product-sdk");
+        }
+    });
+
+    test("getStatementStore returns null when product-sdk unavailable", async () => {
+        const result = await getStatementStore();
         expect(result).toBeNull();
     });
 }

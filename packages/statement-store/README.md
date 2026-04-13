@@ -1,6 +1,6 @@
 # @polkadot-apps/statement-store
 
-Publish/subscribe client for the Polkadot Statement Store with topic-based routing and SCALE encoding.
+Publish/subscribe client for the Polkadot Statement Store with host-first transport and topic-based routing.
 
 ## Install
 
@@ -8,35 +8,63 @@ Publish/subscribe client for the Polkadot Statement Store with topic-based routi
 pnpm add @polkadot-apps/statement-store
 ```
 
-This package depends on `@polkadot-apps/chain-client`, `@polkadot-apps/descriptors`, `@polkadot-apps/logger`, `@noble/hashes`, and `polkadot-api`, which are installed automatically.
+This package depends on `@polkadot-apps/host`, `@polkadot-apps/logger`, `@polkadot-apps/utils`, `@novasamatech/sdk-statement`, and `@polkadot-api/substrate-client`, which are installed automatically. The optional peer dependency `@novasamatech/product-sdk` is required for host mode (inside containers).
 
 ## Quick start
+
+The client supports two connection modes depending on the runtime environment.
+
+### Host mode (inside a container)
+
+Inside Polkadot Desktop/Mobile, proof creation and submission are delegated to the host API. No WebSocket endpoint is needed.
 
 ```typescript
 import { StatementStoreClient } from "@polkadot-apps/statement-store";
 
 const client = new StatementStoreClient({ appName: "my-app" });
-await client.connect(signer);
+await client.connect({ mode: "host", accountId: ["5Grw...", 42] });
 
-// Publish a message
 await client.publish({ type: "hello", peerId: "abc" }, {
   channel: "presence/abc",
   topic2: "room-123",
 });
 
-// Subscribe to messages
 const sub = client.subscribe<{ type: string }>(statement => {
   console.log(statement.data.type);
 });
 
-// Clean up
 sub.unsubscribe();
+client.destroy();
+```
+
+### Local mode (outside a container)
+
+Outside containers, statements are signed locally with an Sr25519 signer and submitted over WebSocket RPC.
+
+```typescript
+import { StatementStoreClient } from "@polkadot-apps/statement-store";
+
+const signer = {
+  publicKey: myPublicKey,       // Uint8Array, 32 bytes
+  sign: (msg) => mySignFn(msg), // Returns Uint8Array (64 bytes) or Promise<Uint8Array>
+};
+
+const client = new StatementStoreClient({
+  appName: "my-app",
+  endpoint: "wss://paseo-bulletin-rpc.polkadot.io",
+});
+await client.connect({ mode: "local", signer });
+
+await client.publish({ type: "hello", peerId: "abc" }, {
+  channel: "presence/abc",
+});
+
 client.destroy();
 ```
 
 ## StatementStoreClient
 
-The primary interface for publishing and subscribing to statements. Handles SCALE encoding, Sr25519 signing, topic management, and resilient delivery via subscription with polling fallback.
+The primary interface for publishing and subscribing to statements. Handles JSON encoding, signing (host or local), topic management, and resilient delivery via subscription with polling fallback.
 
 ### Creating a client
 
@@ -49,29 +77,30 @@ const client = new StatementStoreClient({
   pollIntervalMs: 10_000,           // Optional. Polling interval. Default: 10000.
   defaultTtlSeconds: 30,            // Optional. Statement TTL. Default: 30.
   enablePolling: true,              // Optional. Enable polling fallback. Default: true.
+  transport: customTransport,       // Optional. BYOD transport, skips auto-detection.
 });
 ```
 
 ### Connecting
 
-Call `connect` with an Sr25519 signer to establish the transport. The client tries the chain-client bulletin first, then falls back to the configured WebSocket endpoint.
+Call `connect` with credentials matching the runtime environment. The transport is resolved automatically: host API first, then direct WebSocket RPC as fallback.
 
 ```typescript
-import type { StatementSignerWithKey } from "@polkadot-apps/statement-store";
+// Host mode — inside a container
+await client.connect({ mode: "host", accountId: ["5Grw...", 42] });
 
-const signer: StatementSignerWithKey = {
-  publicKey: myPublicKey,       // Uint8Array, 32 bytes
-  sign: (msg) => mySignFn(msg), // Returns Uint8Array (64 bytes) or Promise<Uint8Array>
-};
+// Local mode — outside a container
+await client.connect({ mode: "local", signer: { publicKey, sign } });
 
-await client.connect(signer);
 console.log(client.isConnected());       // true
-console.log(client.getPublicKeyHex());   // "0xaa..."
+console.log(client.getPublicKeyHex());   // "0xaa..." (local mode only)
 ```
+
+The legacy signature `connect(signer)` is still supported for backward compatibility but deprecated in favor of `connect({ mode: "local", signer })`.
 
 ### Publishing
 
-Publish typed JSON data. Returns `true` if the network accepted the statement ("new" or "known"), `false` if rejected.
+Publish typed JSON data. Returns `true` if the network accepted the statement, `false` if rejected or errored.
 
 ```typescript
 const accepted = await client.publish(
@@ -95,11 +124,12 @@ Listen for incoming statements in real time. Statements are deduplicated by chan
 const sub = client.subscribe<{ type: string; peerId: string }>(
   (statement) => {
     console.log(statement.data.type);
-    console.log(statement.signer);   // Uint8Array | undefined
-    console.log(statement.channel);  // Uint8Array | undefined
-    console.log(statement.expiry);   // bigint | undefined
+    console.log(statement.signerHex);    // string | undefined
+    console.log(statement.channelHex);   // string | undefined
+    console.log(statement.topics);       // string[]
+    console.log(statement.expiry);       // bigint | undefined
   },
-  { topic2: "room-123" },           // Optional. Filter by secondary topic.
+  { topic2: "room-123" },               // Optional. Filter by secondary topic.
 );
 
 // Stop listening
@@ -108,7 +138,7 @@ sub.unsubscribe();
 
 ### Querying existing statements
 
-Fetch statements that were published before the subscription started.
+Fetch statements that were published before the subscription started. Only available in RPC mode (local). In host mode, the subscription replays existing statements automatically.
 
 ```typescript
 const statements = await client.query<{ type: string }>({
@@ -116,7 +146,7 @@ const statements = await client.query<{ type: string }>({
 });
 
 for (const stmt of statements) {
-  console.log(stmt.data, stmt.signer);
+  console.log(stmt.data, stmt.signerHex);
 }
 ```
 
@@ -191,51 +221,6 @@ const serialized = serializeTopicFilter({ matchAll: [topic] });
 // { matchAll: ["0x..."] }
 ```
 
-## Codec (advanced)
-
-Direct access to SCALE encoding and decoding for consumers that need low-level control.
-
-```typescript
-import {
-  encodeData,
-  decodeData,
-  encodeStatement,
-  decodeStatement,
-  createSignatureMaterial,
-  toHex,
-  fromHex,
-} from "@polkadot-apps/statement-store";
-
-// Encode/decode JSON payloads
-const bytes = encodeData({ hello: "world" }); // Uint8Array (JSON to UTF-8, max 512 bytes)
-const parsed = decodeData<{ hello: string }>(bytes);
-
-// Encode/decode full SCALE statements
-const encoded = encodeStatement(fields, signerPublicKey, signature); // Uint8Array
-const decoded = decodeStatement("0x...");  // DecodedStatement
-
-// Signature material for manual signing
-const material = createSignatureMaterial(fields); // Uint8Array
-
-// Hex conversion
-const hex = toHex(new Uint8Array([0xde, 0xad])); // "0xdead"
-const raw = fromHex("0xdead");                     // Uint8Array
-```
-
-## Transport (advanced)
-
-For consumers that need custom transport implementations or direct WebSocket access.
-
-```typescript
-import { createTransport, RpcTransport } from "@polkadot-apps/statement-store";
-
-// Auto-detect: tries chain-client bulletin, falls back to direct WebSocket
-const transport = await createTransport({ endpoint: "wss://rpc.example.com" });
-
-// Or use the RPC transport directly
-const rpc = new RpcTransport(/* ... */);
-```
-
 ## Constants
 
 | Constant | Value | Description |
@@ -274,7 +259,7 @@ try {
 
 | Error class | When it is thrown | Extra properties |
 |-------------|-------------------|------------------|
-| `StatementEncodingError` | SCALE encode/decode failed | -- |
+| `StatementEncodingError` | JSON encode/decode failed | -- |
 | `StatementSubmitError` | Node rejected the statement | `detail: unknown` |
 | `StatementSubscriptionError` | Subscription setup failed (non-fatal) | -- |
 | `StatementConnectionError` | Transport connection failed | -- |
@@ -287,10 +272,11 @@ try {
 ```typescript
 class StatementStoreClient {
   constructor(config: StatementStoreConfig)
-  connect(signer: StatementSignerWithKey): Promise<void>
+  connect(credentials: ConnectionCredentials): Promise<void>
+  connect(signer: StatementSignerWithKey): Promise<void> // deprecated
   publish<T>(data: T, options?: PublishOptions): Promise<boolean>
   subscribe<T>(callback: (statement: ReceivedStatement<T>) => void, options?: { topic2?: string }): Unsubscribable
-  query<T>(options?: { topic2?: string; decryptionKey?: Uint8Array }): Promise<ReceivedStatement<T>[]>
+  query<T>(options?: { topic2?: string }): Promise<ReceivedStatement<T>[]>
   isConnected(): boolean
   getPublicKeyHex(): string
   destroy(): void
@@ -318,36 +304,24 @@ function createTopic(name: string): TopicHash
 function createChannel(name: string): ChannelHash
 function topicToHex(hash: Uint8Array): string
 function topicsEqual(a: Uint8Array, b: Uint8Array): boolean
-function serializeTopicFilter(filter: TopicFilter): SerializedTopicFilter
+function serializeTopicFilter(filter: TopicFilter): SdkTopicFilter
 ```
 
-### Codec
-
-```typescript
-function encodeStatement(fields: StatementFields, signer: Uint8Array, signature: Uint8Array): Uint8Array
-function decodeStatement(hex: string): DecodedStatement
-function encodeData<T>(value: T): Uint8Array
-function decodeData<T>(bytes: Uint8Array): T
-function createSignatureMaterial(fields: StatementFields): Uint8Array
-function toHex(bytes: Uint8Array): string
-function fromHex(hex: string): Uint8Array
-```
-
-### Transport
+### Transport (advanced)
 
 ```typescript
 function createTransport(config: { endpoint?: string }): Promise<StatementTransport>
-class RpcTransport { /* JSON-RPC over WebSocket */ }
 ```
+
+The `createTransport` factory tries the Host API first (inside containers), then falls back to direct WebSocket RPC via `@polkadot-api/substrate-client` + `@novasamatech/sdk-statement`. Most consumers should use `StatementStoreClient` instead of calling this directly.
 
 ## Types
 
 ```typescript
-/** Branded 32-byte blake2b-256 hash for statement topics. */
-type TopicHash = Uint8Array & { readonly __brand: "TopicHash" };
-
-/** Branded 32-byte blake2b-256 hash for statement channels. */
-type ChannelHash = Uint8Array & { readonly __brand: "ChannelHash" };
+/** Connection credentials — host mode or local mode. */
+type ConnectionCredentials =
+  | { mode: "host"; accountId: [string, number] }
+  | { mode: "local"; signer: StatementSignerWithKey };
 
 interface StatementStoreConfig {
   appName: string;
@@ -355,6 +329,7 @@ interface StatementStoreConfig {
   pollIntervalMs?: number;      // Default: 10000
   defaultTtlSeconds?: number;   // Default: 30
   enablePolling?: boolean;      // Default: true
+  transport?: StatementTransport; // BYOD
 }
 
 interface PublishOptions {
@@ -366,53 +341,35 @@ interface PublishOptions {
 
 interface ReceivedStatement<T = unknown> {
   data: T;
-  signer?: Uint8Array;
-  channel?: Uint8Array;
-  topic1?: Uint8Array;
-  topic2?: Uint8Array;
+  signerHex?: string;
+  channelHex?: string;
+  topics: string[];
   expiry?: bigint;
-  raw: DecodedStatement;
+  raw: Statement;
 }
-
-interface StatementFields {
-  expirationTimestamp: number;
-  sequenceNumber: number;
-  decryptionKey?: Uint8Array;
-  channel?: Uint8Array;
-  topic1?: Uint8Array;
-  topic2?: Uint8Array;
-  data?: Uint8Array;
-}
-
-interface DecodedStatement {
-  signer?: Uint8Array;
-  expiry?: bigint;
-  decryptionKey?: Uint8Array;
-  topic1?: Uint8Array;
-  topic2?: Uint8Array;
-  channel?: Uint8Array;
-  data?: Uint8Array;
-}
-
-type TopicFilter = "any" | { matchAll: TopicHash[] } | { matchAny: TopicHash[] };
-type SerializedTopicFilter = "any" | { matchAll: string[] } | { matchAny: string[] };
 
 interface StatementSignerWithKey {
   publicKey: Uint8Array;
   sign: (message: Uint8Array) => Uint8Array | Promise<Uint8Array>;
 }
 
-type SubmitStatus = "new" | "known" | "rejected";
+/** Branded 32-byte blake2b-256 hash for statement topics. */
+type TopicHash = Uint8Array & { readonly __brand: "TopicHash" };
+
+/** Branded 32-byte blake2b-256 hash for statement channels. */
+type ChannelHash = Uint8Array & { readonly __brand: "ChannelHash" };
+
+type TopicFilter = "any" | { matchAll: TopicHash[] } | { matchAny: TopicHash[] };
+
+interface StatementTransport {
+  subscribe(filter: SdkTopicFilter, onStatements: (statements: Statement[]) => void, onError: (error: Error) => void): Unsubscribable;
+  signAndSubmit(statement: Statement, credentials: ConnectionCredentials): Promise<void>;
+  query?(filter: SdkTopicFilter): Promise<Statement[]>;
+  destroy(): void;
+}
 
 interface Unsubscribable {
   unsubscribe: () => void;
-}
-
-interface StatementTransport {
-  subscribe(filter: TopicFilter, onStatement: (hex: string) => void, onError: (error: Error) => void): Unsubscribable;
-  submit(statementHex: string): Promise<SubmitStatus>;
-  query(topics: TopicHash[], decryptionKey?: string): Promise<string[]>;
-  destroy(): void;
 }
 ```
 

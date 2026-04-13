@@ -16,7 +16,7 @@ Reusable TypeScript components for rapidly developing applications within the Po
 | [`@polkadot-apps/keys`](https://www.npmjs.com/package/@polkadot-apps/keys) | Hierarchical key derivation and session key management for Polkadot accounts |
 | [`@polkadot-apps/logger`](https://www.npmjs.com/package/@polkadot-apps/logger) | Structured, namespace-filtered logging for the @polkadot-apps ecosystem |
 | [`@polkadot-apps/signer`](https://www.npmjs.com/package/@polkadot-apps/signer) | Multi-provider signer manager — Host API, browser extensions, and dev accounts |
-| [`@polkadot-apps/statement-store`](https://www.npmjs.com/package/@polkadot-apps/statement-store) | Publish/subscribe client for the Polkadot Statement Store with topic-based routing |
+| [`@polkadot-apps/statement-store`](https://www.npmjs.com/package/@polkadot-apps/statement-store) | Publish/subscribe client for the Polkadot Statement Store with host-first transport |
 | [`@polkadot-apps/storage`](https://www.npmjs.com/package/@polkadot-apps/storage) | Key-value storage abstraction with automatic host/browser backend detection |
 | [`@polkadot-apps/tx`](https://www.npmjs.com/package/@polkadot-apps/tx) | Transaction submission, lifecycle watching, and dev signers for Polkadot chains |
 | [`@polkadot-apps/utils`](https://www.npmjs.com/package/@polkadot-apps/utils) | Encoding utilities and token formatting for the @polkadot-apps ecosystem |
