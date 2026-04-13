@@ -7,11 +7,9 @@
         "start": "tsx --import @polkadot-apps/terminal/register index.ts"
     },
     "dependencies": {
-        "@polkadot-apps/terminal": "workspace:*",
-        "ws": "^8.18.0"
+        "@polkadot-apps/terminal": "workspace:*"
     },
     "devDependencies": {
-        "@types/ws": "^8.5.0",
         "tsx": "^4.19.0"
     }
 }

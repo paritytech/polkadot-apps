@@ -13,7 +13,7 @@ import {
     SS_PASEO_STABLE_STAGE_ENDPOINTS,
 } from "@novasamatech/host-papp";
 import { createLazyClient, createPapiStatementStoreAdapter } from "@novasamatech/statement-store";
-import { getWsProvider } from "@polkadot-api/ws-provider/web";
+import { getWsProvider } from "@polkadot-api/ws-provider/node";
 
 import { createNodeStorageAdapter } from "./node-storage.js";
 

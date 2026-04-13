@@ -7,14 +7,12 @@ Wraps the [`@novasamatech/host-papp`](https://www.npmjs.com/package/@novasamatec
 ## Installation
 
 ```bash
-pnpm add @polkadot-apps/terminal ws
+pnpm add @polkadot-apps/terminal
 ```
 
 ## Setup
 
-Two things must be configured before using the package:
-
-**1. Register the WASM loader** — the host-papp SDK depends on `verifiablejs` which uses inline WASM (browser-only). The register hook redirects it to the Node.js WASM build. Pass it via `--import`:
+**Register the WASM loader** — the host-papp SDK depends on `verifiablejs` which uses inline WASM (browser-only). The register hook redirects it to the Node.js WASM build. Pass it via `--import`:
 
 ```bash
 node --import @polkadot-apps/terminal/register app.js
@@ -31,17 +29,10 @@ Or in your `package.json` scripts:
 }
 ```
 
-**2. Polyfill WebSocket** — must be done before creating the adapter:
-
-```ts
-import { WebSocket } from "ws";
-Object.assign(globalThis, { WebSocket });
-```
-
 ## Quick Start
 
 ```ts
-import { createTerminalAdapter, renderQrCode } from "@polkadot-apps/terminal";
+import { createTerminalAdapter, renderQrCode, waitForSessions } from "@polkadot-apps/terminal";
 
 // 1. Create the adapter
 const adapter = createTerminalAdapter({
@@ -66,19 +57,7 @@ result.match(
 );
 
 // 4. Wait for sessions to load (they load asynchronously from disk)
-const sessions = await new Promise<any[]>((resolve) => {
-    let resolved = false;
-    let unsub: (() => void) | null = null;
-    unsub = adapter.sessions.sessions.subscribe((s) => {
-        if (resolved) return;
-        resolved = true;
-        unsub?.();
-        resolve(s);
-    });
-    setTimeout(() => {
-        if (!resolved) { resolved = true; unsub?.(); resolve([]); }
-    }, 2000);
-});
+const sessions = await waitForSessions(adapter, 2000);
 
 // 5. Sign messages via the paired wallet
 if (sessions.length > 0) {
@@ -126,6 +105,14 @@ After login and attestation, the paired wallet can sign messages via the stateme
 **`signRaw`** works end-to-end: the wallet receives the request, shows a prompt, and returns the signature.
 
 **`signPayload`** (for signing transaction payloads) is not yet functional — the request is submitted but the wallet does not respond. This is a known limitation of the current wallet/protocol version.
+
+## Notes
+
+### WebSocket transport
+
+The adapter uses `@polkadot-api/ws-provider/node`, which internally bundles the [`ws`](https://www.npmjs.com/package/ws) package — no `globalThis.WebSocket` polyfill is required.
+
+The bundled WebSocket is constructed without `followRedirects: true`, so endpoints behind an HTTP redirect will fail to connect. The default Paseo stable-stage endpoints do not redirect. If you must point at an endpoint that does, supply the resolved URL directly via the `endpoints` option rather than the redirecting one.
 
 ## How It Works
 

@@ -8,16 +8,6 @@
  *   pnpm --filter terminal-login-example start
  */
 
-// Polyfill WebSocket for Node.js
-import { WebSocket as _WS } from "ws";
-const WebSocket = new Proxy(_WS, {
-    construct(target, args) {
-        const [url, protocols, opts] = args;
-        return new target(url, protocols, { followRedirects: true, ...opts });
-    },
-});
-Object.assign(globalThis, { WebSocket });
-
 import * as readline from "node:readline";
 import {
     createTerminalAdapter,
