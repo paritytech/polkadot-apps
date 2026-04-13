@@ -44,7 +44,9 @@ export type TerminalAdapter = PappAdapter & {
     destroy(): void;
 };
 
-export async function createTerminalAdapter(options: TerminalAdapterOptions): Promise<TerminalAdapter> {
+export async function createTerminalAdapter(
+    options: TerminalAdapterOptions,
+): Promise<TerminalAdapter> {
     const endpoints = options.endpoints ?? SS_PASEO_STABLE_STAGE_ENDPOINTS;
 
     const storage = await createStorageAdapter(options.appId);

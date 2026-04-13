@@ -18,7 +18,10 @@ function toError(e: unknown): Error {
  * In Node.js this uses the file-based backend (~/.polkadot-apps/).
  * In browsers it falls back to localStorage.
  */
-export async function createStorageAdapter(appId: string, storageDir?: string): Promise<StorageAdapter> {
+export async function createStorageAdapter(
+    appId: string,
+    storageDir?: string,
+): Promise<StorageAdapter> {
     const store = await createKvStore({ prefix: appId, storageDir });
     const subscribers = new Map<string, Set<(value: string | null) => unknown>>();
 
@@ -26,7 +29,11 @@ export async function createStorageAdapter(appId: string, storageDir?: string): 
         const subs = subscribers.get(key);
         if (subs) {
             for (const cb of subs) {
-                try { cb(value); } catch { /* ignore */ }
+                try {
+                    cb(value);
+                } catch {
+                    /* ignore */
+                }
             }
         }
     }
@@ -38,14 +45,18 @@ export async function createStorageAdapter(appId: string, storageDir?: string): 
 
         write(key: string, value: string) {
             return fromPromise(
-                store.set(key, value).then(() => { notifySubscribers(key, value); }),
+                store.set(key, value).then(() => {
+                    notifySubscribers(key, value);
+                }),
                 toError,
             ).map(() => undefined as void);
         },
 
         clear(key: string) {
             return fromPromise(
-                store.remove(key).then(() => { notifySubscribers(key, null); }),
+                store.remove(key).then(() => {
+                    notifySubscribers(key, null);
+                }),
                 toError,
             ).map(() => undefined as void);
         },
@@ -76,7 +87,11 @@ if (import.meta.vitest) {
         });
 
         afterEach(async () => {
-            try { await rm(testDir, { recursive: true }); } catch { /* ignore */ }
+            try {
+                await rm(testDir, { recursive: true });
+            } catch {
+                /* ignore */
+            }
         });
 
         test("write and read round-trip", async () => {

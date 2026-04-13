@@ -577,7 +577,11 @@ if (import.meta.vitest) {
         });
 
         afterEach(async () => {
-            try { await rm(testDir, { recursive: true }); } catch { /* ignore */ }
+            try {
+                await rm(testDir, { recursive: true });
+            } catch {
+                /* ignore */
+            }
         });
 
         async function createFileStore(prefix?: string): Promise<KvStore> {
@@ -695,9 +699,7 @@ if (import.meta.vitest) {
                 await kv.set("x", "1");
                 // Went to localStorage, not the filesystem
                 expect(store["hybrid:x"]).toBe("1");
-                await expect(
-                    readFile(join(testDir, "hybrid%3ax.json"), "utf-8"),
-                ).rejects.toThrow();
+                await expect(readFile(join(testDir, "hybrid%3ax.json"), "utf-8")).rejects.toThrow();
             } finally {
                 cleanup();
             }
