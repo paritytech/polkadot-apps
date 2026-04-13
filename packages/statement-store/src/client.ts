@@ -70,6 +70,8 @@ export class StatementStoreClient {
     private callbacks: Array<(statement: ReceivedStatement<unknown>) => void> = [];
     private connected = false;
     private connectPromise: Promise<void> | null = null;
+    /** Set by destroy() so doConnect() can abort cleanly if destroy races with an in-flight connect. */
+    private destroyed = false;
 
     /**
      * Track seen statements by channel hex to avoid re-delivering the same statement.
@@ -105,6 +107,11 @@ export class StatementStoreClient {
     /** @deprecated Use `connect({ mode: "local", signer })` instead. */
     async connect(signer: StatementSignerWithKey): Promise<void>;
     async connect(arg: ConnectionCredentials | StatementSignerWithKey): Promise<void> {
+        if (this.destroyed) {
+            throw new StatementConnectionError(
+                "Cannot connect: client has been destroyed. Create a new instance.",
+            );
+        }
         if (this.connected) {
             log.warn("Already connected, ignoring duplicate connect()");
             return;
@@ -125,8 +132,19 @@ export class StatementStoreClient {
     /* @integration */
     private async doConnect(credentials: ConnectionCredentials): Promise<void> {
         this.credentials = credentials;
-        this.transport =
+        const transport =
             this.config.transport ?? (await createTransport({ endpoint: this.config.endpoint }));
+
+        // destroy() may have been called while we were awaiting createTransport().
+        // If so, clean up the newly-created transport (if we own it) instead of leaking.
+        if (this.destroyed) {
+            if (transport !== this.config.transport) {
+                transport.destroy();
+            }
+            return;
+        }
+
+        this.transport = transport;
 
         try {
             log.info("Connected", { appName: this.config.appName });
@@ -281,6 +299,9 @@ export class StatementStoreClient {
      * Safe to call multiple times. After destruction, the client cannot be reused.
      */
     destroy(): void {
+        // Signal to any in-flight doConnect() that cleanup should happen on its side.
+        this.destroyed = true;
+
         this.stopPolling();
 
         if (this.subscription) {
@@ -390,8 +411,7 @@ export class StatementStoreClient {
 
         // Deduplication key: channel hex (if present) or blake2b hash of data
         const dedupeKey =
-            parsed.channelHex ??
-            (parsed.raw.data ? toHex(blake2b256(parsed.raw.data)) : "");
+            parsed.channelHex ?? (parsed.raw.data ? toHex(blake2b256(parsed.raw.data)) : "");
 
         const existingExpiry = this.seen.get(dedupeKey);
         const newExpiry = parsed.expiry ?? 0n;
@@ -821,6 +841,51 @@ if (import.meta.vitest) {
             // connect should use the provided transport, not auto-detect
             await client.connect(signer);
             expect(client.isConnected()).toBe(true);
+        });
+
+        test("connect throws after destroy (one-way lifecycle)", async () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            client.destroy();
+
+            const signer = {
+                publicKey: new Uint8Array(32),
+                sign: () => new Uint8Array(64),
+            };
+            await expect(client.connect(signer)).rejects.toThrow(StatementConnectionError);
+        });
+
+        test("doConnect guard destroys newly-created transport if destroy races with await", async () => {
+            // Directly exercise the guard in doConnect. The guard fires when destroyed=true
+            // after the await point. We simulate this by pre-setting destroyed=true on
+            // the internal state, which is the outcome of a destroy() call that races
+            // with createTransport's microtask resolution.
+            const client = new StatementStoreClient({ appName: "test" });
+            const transport = createMockTransport();
+
+            const internal = client as unknown as {
+                doConnect: (c: ConnectionCredentials) => Promise<void>;
+                destroyed: boolean;
+                config: { transport?: StatementTransport };
+            };
+
+            // Inject the transport via config so doConnect takes it synchronously,
+            // then pre-set destroyed to simulate the race outcome.
+            internal.config.transport = transport;
+            internal.destroyed = true;
+
+            await internal.doConnect({
+                mode: "local",
+                signer: {
+                    publicKey: new Uint8Array(32),
+                    sign: () => new Uint8Array(64),
+                },
+            });
+
+            // Guard should have kicked in before startSubscription
+            expect(transport.subscribeCalls.length).toBe(0);
+            expect(client.isConnected()).toBe(false);
+            // User-provided transport (via config.transport) is NOT destroyed by us
+            expect(transport.destroy).not.toHaveBeenCalled();
         });
     });
 }

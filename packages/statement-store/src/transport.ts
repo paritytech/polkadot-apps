@@ -109,51 +109,64 @@ class RpcTransport implements StatementTransport {
     }
 
     static async create(endpoint: string): Promise<RpcTransport> {
-        const { getWsProvider } = await import("polkadot-api/ws-provider/web");
-        const { createClient: createSubstrateClient } = await import(
-            "@polkadot-api/substrate-client"
-        );
-        const { createStatementSdk } = await import("@novasamatech/sdk-statement");
+        // Resolve all dynamic imports before allocating any resources.
+        // This way, if a module is missing we fail fast with no cleanup needed.
+        const [wsMod, substrateMod, sdkMod] = await Promise.all([
+            import("polkadot-api/ws-provider/web"),
+            import("@polkadot-api/substrate-client"),
+            import("@novasamatech/sdk-statement"),
+        ]);
+        const { getWsProvider } = wsMod;
+        const { createClient: createSubstrateClient } = substrateMod;
+        const { createStatementSdk } = sdkMod;
 
+        // Now allocate the WebSocket + client. Any failure from here on
+        // must call client.destroy() to avoid leaking the socket.
         const provider = getWsProvider(endpoint);
         const client = createSubstrateClient(provider);
 
-        // Build request/subscribe functions from the substrate client
-        // following the lazyClient pattern from triangle-js-sdks
-        const requestFn = <Reply>(method: string, params: unknown[]) =>
-            new Promise<Reply>((resolve, reject) => {
-                client._request<Reply, unknown>(method, params, {
-                    onSuccess: (result) => resolve(result),
-                    onError: (e) => reject(e),
-                });
-            });
-
-        const subscribeFn = <T>(
-            method: string,
-            params: unknown[],
-            onMessage: (message: T) => void,
-            onError: (error: Error) => void,
-        ) => {
-            return client._request<string, T>(method, params, {
-                onSuccess: (subscriptionId, followSubscription) => {
-                    followSubscription(subscriptionId, { next: onMessage, error: onError });
-                },
-                onError,
-            });
-        };
-
-        const sdk = createStatementSdk(requestFn, subscribeFn);
-
-        // Warm up the WebSocket connection — substrate-client's _request throws
-        // synchronously if the WS isn't ready, unlike request() which queues.
         try {
-            await requestFn("system_name", []);
-        } catch {
-            // Non-fatal — connection may still be usable
-        }
+            // Build request/subscribe functions from the substrate client
+            // following the lazyClient pattern from triangle-js-sdks
+            const requestFn = <Reply>(method: string, params: unknown[]) =>
+                new Promise<Reply>((resolve, reject) => {
+                    client._request<Reply, unknown>(method, params, {
+                        onSuccess: (result) => resolve(result),
+                        onError: (e) => reject(e),
+                    });
+                });
 
-        log.info("Connected via direct RPC", { endpoint });
-        return new RpcTransport(sdk, () => client.destroy());
+            const subscribeFn = <T>(
+                method: string,
+                params: unknown[],
+                onMessage: (message: T) => void,
+                onError: (error: Error) => void,
+            ) => {
+                return client._request<string, T>(method, params, {
+                    onSuccess: (subscriptionId, followSubscription) => {
+                        followSubscription(subscriptionId, { next: onMessage, error: onError });
+                    },
+                    onError,
+                });
+            };
+
+            const sdk = createStatementSdk(requestFn, subscribeFn);
+
+            // Warm up the WebSocket connection — substrate-client's _request throws
+            // synchronously if the WS isn't ready, unlike request() which queues.
+            try {
+                await requestFn("system_name", []);
+            } catch {
+                // Non-fatal — connection may still be usable
+            }
+
+            log.info("Connected via direct RPC", { endpoint });
+            return new RpcTransport(sdk, () => client.destroy());
+        } catch (error) {
+            // Any failure during setup — destroy the client to avoid leaking the WS
+            client.destroy();
+            throw error;
+        }
     }
 
     subscribe(
