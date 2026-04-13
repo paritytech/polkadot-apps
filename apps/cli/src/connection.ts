@@ -1,4 +1,5 @@
 import { getChainAPI, type Environment } from "@polkadot-apps/chain-client";
+import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { ContractManager } from "@polkadot-apps/contracts";
 import { CHAINS, DEFAULT_CHAIN } from "./config.js";
 
@@ -37,14 +38,15 @@ export async function connect(chainName?: string): Promise<Connection> {
     }
 
     const env = resolveEnvironment(name);
-    const api = await getChainAPI(env);
-    const manager = new ContractManager(cdmJson, api.contracts);
+    const client = await getChainAPI(env);
+    const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
+    const manager = new ContractManager(cdmJson, inkSdk);
     const registry = manager.getContract("@example/playground-registry");
 
     return {
         registry,
         ipfsGateway: chain.ipfsGateway,
-        destroy: () => api.destroy(),
+        destroy: () => client.destroy(),
     };
 }
 

@@ -1,228 +1,228 @@
 {
-  "targets": {
-    "acc2c3b5e912b762": {
-      "asset-hub": "wss://asset-hub-paseo-rpc.n.dwellir.com",
-      "bulletin": "https://paseo-ipfs.polkadot.io/ipfs"
+    "targets": {
+        "acc2c3b5e912b762": {
+            "asset-hub": "wss://asset-hub-paseo-rpc.n.dwellir.com",
+            "bulletin": "https://paseo-ipfs.polkadot.io/ipfs"
+        }
+    },
+    "dependencies": {
+        "acc2c3b5e912b762": {
+            "@example/playground-registry": "latest"
+        }
+    },
+    "contracts": {
+        "acc2c3b5e912b762": {
+            "@example/playground-registry": {
+                "version": 5,
+                "address": "0x150dCe6077E4546151919bF1d202419fe1131d9b",
+                "abi": [
+                    {
+                        "type": "constructor",
+                        "inputs": [],
+                        "stateMutability": "nonpayable"
+                    },
+                    {
+                        "type": "function",
+                        "name": "publish",
+                        "inputs": [
+                            {
+                                "name": "domain",
+                                "type": "string"
+                            },
+                            {
+                                "name": "metadata_uri",
+                                "type": "string"
+                            }
+                        ],
+                        "outputs": [],
+                        "stateMutability": "nonpayable"
+                    },
+                    {
+                        "type": "function",
+                        "name": "unpublish",
+                        "inputs": [
+                            {
+                                "name": "domain",
+                                "type": "string"
+                            }
+                        ],
+                        "outputs": [],
+                        "stateMutability": "nonpayable"
+                    },
+                    {
+                        "type": "function",
+                        "name": "rateApp",
+                        "inputs": [
+                            {
+                                "name": "domain",
+                                "type": "string"
+                            },
+                            {
+                                "name": "rating",
+                                "type": "uint8"
+                            },
+                            {
+                                "name": "comment_uri",
+                                "type": "string"
+                            }
+                        ],
+                        "outputs": [],
+                        "stateMutability": "nonpayable"
+                    },
+                    {
+                        "type": "function",
+                        "name": "removeRating",
+                        "inputs": [
+                            {
+                                "name": "domain",
+                                "type": "string"
+                            },
+                            {
+                                "name": "reviewer",
+                                "type": "address"
+                            }
+                        ],
+                        "outputs": [],
+                        "stateMutability": "nonpayable"
+                    },
+                    {
+                        "type": "function",
+                        "name": "getContextId",
+                        "inputs": [],
+                        "outputs": [
+                            {
+                                "name": "",
+                                "type": "bytes32"
+                            }
+                        ],
+                        "stateMutability": "view"
+                    },
+                    {
+                        "type": "function",
+                        "name": "getAppCount",
+                        "inputs": [],
+                        "outputs": [
+                            {
+                                "name": "",
+                                "type": "uint32"
+                            }
+                        ],
+                        "stateMutability": "view"
+                    },
+                    {
+                        "type": "function",
+                        "name": "getDomainAt",
+                        "inputs": [
+                            {
+                                "name": "index",
+                                "type": "uint32"
+                            }
+                        ],
+                        "outputs": [
+                            {
+                                "name": "",
+                                "type": "string"
+                            }
+                        ],
+                        "stateMutability": "view"
+                    },
+                    {
+                        "type": "function",
+                        "name": "getOwnerAppCount",
+                        "inputs": [
+                            {
+                                "name": "owner",
+                                "type": "address"
+                            }
+                        ],
+                        "outputs": [
+                            {
+                                "name": "",
+                                "type": "uint32"
+                            }
+                        ],
+                        "stateMutability": "view"
+                    },
+                    {
+                        "type": "function",
+                        "name": "getOwnerDomainAt",
+                        "inputs": [
+                            {
+                                "name": "owner",
+                                "type": "address"
+                            },
+                            {
+                                "name": "index",
+                                "type": "uint32"
+                            }
+                        ],
+                        "outputs": [
+                            {
+                                "name": "",
+                                "type": "string"
+                            }
+                        ],
+                        "stateMutability": "view"
+                    },
+                    {
+                        "type": "function",
+                        "name": "getSudo",
+                        "inputs": [],
+                        "outputs": [
+                            {
+                                "name": "",
+                                "type": "address"
+                            }
+                        ],
+                        "stateMutability": "view"
+                    },
+                    {
+                        "type": "function",
+                        "name": "getMetadataUri",
+                        "inputs": [
+                            {
+                                "name": "domain",
+                                "type": "string"
+                            }
+                        ],
+                        "outputs": [
+                            {
+                                "name": "",
+                                "type": "tuple",
+                                "components": [
+                                    {
+                                        "name": "isSome",
+                                        "type": "bool"
+                                    },
+                                    {
+                                        "name": "value",
+                                        "type": "string"
+                                    }
+                                ]
+                            }
+                        ],
+                        "stateMutability": "view"
+                    },
+                    {
+                        "type": "function",
+                        "name": "getOwner",
+                        "inputs": [
+                            {
+                                "name": "domain",
+                                "type": "string"
+                            }
+                        ],
+                        "outputs": [
+                            {
+                                "name": "",
+                                "type": "address"
+                            }
+                        ],
+                        "stateMutability": "view"
+                    }
+                ],
+                "metadataCid": "bafk2bzaceaic2pcafqerskl6qxrhh7kylyqysnblynku4znebh4uinkbvihgg"
+            }
+        }
     }
-  },
-  "dependencies": {
-    "acc2c3b5e912b762": {
-      "@example/playground-registry": "latest"
-    }
-  },
-  "contracts": {
-    "acc2c3b5e912b762": {
-      "@example/playground-registry": {
-        "version": 5,
-        "address": "0x150dCe6077E4546151919bF1d202419fe1131d9b",
-        "abi": [
-          {
-            "type": "constructor",
-            "inputs": [],
-            "stateMutability": "nonpayable"
-          },
-          {
-            "type": "function",
-            "name": "publish",
-            "inputs": [
-              {
-                "name": "domain",
-                "type": "string"
-              },
-              {
-                "name": "metadata_uri",
-                "type": "string"
-              }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-          },
-          {
-            "type": "function",
-            "name": "unpublish",
-            "inputs": [
-              {
-                "name": "domain",
-                "type": "string"
-              }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-          },
-          {
-            "type": "function",
-            "name": "rateApp",
-            "inputs": [
-              {
-                "name": "domain",
-                "type": "string"
-              },
-              {
-                "name": "rating",
-                "type": "uint8"
-              },
-              {
-                "name": "comment_uri",
-                "type": "string"
-              }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-          },
-          {
-            "type": "function",
-            "name": "removeRating",
-            "inputs": [
-              {
-                "name": "domain",
-                "type": "string"
-              },
-              {
-                "name": "reviewer",
-                "type": "address"
-              }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-          },
-          {
-            "type": "function",
-            "name": "getContextId",
-            "inputs": [],
-            "outputs": [
-              {
-                "name": "",
-                "type": "bytes32"
-              }
-            ],
-            "stateMutability": "view"
-          },
-          {
-            "type": "function",
-            "name": "getAppCount",
-            "inputs": [],
-            "outputs": [
-              {
-                "name": "",
-                "type": "uint32"
-              }
-            ],
-            "stateMutability": "view"
-          },
-          {
-            "type": "function",
-            "name": "getDomainAt",
-            "inputs": [
-              {
-                "name": "index",
-                "type": "uint32"
-              }
-            ],
-            "outputs": [
-              {
-                "name": "",
-                "type": "string"
-              }
-            ],
-            "stateMutability": "view"
-          },
-          {
-            "type": "function",
-            "name": "getOwnerAppCount",
-            "inputs": [
-              {
-                "name": "owner",
-                "type": "address"
-              }
-            ],
-            "outputs": [
-              {
-                "name": "",
-                "type": "uint32"
-              }
-            ],
-            "stateMutability": "view"
-          },
-          {
-            "type": "function",
-            "name": "getOwnerDomainAt",
-            "inputs": [
-              {
-                "name": "owner",
-                "type": "address"
-              },
-              {
-                "name": "index",
-                "type": "uint32"
-              }
-            ],
-            "outputs": [
-              {
-                "name": "",
-                "type": "string"
-              }
-            ],
-            "stateMutability": "view"
-          },
-          {
-            "type": "function",
-            "name": "getSudo",
-            "inputs": [],
-            "outputs": [
-              {
-                "name": "",
-                "type": "address"
-              }
-            ],
-            "stateMutability": "view"
-          },
-          {
-            "type": "function",
-            "name": "getMetadataUri",
-            "inputs": [
-              {
-                "name": "domain",
-                "type": "string"
-              }
-            ],
-            "outputs": [
-              {
-                "name": "",
-                "type": "tuple",
-                "components": [
-                  {
-                    "name": "isSome",
-                    "type": "bool"
-                  },
-                  {
-                    "name": "value",
-                    "type": "string"
-                  }
-                ]
-              }
-            ],
-            "stateMutability": "view"
-          },
-          {
-            "type": "function",
-            "name": "getOwner",
-            "inputs": [
-              {
-                "name": "domain",
-                "type": "string"
-              }
-            ],
-            "outputs": [
-              {
-                "name": "",
-                "type": "address"
-              }
-            ],
-            "stateMutability": "view"
-          }
-        ],
-        "metadataCid": "bafk2bzaceaic2pcafqerskl6qxrhh7kylyqysnblynku4znebh4uinkbvihgg"
-      }
-    }
-  }
 }

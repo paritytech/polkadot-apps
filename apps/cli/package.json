@@ -19,8 +19,9 @@
         "@polkadot-apps/chain-client": "workspace:*",
         "@polkadot-apps/contracts": "workspace:*",
         "@polkadot-apps/keys": "workspace:*",
+        "@polkadot-api/sdk-ink": "catalog:",
         "@polkadot-apps/terminal": "file:/Users/charleshetterich/code/tmp2/polkadot-apps/packages/terminal",
-        "bulletin-deploy": "file:/Users/charleshetterich/code/bulletin-deploy",
+        "bulletin-deploy": "^0.6.1",
         "@polkadot-labs/hdkd-helpers": "catalog:",
         "polkadot-api": "catalog:",
         "ws": "^8.18.0"
