@@ -217,11 +217,24 @@ interface HostProviderOptions {
   ss58Prefix?: number;     // Default: 42
   maxRetries?: number;     // Default: 3
   retryDelay?: number;     // Initial retry delay in ms. Default: 500
-  loadSdk?: () => Promise<ProductSdkModule>;  // @internal Custom SDK loader
+  loadSdk?: () => Promise<ProductSdkModule>;              // @internal Custom SDK loader
+  loadHostApiEnum?: () => Promise<HostApiEnumHelper>;     // @internal host-api enum loader
+  requestTransactionSubmitPermission?: boolean;            // Default: true
 }
 ```
 
-Dynamically imports `@novasamatech/product-sdk` at runtime so it remains an optional peer dependency.
+Dynamically imports `@novasamatech/product-sdk` and `@novasamatech/host-api` at runtime; both remain optional peer dependencies.
+
+**Permission flow.** After a successful account fetch, `connect()` automatically
+requests the host's `TransactionSubmit` permission via `hostApi.permission(...)`.
+This is required — production hosts (and the `@parity/host-api-test-sdk` test
+host) reject every subsequent sign request with `PermissionDenied` when the
+permission is missing, which typically manifests as a silently-hanging
+transaction. Connect does **not** fail if the permission is rejected: the
+app can still be used for read-only flows, and the actual sign call will
+surface a clear `TxSigningRejectedError`. Pass
+`requestTransactionSubmitPermission: false` to opt out (e.g., if your app
+wants to drive the prompt manually at a later point).
 
 **Additional host-only methods:**
 - `getProductAccount(dotNsIdentifier, derivationIndex?)` - Get app-scoped product account
