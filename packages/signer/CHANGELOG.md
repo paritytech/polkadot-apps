@@ -1,5 +1,13 @@
 # @polkadot-apps/signer
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies [c83fcfa]
+  - @polkadot-apps/host@0.5.0
+  - @polkadot-apps/keys@0.4.3
+
 ## 1.0.0
 
 ### Major Changes

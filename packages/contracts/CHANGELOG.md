@@ -1,5 +1,13 @@
 # @polkadot-apps/contracts
 
+## 0.3.1
+
+### Patch Changes
+
+- @polkadot-apps/signer@1.0.1
+- @polkadot-apps/keys@0.4.3
+- @polkadot-apps/tx@0.3.4
+
 ## 0.3.0
 
 ### Minor Changes

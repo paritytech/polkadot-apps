@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/statement-store",
     "description": "Publish/subscribe client for the Polkadot Statement Store with host-first transport and topic-based routing",
-    "version": "0.2.11",
+    "version": "0.3.0",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",

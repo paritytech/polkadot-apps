@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/keys",
     "description": "Hierarchical key derivation and session key management for Polkadot accounts",
-    "version": "0.4.2",
+    "version": "0.4.3",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
