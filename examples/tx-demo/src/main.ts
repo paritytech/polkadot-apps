@@ -27,12 +27,18 @@ const $accountAddress = getEl<HTMLSpanElement>("account-address");
 const $remarkInput = getEl<HTMLInputElement>("remark-input");
 const $btnSubmitRemark = getEl<HTMLButtonElement>("btn-submit-remark");
 const $btnSubmitBatch = getEl<HTMLButtonElement>("btn-submit-batch");
+const $remarkFinalizedInput = getEl<HTMLInputElement>("remark-finalized-input");
+const $btnSubmitRemarkFinalized = getEl<HTMLButtonElement>("btn-submit-remark-finalized");
+const $btnSubmitBadTx = getEl<HTMLButtonElement>("btn-submit-bad-tx");
 const $txLog = getEl<HTMLElement>("tx-log");
 
 function setControlsEnabled(enabled: boolean): void {
     $remarkInput.disabled = !enabled;
     $btnSubmitRemark.disabled = !enabled;
     $btnSubmitBatch.disabled = !enabled;
+    $remarkFinalizedInput.disabled = !enabled;
+    $btnSubmitRemarkFinalized.disabled = !enabled;
+    $btnSubmitBadTx.disabled = !enabled;
 }
 
 function log(msg: string, level: Parameters<typeof appendLog>[2] = "info"): void {
@@ -136,6 +142,82 @@ $btnSubmitBatch.addEventListener("click", async () => {
         }
     } catch (err) {
         log(`batch failed: ${(err as Error).message}`, "err");
+    } finally {
+        setControlsEnabled(true);
+    }
+});
+
+// Same as remark, but waits for relay-chain finality before resolving.
+// Covers the `waitFor: "finalized"` branch in submitAndWatch.
+$btnSubmitRemarkFinalized.addEventListener("click", async () => {
+    if (!chain) {
+        log("Chain client not ready", "err");
+        return;
+    }
+    const signer = manager.getSigner();
+    if (!signer) {
+        log("No signer selected", "err");
+        return;
+    }
+    const text = $remarkFinalizedInput.value || "tx-demo finalized remark";
+    setControlsEnabled(false);
+    log(`Submitting System.remark("${text}") — waitFor=finalized…`);
+
+    try {
+        const tx = chain.assetHub.tx.System.remark({ remark: Binary.fromText(text) });
+        const result = await submitAndWatch(tx, signer, {
+            waitFor: "finalized",
+            onStatus: makeStatusLogger("remark-finalized"),
+        });
+        if (result.ok) {
+            log(
+                `remark-finalized finalized in block #${result.block.number} (${result.txHash.slice(0, 18)}…)`,
+                "finalized",
+            );
+        } else {
+            log(`remark-finalized failed: ${JSON.stringify(result.dispatchError)}`, "err");
+        }
+    } catch (err) {
+        log(`remark-finalized failed: ${(err as Error).message}`, "err");
+    } finally {
+        setControlsEnabled(true);
+    }
+});
+
+// Balances.force_set_balance is root-only. Signed correctly, the extrinsic
+// lands in a block and then fails at dispatch with BadOrigin — exercising
+// the TxDispatchError branch of submitAndWatch.
+$btnSubmitBadTx.addEventListener("click", async () => {
+    if (!chain) {
+        log("Chain client not ready", "err");
+        return;
+    }
+    const signer = manager.getSigner();
+    const state = manager.getState();
+    if (!signer || !state.selectedAccount) {
+        log("No signer selected", "err");
+        return;
+    }
+    setControlsEnabled(false);
+    log("Submitting Balances.force_set_balance (root-only)…");
+
+    try {
+        const tx = chain.assetHub.tx.Balances.force_set_balance({
+            who: { type: "Id", value: state.selectedAccount.address },
+            new_free: 1n,
+        });
+        const result = await submitAndWatch(tx, signer, {
+            onStatus: makeStatusLogger("bad-tx"),
+        });
+        if (result.ok) {
+            log(`bad-tx unexpectedly succeeded in block #${result.block.number}`, "err");
+        } else {
+            log(`bad-tx dispatch error: ${JSON.stringify(result.dispatchError)}`, "err");
+        }
+    } catch (err) {
+        // TxDispatchError rejects the promise — this is the expected path.
+        const e = err as Error;
+        log(`bad-tx rejected: ${e.name}: ${e.message}`, "err");
     } finally {
         setControlsEnabled(true);
     }
