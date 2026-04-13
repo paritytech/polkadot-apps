@@ -1,5 +1,12 @@
 # @polkadot-apps/chain-client
 
+## 2.0.2
+
+### Patch Changes
+
+- Updated dependencies [652b215]
+  - @polkadot-apps/host@0.5.1
+
 ## 2.0.1
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # @polkadot-apps/contracts
 
+## 0.3.2
+
+### Patch Changes
+
+- Updated dependencies [652b215]
+- Updated dependencies [652b215]
+  - @polkadot-apps/signer@1.1.0
+  - @polkadot-apps/keys@0.4.4
+  - @polkadot-apps/tx@0.3.5
+
 ## 0.3.1
 
 ### Patch Changes
