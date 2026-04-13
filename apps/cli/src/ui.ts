@@ -15,19 +15,23 @@ export function spinner(label: string, detail: string) {
     const id = setInterval(() => {
         process.stdout.write(`\r\x1b[2K${bold(label)} ${frames[i++ % frames.length]} ${detail}`);
     }, 80);
-    return {
+    const handle = {
+        done: false,
         update(newDetail: string) {
             detail = newDetail;
         },
         succeed(msg?: string) {
             clearInterval(id);
+            handle.done = true;
             process.stdout.write(`\r\x1b[2K${bold(label)} ${green("✔")} ${msg ?? detail}\n`);
         },
         fail(msg?: string) {
             clearInterval(id);
+            handle.done = true;
             process.stdout.write(`\r\x1b[2K${bold(label)} ${red("✖")} ${msg ?? detail}\n`);
         },
     };
+    return handle;
 }
 
 // Strip ANSI escape sequences for visible-length measurement

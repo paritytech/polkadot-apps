@@ -4,11 +4,10 @@ import { resolve, relative } from "node:path";
 import { execSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { computeCid, BulletinClient } from "@polkadot-apps/bulletin";
+import type { PolkadotSigner } from "polkadot-api";
 import { connect } from "../connection.js";
 import { TAGS } from "../config.js";
 import {
-    loadProjectConfig,
-    saveDotJson,
     getGitRemoteUrl,
     getGitBranch,
     resolveSigner,
@@ -16,6 +15,48 @@ import {
     readReadme,
 } from "../project.js";
 import { spinner, bold, dim, cyan, green, red, yellow } from "../ui.js";
+
+// ---------------------------------------------------------------------------
+// Read playground:* fields from package.json
+// ---------------------------------------------------------------------------
+
+interface PlaygroundConfig {
+    domain?: string;
+    name?: string;
+    description?: string;
+    tag?: string;
+    icon?: string;
+    branch?: string;
+}
+
+function loadPlaygroundConfig(): PlaygroundConfig {
+    const pkgPath = resolve(process.cwd(), "package.json");
+    try {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+        return {
+            domain: pkg["playground:domain"],
+            name: pkg["playground:name"] ?? pkg.name,
+            description: pkg["playground:description"] ?? pkg.description,
+            tag: pkg["playground:tag"],
+            icon: pkg["playground:icon"],
+            branch: pkg["playground:branch"],
+        };
+    } catch {
+        return {};
+    }
+}
+
+// WebSocket polyfill for host-papp SDK
+import { WebSocket as _WS } from "ws";
+if (!globalThis.WebSocket) {
+    const WebSocket = new Proxy(_WS, {
+        construct(target, args) {
+            const [url, protocols, opts] = args;
+            return new target(url, protocols, { followRedirects: true, ...opts });
+        },
+    });
+    Object.assign(globalThis, { WebSocket });
+}
 
 function hasContracts(): boolean {
     return (
@@ -25,12 +66,11 @@ function hasContracts(): boolean {
 }
 
 function getBuildCommand(): string | undefined {
-    const project = loadProjectConfig();
-    if (project.build) return project.build;
-
     const pkg = resolve(process.cwd(), "package.json");
     try {
-        const scripts = JSON.parse(readFileSync(pkg, "utf-8")).scripts ?? {};
+        const p = JSON.parse(readFileSync(pkg, "utf-8"));
+        if (p["playground:build"]) return p["playground:build"];
+        const scripts = p.scripts ?? {};
         if (scripts["build:frontend"]) return "pnpm build:frontend";
         if (scripts.build) return "pnpm build";
     } catch {}
@@ -40,6 +80,81 @@ function getBuildCommand(): string | undefined {
 
 function hasDistDir(): boolean {
     return existsSync(resolve(process.cwd(), "dist"));
+}
+
+// ---------------------------------------------------------------------------
+// Signer resolution: QR session → --suri → mnemonic file
+// ---------------------------------------------------------------------------
+
+async function getSessionSigner(): Promise<{
+    signer: PolkadotSigner;
+    origin: string;
+} | null> {
+    try {
+        const { createTerminalAdapter, createSessionSigner } =
+            await import("@polkadot-apps/terminal");
+
+        const adapter = createTerminalAdapter({
+            appId: "dot-cli",
+            metadataUrl:
+                "https://gist.githubusercontent.com/ReinhardHatko/27415c91178d74196d7c1116d39056d5/raw/56e61d719251170828a80f12d34343a8617b9935/metadata.json",
+            endpoints: ["wss://paseo-people-next-rpc.polkadot.io"],
+        });
+
+        const session = await new Promise<any | null>((resolve) => {
+            let resolved = false;
+            let unsub: (() => void) | null = null;
+            unsub = adapter.sessions.sessions.subscribe((sessions: any[]) => {
+                if (sessions.length > 0 && !resolved) {
+                    resolved = true;
+                    queueMicrotask(() => unsub?.());
+                    resolve(sessions[0]);
+                }
+            });
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    unsub?.();
+                    resolve(null);
+                }
+            }, 3000);
+        });
+
+        if (!session) {
+            adapter.destroy();
+            return null;
+        }
+
+        const { ss58Address } = await import("@polkadot-labs/hdkd-helpers");
+        const signer = createSessionSigner(session);
+        const origin = ss58Address(new Uint8Array(session.remoteAccount.accountId));
+
+        // Don't destroy adapter — the session needs the WebSocket alive for signing
+        return { signer, origin };
+    } catch (err) {
+        console.log(`  ${dim("QR session not available:")} ${err instanceof Error ? err.message : String(err)}`);
+        return null;
+    }
+}
+
+async function resolveDeploySigner(
+    chain: string,
+    suri?: string,
+): Promise<{ signer: PolkadotSigner; origin: string }> {
+    // 1. Explicit --suri flag (dev signing)
+    if (suri) {
+        return resolveSigner(chain, suri);
+    }
+
+    // 2. QR session from mobile wallet
+    const session = await getSessionSigner();
+    if (session) {
+        console.log(`  ${dim("Signing via mobile wallet")}`);
+        return session;
+    }
+
+    // 3. Mnemonic file fallback
+    return resolveSigner(chain);
 }
 
 // ---------------------------------------------------------------------------
@@ -115,13 +230,13 @@ async function promptContractAction(contracts: ContractInfo[]): Promise<Contract
 }
 
 async function renameContracts(contracts: ContractInfo[]): Promise<void> {
-    const project = loadProjectConfig();
-    const suggestedOrg = project.domain ? `@${project.domain.replace(/\.dot$/, "")}` : undefined;
+    const cfg = loadPlaygroundConfig();
+    const suggestedOrg = cfg.domain ? `@${cfg.domain.replace(/\.dot$/, "")}` : undefined;
 
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     console.log();
     if (suggestedOrg) {
-        console.log(`  ${dim(`Suggested org from dot.json domain: ${bold(suggestedOrg)}`)}`);
+        console.log(`  ${dim(`Suggested org from playground:domain: ${bold(suggestedOrg)}`)}`);
     }
 
     for (const c of contracts) {
@@ -147,6 +262,10 @@ async function renameContracts(contracts: ContractInfo[]): Promise<void> {
     console.log();
 }
 
+// ---------------------------------------------------------------------------
+// Command
+// ---------------------------------------------------------------------------
+
 export const deployCommand = new Command("deploy")
     .description("Deploy contracts, frontend, and optionally publish to playground registry")
     .option("-n, --name <chain>", "Target chain", "paseo")
@@ -155,11 +274,11 @@ export const deployCommand = new Command("deploy")
     .option("--skip-frontend", "Skip frontend build & deploy")
     .option("--playground", "Also publish metadata to the playground registry")
     .option("--bootstrap", "Also deploy the ContractRegistry (contracts only)")
-    .option("--domain <name>", "App domain (overrides dot.json)")
-    .option("--app-name <name>", "Display name (overrides dot.json)")
-    .option("--description <text>", "Short description (overrides dot.json)")
-    .option("--repo <url>", "Source repository URL (overrides dot.json)")
-    .option("--branch <branch>", "Git branch (overrides dot.json)")
+    .option("--domain <name>", "App domain (overrides package.json)")
+    .option("--app-name <name>", "Display name (overrides package.json)")
+    .option("--description <text>", "Short description (overrides package.json)")
+    .option("--repo <url>", "Source repository URL (overrides package.json)")
+    .option("--branch <branch>", "Git branch (overrides package.json)")
     .option("--tag <tag>", `Category: ${TAGS.join(", ")}`)
     .option("--icon <path>", "Path to icon image file")
     .option("-y, --yes", "Skip interactive prompts (deploy contracts as-is)")
@@ -167,29 +286,29 @@ export const deployCommand = new Command("deploy")
         const chain = opts.name;
         let failed = false;
 
-        // ── Resolve domain + persist CLI overrides to dot.json ────────────
-        const project = loadProjectConfig();
-        const domain = opts.domain ?? project.domain;
+        // ── Resolve config from package.json playground:* fields ─────────
+        const config = loadPlaygroundConfig();
+        const domain = opts.domain ?? config.domain;
         if (!domain) {
-            console.error('No domain specified. Use --domain <name> or run "dot init" first.');
+            console.error(
+                'No domain specified. Use --domain <name> or set "playground:domain" in package.json.',
+            );
             process.exit(1);
         }
         const fullDomain = domain.endsWith(".dot") ? domain : `${domain}.dot`;
 
-        // Save any CLI overrides to dot.json so they persist
-        const updates: Record<string, string> = {};
-        if (opts.domain && opts.domain !== project.domain)
-            updates.domain = opts.domain.replace(/\.dot$/, "");
-        if (opts.appName && opts.appName !== project.name) updates.name = opts.appName;
-        if (opts.description && opts.description !== project.description)
-            updates.description = opts.description;
-        if (opts.repo && opts.repo !== project.repository) updates.repository = opts.repo;
-        if (opts.branch && opts.branch !== project.branch) updates.branch = opts.branch;
-        if (opts.tag && opts.tag !== project.tag) updates.tag = opts.tag;
-        if (opts.icon && opts.icon !== project.icon) updates.icon = opts.icon;
-        if (Object.keys(updates).length > 0) {
-            saveDotJson(updates);
-            console.log(`  ${dim("Updated dot.json with CLI overrides")}`);
+        // ── Resolve signer: QR session → --suri → mnemonic ──────────────
+        const s0 = spinner("Signer", "Resolving...");
+        let signer: PolkadotSigner;
+        let origin: string;
+        try {
+            const resolved = await resolveDeploySigner(chain, opts.suri);
+            signer = resolved.signer;
+            origin = resolved.origin;
+            s0.succeed(`Signer ready (${dim(origin.slice(0, 10) + "…")})`);
+        } catch (err) {
+            s0.fail(err instanceof Error ? err.message : "Failed to resolve signer");
+            process.exit(1);
         }
 
         // ── Step 1: Contracts ─────────────────────────────────────────────
@@ -231,61 +350,23 @@ export const deployCommand = new Command("deploy")
             console.log(`  ${dim("No contracts detected")}`);
         }
 
-        // ── Step 2: Frontend ──────────────────────────────────────────────
-        const buildCmd = getBuildCommand();
-        if (opts.skipFrontend) {
-            console.log(`  ${dim("Skipping frontend (--skip-frontend)")}`);
-        } else if (!buildCmd) {
-            console.log(`  ${dim("No frontend detected (no build script)")}`);
-        } else {
-            const s = spinner("Frontend", "Building...");
-            try {
-                execSync(buildCmd, { stdio: "inherit" });
-
-                if (!hasDistDir()) {
-                    throw new Error("Build did not produce a dist/ directory");
-                }
-
-                s.update(`Deploying ${fullDomain} to Bulletin...`);
-                const mnemonic = opts.suri ? undefined : loadMnemonic(chain);
-                const env: Record<string, string> = {
-                    ...(process.env as Record<string, string>),
-                };
-                if (mnemonic) env.MNEMONIC = mnemonic;
-
-                execSync(`npx bulletin-deploy ./dist ${fullDomain}`, {
-                    stdio: ["inherit", "inherit", "pipe"],
-                    env,
-                });
-
-                s.succeed(`Frontend deployed to ${bold(fullDomain)}`);
-            } catch (err) {
-                s.fail(err instanceof Error ? err.message : "Frontend deployment failed");
-                failed = true;
-            }
-        }
-
-        // ── Step 3: Playground registry publish (--playground only) ───────
+        // ── Step 2: Playground registry publish (--playground only) ───────
+        // Runs before frontend deploy so QR session is still fresh.
         if (opts.playground) {
-            const s = spinner("Registry", "Publishing metadata...");
             let conn;
             try {
-                const projConfig = loadProjectConfig();
                 const gitRemote = getGitRemoteUrl();
 
-                const appName = opts.appName ?? projConfig.name;
-                const description = opts.description ?? projConfig.description;
-                const repository = opts.repo ?? projConfig.repository ?? gitRemote;
-                const branch = opts.branch ?? projConfig.branch ?? getGitBranch();
-                const tag = opts.tag ?? projConfig.tag;
-                const iconPath = opts.icon ?? projConfig.icon;
+                const appName = opts.appName ?? config.name;
+                const description = opts.description ?? config.description;
+                const repository = opts.repo ?? gitRemote;
+                const branch = opts.branch ?? config.branch ?? getGitBranch();
+                const tag = opts.tag ?? config.tag;
+                const iconPath = opts.icon ?? config.icon;
 
                 if (tag && !(TAGS as readonly string[]).includes(tag)) {
                     throw new Error(`Invalid tag "${tag}". Must be one of: ${TAGS.join(", ")}`);
                 }
-
-                s.update("Preparing signer...");
-                const { signer, origin } = resolveSigner(chain, opts.suri);
 
                 let iconBytes: Uint8Array | undefined;
                 let iconCid: string | undefined;
@@ -306,55 +387,134 @@ export const deployCommand = new Command("deploy")
 
                 if (Object.keys(metadata).length === 0) {
                     throw new Error(
-                        "No metadata. Create a dot.json or pass --app-name, --description, etc.",
+                        "No metadata. Add playground:* fields to package.json or pass --app-name, --description, etc.",
                     );
                 }
 
                 const metadataBytes = new TextEncoder().encode(JSON.stringify(metadata));
                 const metadataCid = computeCid(metadataBytes);
 
-                s.update("Connecting...");
+                console.log(`  ${dim("Connecting to registry...")}`);
                 conn = await connect(chain);
 
-                s.update("Uploading metadata & publishing...");
+                // Signing must be sequential (QR session handles one at a time),
+                // but transactions confirm in parallel after signing.
+                // A mutex ensures signing requests don't overlap.
+                let signingQueue: Promise<any> = Promise.resolve();
+                const queuedSigner: typeof signer = {
+                    publicKey: signer.publicKey,
+                    signTx(...args: Parameters<typeof signer.signTx>) {
+                        const prev = signingQueue;
+                        const result = prev.then(() => signer.signTx(...args));
+                        signingQueue = result.catch(() => {});
+                        return result;
+                    },
+                    signBytes(...args: Parameters<typeof signer.signBytes>) {
+                        const prev = signingQueue;
+                        const result = prev.then(() => signer.signBytes(...args));
+                        signingQueue = result.catch(() => {});
+                        return result;
+                    },
+                };
+
+                const s1 = spinner("Upload metadata", "");
+                const s2 = spinner("Playground register", "");
 
                 const bulletinPromise = (async () => {
                     const client = await BulletinClient.create(chain);
                     const items: { data: Uint8Array; label: string }[] = [];
                     if (iconBytes) items.push({ data: iconBytes, label: "icon" });
                     items.push({ data: metadataBytes, label: "metadata" });
-                    await client.batchUpload(items);
-                    if (typeof (client as any).destroy === "function") (client as any).destroy();
+                    await client.batchUpload(items, queuedSigner);
+                    if (typeof (client as any).destroy === "function")
+                        (client as any).destroy();
+                    s1.succeed();
                 })();
 
                 const registryPromise = (async () => {
-                    const result = await conn!.registry.publish.tx(fullDomain, metadataCid, {
-                        signer,
-                        origin,
-                    });
+                    const result = await conn!.registry.publish.tx(
+                        fullDomain,
+                        metadataCid,
+                        { signer: queuedSigner, origin },
+                    );
                     if (!result.ok) {
                         const errDetail = result.dispatchError
-                            ? JSON.stringify(result.dispatchError, (_: string, v: unknown) =>
-                                  typeof v === "bigint" ? v.toString() : v,
+                            ? JSON.stringify(
+                                  result.dispatchError,
+                                  (_: string, v: unknown) =>
+                                      typeof v === "bigint" ? v.toString() : v,
                               )
                             : "Transaction failed";
                         throw new Error(errDetail);
                     }
+                    s2.succeed();
                 })();
 
-                const results = await Promise.allSettled([bulletinPromise, registryPromise]);
+                const results = await Promise.allSettled([
+                    bulletinPromise,
+                    registryPromise,
+                ]);
                 const failures = results.filter(
                     (r): r is PromiseRejectedResult => r.status === "rejected",
                 );
-                if (failures.length > 0) throw failures[0].reason;
-
-                s.succeed(`Published ${bold(fullDomain)} to registry`);
-                console.log(`  ${dim("Metadata CID")}  ${cyan(metadataCid)}`);
+                if (failures.length > 0) {
+                    if (!s1.done) s1.fail();
+                    if (!s2.done) s2.fail();
+                    throw failures[0].reason;
+                }
             } catch (err) {
-                s.fail(err instanceof Error ? err.message : "Registry publish failed");
+                console.log(`\n  ${red("✖")} ${bold("Registry publish failed:")} ${err instanceof Error ? err.message : String(err)}`);
                 failed = true;
             } finally {
                 conn?.destroy();
+            }
+        }
+
+        // ── Step 3: Frontend build + deploy to Bulletin ───────────────────
+        const buildCmd = getBuildCommand();
+        if (opts.skipFrontend) {
+            console.log(`  ${dim("Skipping frontend (--skip-frontend)")}`);
+        } else if (!buildCmd) {
+            console.log(`  ${dim("No frontend detected (no build script)")}`);
+        } else {
+            const s = spinner("Frontend", "Building...");
+            try {
+                execSync(buildCmd, { stdio: "inherit" });
+
+                if (!hasDistDir()) {
+                    throw new Error("Build did not produce a dist/ directory");
+                }
+
+                s.update(`Deploying ${fullDomain} to Bulletin...`);
+                const { deploy: bulletinDeploy } = await import("bulletin-deploy");
+
+                let mnemonic: string | undefined;
+                try {
+                    mnemonic = opts.suri ? undefined : loadMnemonic(chain);
+                } catch {}
+
+                const deployOpts: any = {};
+                if (opts.suri) {
+                    deployOpts.mnemonic = mnemonic;
+                } else if (mnemonic) {
+                    deployOpts.mnemonic = mnemonic;
+                } else {
+                    // QR session signer for DotNS (storage uses pool)
+                    deployOpts.signer = signer;
+                    deployOpts.signerAddress = origin;
+                }
+
+                const result = await bulletinDeploy(
+                    "./dist",
+                    fullDomain.replace(".dot", ""),
+                    deployOpts,
+                );
+                s.succeed(
+                    `Frontend deployed to ${bold(result.fullDomain)} (${dim(result.cid)})`,
+                );
+            } catch (err) {
+                s.fail(err instanceof Error ? err.message : "Frontend deployment failed");
+                failed = true;
             }
         }
 
