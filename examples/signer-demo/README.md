@@ -61,6 +61,9 @@ pnpm --filter @polkadot-apps/signer-demo test:e2e:ui        # debug
 | `e2e/switch-account.spec.ts` | `testHost.switchAccount()` → subscribe propagates |
 | `e2e/sign-raw.spec.ts` | `signRaw` returns hex, signing log entry |
 | `e2e/permission.spec.ts` | `setPermissionBehavior("reject-all")` → clean typed error |
+| `e2e/lifecycle.spec.ts` | Disconnect → reconnect → sign again, no stale provider refs |
+| `e2e/product-account.spec.ts` | `getProductAccount` resolves mapped + unmapped DotNS identifiers |
+| `e2e/persistence.spec.ts` | Selected account survives a full page reload via `hostLocalStorage` |
 
 ## Notes for future demos
 

@@ -130,4 +130,23 @@ if (import.meta.vitest) {
             expect(values).toEqual(["first"]);
         });
     });
+
+    describe("toError", () => {
+        test("returns Error instances unchanged", () => {
+            const original = new TypeError("boom");
+            expect(toError(original)).toBe(original);
+        });
+
+        test("wraps non-Error string values", () => {
+            const result = toError("primitive failure");
+            expect(result).toBeInstanceOf(Error);
+            expect(result.message).toBe("primitive failure");
+        });
+
+        test("wraps non-Error nullish values", () => {
+            const result = toError(null);
+            expect(result).toBeInstanceOf(Error);
+            expect(result.message).toBe("null");
+        });
+    });
 }

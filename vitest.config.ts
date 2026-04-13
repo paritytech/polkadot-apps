@@ -61,6 +61,11 @@ export default defineConfig({
                 "**/container.ts",
                 "**/providers.ts",
                 "**/chain-client/src/clients.ts",
+                // Composes real WS provider + SDK factories; exercised only via E2E.
+                "**/terminal/src/adapter.ts",
+                // Node.js module loader hook — self-registers at import time and is
+                // not safe to invoke inside a running test process.
+                "**/terminal/src/register.ts",
             ],
             thresholds: {
                 lines: 90,
