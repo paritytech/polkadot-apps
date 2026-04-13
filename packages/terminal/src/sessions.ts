@@ -117,6 +117,28 @@ if (import.meta.vitest) {
             expect(subscriberCount()).toBe(0);
         });
 
+        test("uses default 3000ms timeout when none is passed", async () => {
+            vi.useFakeTimers();
+            try {
+                const { adapter } = fakeAdapter();
+                // No timeoutMs argument — exercises the `?? 3000` default branch.
+                const promise = waitForSessions(adapter);
+                // Just short of 3000ms: still pending.
+                vi.advanceTimersByTime(2999);
+                let settled = false;
+                promise.then(() => {
+                    settled = true;
+                });
+                await Promise.resolve();
+                expect(settled).toBe(false);
+                // Cross the default boundary.
+                vi.advanceTimersByTime(1);
+                await expect(promise).resolves.toEqual([]);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
         test("handles synchronous initial emission", async () => {
             // Some subscribables emit current value synchronously inside subscribe().
             const session = { remoteAccount: { accountId: new Uint8Array(32) } } as UserSession;
