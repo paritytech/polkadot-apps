@@ -27,6 +27,7 @@
         "dexie": "catalog:"
     },
     "devDependencies": {
+        "@types/node": "catalog:",
         "typescript": "catalog:"
     }
 }

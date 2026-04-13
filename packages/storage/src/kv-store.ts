@@ -10,6 +10,116 @@ function prefixer(prefix?: string): (key: string) => string {
     return prefix ? (key) => `${prefix}:${key}` : (key) => key;
 }
 
+/**
+ * Map a key to a filesystem-safe filename.
+ *
+ * Uses percent-encoding for disallowed bytes so the mapping is injective:
+ * two distinct keys never produce the same filename. The `%` character is
+ * itself encoded so the escape sequence cannot appear in raw input.
+ */
+function sanitizeFileName(key: string): string {
+    return key.replace(/[^a-zA-Z0-9_.-]|%/g, (c) => {
+        const hex = c.charCodeAt(0).toString(16).padStart(2, "0");
+        return `%${hex}`;
+    });
+}
+
+async function tryCreateFileBackend(
+    applyPrefix: (key: string) => string,
+    storageDir?: string,
+): Promise<KvStore | null> {
+    try {
+        const fs = await import("node:fs/promises");
+        const path = await import("node:path");
+        const os = await import("node:os");
+
+        const dir = storageDir ?? path.join(os.homedir(), ".polkadot-apps");
+        let dirCreated = false;
+
+        async function ensureDir(): Promise<void> {
+            if (dirCreated) return;
+            await fs.mkdir(dir, { recursive: true });
+            dirCreated = true;
+        }
+
+        function fp(key: string): string {
+            return path.join(dir, `${sanitizeFileName(applyPrefix(key))}.json`);
+        }
+
+        log.debug("Using file-based storage", { dir });
+
+        async function get(key: string): Promise<string | null> {
+            try {
+                return await fs.readFile(fp(key), "utf-8");
+            } catch {
+                return null;
+            }
+        }
+
+        async function set(key: string, value: string): Promise<void> {
+            try {
+                await ensureDir();
+                await fs.writeFile(fp(key), value, "utf-8");
+            } catch (e) {
+                log.warn("File write failed", { key, error: e });
+            }
+        }
+
+        return {
+            get,
+            set,
+
+            async remove(key) {
+                try {
+                    await fs.unlink(fp(key));
+                } catch {
+                    // File didn't exist — fine
+                }
+            },
+
+            async getJSON<T>(key: string): Promise<T | null> {
+                const raw = await get(key);
+                if (raw === null) return null;
+                try {
+                    return JSON.parse(raw) as T;
+                } catch (e) {
+                    log.warn("JSON parse failed for key", { key, error: e });
+                    return null;
+                }
+            },
+
+            async setJSON(key, value) {
+                await set(key, JSON.stringify(value));
+            },
+        };
+    } catch {
+        // node:fs not available (browser environment)
+        return null;
+    }
+}
+
+/**
+ * No-op backend for environments with no persistent storage.
+ *
+ * Reads return `null`, writes and removes are dropped silently. Used as a
+ * last-resort fallback in edge runtimes where neither `localStorage` nor
+ * `node:fs` are available (e.g. Cloudflare Workers, Deno without `--allow-fs`).
+ */
+function createNoopBackend(): KvStore {
+    log.debug("No persistent storage backend available — using no-op");
+    return {
+        async get() {
+            return null;
+        },
+        async set() {},
+        async remove() {},
+        async getJSON() {
+            return null;
+        },
+        async setJSON() {},
+    };
+}
+
 function createLocalStorageBackend(applyPrefix: (key: string) => string): KvStore {
     const available = typeof globalThis.localStorage !== "undefined";
 
@@ -134,7 +244,17 @@ export async function createKvStore(options?: KvStoreOptions): Promise<KvStore> 
         );
     }
 
-    return createLocalStorageBackend(applyPrefix);
+    // Browser localStorage
+    if (typeof globalThis.localStorage !== "undefined") {
+        return createLocalStorageBackend(applyPrefix);
+    }
+
+    // Node.js file-based fallback
+    const fileBackend = await tryCreateFileBackend(applyPrefix, options?.storageDir);
+    if (fileBackend) return fileBackend;
+
+    // Edge runtimes without localStorage or node:fs
+    return createNoopBackend();
 }
 
 if (import.meta.vitest) {
@@ -438,6 +558,160 @@ if (import.meta.vitest) {
                 vi.restoreAllMocks();
                 cleanup();
             }
+        });
+    });
+
+    const nodeFs = await import("node:fs/promises");
+    const nodeOs = await import("node:os");
+    const nodePath = await import("node:path");
+
+    describe("file backend", () => {
+        const { mkdtemp, rm, readFile } = nodeFs;
+        const { tmpdir } = nodeOs;
+        const { join } = nodePath;
+
+        let testDir: string;
+
+        beforeEach(async () => {
+            testDir = await mkdtemp(join(tmpdir(), "kv-file-test-"));
+        });
+
+        afterEach(async () => {
+            try { await rm(testDir, { recursive: true }); } catch { /* ignore */ }
+        });
+
+        async function createFileStore(prefix?: string): Promise<KvStore> {
+            const backend = await tryCreateFileBackend(prefixer(prefix), testDir);
+            expect(backend).not.toBeNull();
+            return backend!;
+        }
+
+        test("get/set round-trip", async () => {
+            const kv = await createFileStore();
+            await kv.set("key", "value");
+            expect(await kv.get("key")).toBe("value");
+        });
+
+        test("get returns null for missing key", async () => {
+            const kv = await createFileStore();
+            expect(await kv.get("missing")).toBeNull();
+        });
+
+        test("remove deletes key", async () => {
+            const kv = await createFileStore();
+            await kv.set("key", "value");
+            await kv.remove("key");
+            expect(await kv.get("key")).toBeNull();
+        });
+
+        test("remove is safe for missing key", async () => {
+            const kv = await createFileStore();
+            await expect(kv.remove("nonexistent")).resolves.toBeUndefined();
+        });
+
+        test("getJSON/setJSON round-trip", async () => {
+            const kv = await createFileStore();
+            await kv.setJSON("obj", { a: 1, b: "two", nested: { ok: true } });
+            expect(await kv.getJSON("obj")).toEqual({ a: 1, b: "two", nested: { ok: true } });
+        });
+
+        test("getJSON returns null for missing key", async () => {
+            const kv = await createFileStore();
+            expect(await kv.getJSON("nope")).toBeNull();
+        });
+
+        test("getJSON returns null on corrupted JSON", async () => {
+            const kv = await createFileStore();
+            await kv.set("bad", "not-json{{{");
+            expect(await kv.getJSON("bad")).toBeNull();
+        });
+
+        test("set overwrites existing value", async () => {
+            const kv = await createFileStore();
+            await kv.set("key", "first");
+            await kv.set("key", "second");
+            expect(await kv.get("key")).toBe("second");
+        });
+
+        test("prefix namespaces keys on disk", async () => {
+            const kv = await createFileStore("myapp");
+            await kv.set("theme", "dark");
+            // ":" is percent-encoded as %3a in the filename
+            const content = await readFile(join(testDir, "myapp%3atheme.json"), "utf-8");
+            expect(content).toBe("dark");
+        });
+
+        test("distinct keys never share a filename (sanitizer is injective)", async () => {
+            // Under a naive "replace unsafe chars with _" sanitizer, these
+            // three prefix variants would all map to the same file.
+            const kvColon = await createFileStore("my:app");
+            const kvUnderscore = await createFileStore("my_app");
+            const kvSpace = await createFileStore("my app");
+            await kvColon.set("k", "colon");
+            await kvUnderscore.set("k", "underscore");
+            await kvSpace.set("k", "space");
+            expect(await kvColon.get("k")).toBe("colon");
+            expect(await kvUnderscore.get("k")).toBe("underscore");
+            expect(await kvSpace.get("k")).toBe("space");
+        });
+
+        test("raw '%' in keys does not collide with the escape sequence", async () => {
+            // Percent-encoding the escape char itself guarantees "%3a" as
+            // literal input is distinguishable from ":" as input.
+            const kv = await createFileStore();
+            await kv.set(":", "colon");
+            await kv.set("%3a", "escaped");
+            expect(await kv.get(":")).toBe("colon");
+            expect(await kv.get("%3a")).toBe("escaped");
+        });
+
+        test("different prefixes are isolated", async () => {
+            const kvA = await createFileStore("app-a");
+            const kvB = await createFileStore("app-b");
+            await kvA.set("key", "from-a");
+            await kvB.set("key", "from-b");
+            expect(await kvA.get("key")).toBe("from-a");
+            expect(await kvB.get("key")).toBe("from-b");
+        });
+
+        test("sanitizes special characters in keys", async () => {
+            const kv = await createFileStore();
+            await kv.set("key/with:special chars!", "value");
+            expect(await kv.get("key/with:special chars!")).toBe("value");
+        });
+
+        test("createKvStore uses file backend when no localStorage", async () => {
+            // In this Node.js test environment, localStorage is not defined,
+            // so createKvStore should fall back to the file backend.
+            const kv = await createKvStore({ prefix: "file-test", storageDir: testDir });
+            await kv.set("x", "1");
+            expect(await kv.get("x")).toBe("1");
+        });
+
+        test("createKvStore prefers localStorage over file backend when both exist", async () => {
+            const { store, cleanup } = shimLocalStorage();
+            try {
+                const kv = await createKvStore({ prefix: "hybrid", storageDir: testDir });
+                await kv.set("x", "1");
+                // Went to localStorage, not the filesystem
+                expect(store["hybrid:x"]).toBe("1");
+                await expect(
+                    readFile(join(testDir, "hybrid%3ax.json"), "utf-8"),
+                ).rejects.toThrow();
+            } finally {
+                cleanup();
+            }
+        });
+    });
+
+    describe("noop backend", () => {
+        test("get/getJSON return null, set/remove are dropped", async () => {
+            const kv = createNoopBackend();
+            await expect(kv.set("k", "v")).resolves.toBeUndefined();
+            expect(await kv.get("k")).toBeNull();
+            await expect(kv.setJSON("obj", { a: 1 })).resolves.toBeUndefined();
+            expect(await kv.getJSON("obj")).toBeNull();
+            await expect(kv.remove("k")).resolves.toBeUndefined();
         });
     });
 }
