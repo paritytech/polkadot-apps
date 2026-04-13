@@ -33,6 +33,9 @@ const $btnReconnect = getEl<HTMLButtonElement>("btn-reconnect");
 const $lastSignature = getEl<HTMLElement>("last-signature");
 const $lastError = getEl<HTMLElement>("last-error");
 const $eventLog = getEl<HTMLElement>("event-log");
+const $dotnsInput = getEl<HTMLInputElement>("dotns-input");
+const $btnGetProductAccount = getEl<HTMLButtonElement>("btn-get-product-account");
+const $productAccountAddress = getEl<HTMLElement>("product-account-address");
 
 function log(msg: string, level: Parameters<typeof appendLog>[2] = "info"): void {
     appendLog($eventLog, msg, level);
@@ -93,6 +96,8 @@ manager.subscribe((state) => {
     $btnConnect.disabled = state.status !== "disconnected";
     $btnDisconnect.disabled = state.status === "disconnected";
     $btnReconnect.disabled = state.status === "connecting";
+    $dotnsInput.disabled = !connected;
+    $btnGetProductAccount.disabled = !connected;
 });
 
 // ── Actions ──────────────────────────────────────────────────────────
@@ -129,6 +134,33 @@ $btnReconnect.addEventListener("click", () => {
     doConnect().catch((err) =>
         log(`unhandled reconnect error: ${(err as Error).message}`, "err"),
     );
+});
+
+$btnGetProductAccount.addEventListener("click", async () => {
+    $lastError.textContent = "";
+    $productAccountAddress.textContent = "";
+    $productAccountAddress.classList.remove("err");
+
+    const dotNs = $dotnsInput.value.trim() || "signer-demo.dot";
+    log(`getProductAccount("${dotNs}", 0) …`);
+    $btnGetProductAccount.disabled = true;
+    try {
+        const res = await manager.getProductAccount(dotNs, 0);
+        if (res.ok) {
+            $productAccountAddress.textContent = res.value.address;
+            log(`product account: ${res.value.address}`, "ok");
+        } else {
+            $productAccountAddress.textContent = `${res.error.name}: ${res.error.message}`;
+            $productAccountAddress.classList.add("err");
+            $lastError.textContent = `${res.error.name}: ${res.error.message}`;
+            log(`getProductAccount error: ${res.error.message}`, "err");
+        }
+    } finally {
+        const state = manager.getState();
+        $btnGetProductAccount.disabled = !(
+            state.status === "connected" && state.selectedAccount !== null
+        );
+    }
 });
 
 $btnSignRaw.addEventListener("click", async () => {
