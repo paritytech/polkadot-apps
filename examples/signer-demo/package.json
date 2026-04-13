@@ -1,0 +1,27 @@
+{
+    "name": "@polkadot-apps/signer-demo",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "description": "E2E demo app for @polkadot-apps/signer — exercises connect/select/switch/signRaw/permission flows via the Host API path",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc && vite build",
+        "preview": "vite preview",
+        "test:e2e": "playwright test",
+        "test:e2e:ui": "playwright test --ui",
+        "test:e2e:headed": "playwright test --headed"
+    },
+    "dependencies": {
+        "@polkadot-apps/signer": "workspace:*",
+        "@novasamatech/host-api": "catalog:",
+        "@novasamatech/product-sdk": "catalog:",
+        "polkadot-api": "catalog:"
+    },
+    "devDependencies": {
+        "@parity/host-api-test-sdk": "^0.5.0",
+        "@playwright/test": "^1.50.0",
+        "typescript": "catalog:",
+        "vite": "^6.3.0"
+    }
+}
