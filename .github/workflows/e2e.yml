@@ -21,7 +21,7 @@ jobs:
             - run: pnpm install --frozen-lockfile
             - run: pnpm build
             - name: Install Playwright browsers
-              run: pnpm exec playwright install --with-deps chromium
+              run: pnpm --filter @polkadot-apps/tx-demo exec playwright install --with-deps chromium
             - name: Run tx-demo E2E
               run: pnpm --filter @polkadot-apps/tx-demo test:e2e
               env:
