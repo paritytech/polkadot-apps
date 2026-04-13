@@ -1,0 +1,42 @@
+{
+    "name": "@polkadot-apps/terminal",
+    "description": "QR code login and signing for CLI/terminal apps via Polkadot mobile wallet pairing",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./register": {
+            "source": "./src/register.ts",
+            "types": "./dist/register.d.ts",
+            "import": "./dist/register.js"
+        }
+    },
+    "files": ["dist", "scripts"],
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "postinstall": "bash scripts/patch-wasm.sh",
+        "build": "tsc -p tsconfig.json && cp src/loader.mjs dist/loader.mjs",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "@novasamatech/host-papp": "0.6.17",
+        "@novasamatech/statement-store": "0.6.17",
+        "@novasamatech/storage-adapter": "0.6.17",
+        "@polkadot-api/ws-provider": "^0.7.5",
+        "neverthrow": "^8.2.0",
+        "polkadot-api": "^1.23.3",
+        "qrcode": "^1.5.4"
+    },
+    "devDependencies": {
+        "@types/qrcode": "^1.5.5",
+        "typescript": "catalog:"
+    }
+}

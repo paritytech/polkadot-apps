@@ -1,0 +1,15 @@
+{
+    "name": "terminal-login-example",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "start": "tsx --import @polkadot-apps/terminal/register index.ts"
+    },
+    "dependencies": {
+        "@polkadot-apps/terminal": "workspace:*"
+    },
+    "devDependencies": {
+        "tsx": "^4.19.0"
+    }
+}

@@ -1,3 +1,19 @@
+// Re-export statement types from @novasamatech/sdk-statement
+export type {
+    Statement,
+    SignedStatement,
+    UnsignedStatement,
+    Proof,
+    SubmitResult,
+    TopicFilter as SdkTopicFilter,
+} from "@novasamatech/sdk-statement";
+
+import type {
+    Statement,
+    SignedStatement,
+    TopicFilter as SdkTopicFilter,
+} from "@novasamatech/sdk-statement";
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -36,59 +52,6 @@ export type TopicHash = Uint8Array & { readonly __brand: "TopicHash" };
 export type ChannelHash = Uint8Array & { readonly __brand: "ChannelHash" };
 
 // ============================================================================
-// Statement Types
-// ============================================================================
-
-/**
- * Raw statement fields before signing.
- *
- * These map directly to the SCALE-encoded fields in the on-chain statement format.
- * Field tags: 0=proof, 2=expiry, 3=decryptionKey, 4=topic1, 5=topic2, 6=channel, 8=data.
- */
-export interface StatementFields {
-    /** Unix timestamp (seconds) at which the statement expires. */
-    expirationTimestamp: number;
-    /** Sequence number for ordering within the same expiry window. */
-    sequenceNumber: number;
-    /** Optional 32-byte decryption key hint for filtering polled statements. */
-    decryptionKey?: Uint8Array;
-    /** Optional 32-byte channel hash for last-write-wins deduplication. */
-    channel?: Uint8Array;
-    /** Primary topic hash (32 bytes). Typically the application namespace. */
-    topic1?: Uint8Array;
-    /** Secondary topic hash (32 bytes). Typically the room or document ID. */
-    topic2?: Uint8Array;
-    /** Arbitrary data payload (max {@link MAX_STATEMENT_SIZE} bytes). */
-    data?: Uint8Array;
-}
-
-/**
- * A statement decoded from the network.
- *
- * Contains all parsed fields from the SCALE-encoded on-chain representation.
- * The `signer` field is extracted from the Sr25519 authenticity proof.
- */
-export interface DecodedStatement {
-    /** 32-byte Sr25519 public key of the statement signer. */
-    signer?: Uint8Array;
-    /**
-     * Combined expiry value: upper 32 bits are the Unix timestamp,
-     * lower 32 bits are the sequence number.
-     */
-    expiry?: bigint;
-    /** 32-byte decryption key hint. */
-    decryptionKey?: Uint8Array;
-    /** Primary topic (32 bytes). */
-    topic1?: Uint8Array;
-    /** Secondary topic (32 bytes). */
-    topic2?: Uint8Array;
-    /** Channel hash (32 bytes). */
-    channel?: Uint8Array;
-    /** Raw data payload. */
-    data?: Uint8Array;
-}
-
-// ============================================================================
 // Topic Filtering
 // ============================================================================
 
@@ -101,8 +64,42 @@ export interface DecodedStatement {
  */
 export type TopicFilter = "any" | { matchAll: TopicHash[] } | { matchAny: TopicHash[] };
 
-/** Serialized topic filter with hex-encoded topics, ready for JSON-RPC. */
-export type SerializedTopicFilter = "any" | { matchAll: string[] } | { matchAny: string[] };
+// ============================================================================
+// Signer & Credentials
+// ============================================================================
+
+/**
+ * A function that signs a message with an Sr25519 key.
+ *
+ * Takes the signature material bytes and returns a 64-byte Sr25519 signature.
+ * May be synchronous or asynchronous (e.g., when signing via a hardware wallet).
+ */
+export type StatementSigner = (message: Uint8Array) => Uint8Array | Promise<Uint8Array>;
+
+/**
+ * An Sr25519 signer with its associated public key.
+ *
+ * Used by {@link StatementStoreClient.connect} to sign published statements
+ * when running outside a container (local mode).
+ */
+export interface StatementSignerWithKey {
+    /** 32-byte Sr25519 public key. */
+    publicKey: Uint8Array;
+    /** Signing function. */
+    sign: StatementSigner;
+}
+
+/**
+ * Credentials for connecting to the statement store.
+ *
+ * - **Host mode**: Inside a container, proof creation is delegated to the host API.
+ *   The `accountId` is a `[ss58Address, chainPrefix]` tuple from product-sdk.
+ * - **Local mode**: Outside a container, statements are signed locally using the
+ *   provided Sr25519 signer.
+ */
+export type ConnectionCredentials =
+    | { mode: "host"; accountId: [string, number] }
+    | { mode: "local"; signer: StatementSignerWithKey };
 
 // ============================================================================
 // Configuration
@@ -111,8 +108,9 @@ export type SerializedTopicFilter = "any" | { matchAll: string[] } | { matchAny:
 /**
  * Configuration for {@link StatementStoreClient}.
  *
- * Provide either `endpoint` for a direct WebSocket connection to a statement store node,
- * or rely on the chain-client's bulletin chain connection (the default).
+ * Inside a container, the client automatically uses the Host API's native
+ * statement store protocol (no endpoint needed). The `endpoint` is a fallback
+ * for outside-container usage (development, testing).
  */
 export interface StatementStoreConfig {
     /**
@@ -128,9 +126,9 @@ export interface StatementStoreConfig {
     /**
      * Fallback WebSocket endpoint for the statement store node.
      *
-     * The client always tries the chain-client's bulletin chain first
-     * (which uses Host API routing when inside a container). This endpoint
-     * is only used if chain-client is unavailable (not initialized or not installed).
+     * The client always tries the Host API first (inside a container).
+     * This endpoint is only used as a fallback when the host is unavailable.
+     * Defaults to the paseo bulletin RPC from `@polkadot-apps/host`.
      *
      * @example "wss://paseo-bulletin-rpc.polkadot.io"
      */
@@ -141,6 +139,7 @@ export interface StatementStoreConfig {
      *
      * The client uses both subscriptions (real-time) and polling (fallback)
      * to ensure no statements are missed. Set to 0 to disable polling.
+     * Polling is only active when the transport supports queries (RPC mode).
      *
      * @default 10_000
      */
@@ -160,12 +159,20 @@ export interface StatementStoreConfig {
      * Whether to enable the polling fallback.
      *
      * When true (default), the client polls for statements periodically
-     * in addition to the real-time subscription. This handles gossip delays
-     * and nodes that don't support subscriptions.
+     * in addition to the real-time subscription. Only active when the
+     * transport supports queries (RPC mode, not host mode).
      *
      * @default true
      */
     enablePolling?: boolean;
+
+    /**
+     * Provide a custom transport instead of auto-detection.
+     *
+     * When set, the client skips host/RPC auto-detection and uses this
+     * transport directly. Useful for testing or advanced BYOD setups.
+     */
+    transport?: StatementTransport;
 }
 
 // ============================================================================
@@ -218,50 +225,21 @@ export interface PublishOptions {
 export interface ReceivedStatement<T = unknown> {
     /** Parsed data payload. */
     data: T;
-    /** 32-byte Sr25519 public key of the signer, if present. */
-    signer?: Uint8Array;
-    /** Channel hash, if present. */
-    channel?: Uint8Array;
-    /** Primary topic hash, if present. */
-    topic1?: Uint8Array;
-    /** Secondary topic hash, if present. */
-    topic2?: Uint8Array;
+    /** Signer's public key hex (from proof), if present. */
+    signerHex?: string;
+    /** Channel hex, if present. */
+    channelHex?: string;
+    /** Topics array (hex strings). */
+    topics: string[];
     /** Combined expiry value (upper 32 bits = timestamp, lower 32 bits = sequence). */
     expiry?: bigint;
-    /** The full decoded statement for advanced inspection. */
-    raw: DecodedStatement;
-}
-
-// ============================================================================
-// Signer
-// ============================================================================
-
-/**
- * A function that signs a message with an Sr25519 key.
- *
- * Takes the signature material bytes and returns a 64-byte Sr25519 signature.
- * May be synchronous or asynchronous (e.g., when signing via a hardware wallet).
- */
-export type StatementSigner = (message: Uint8Array) => Uint8Array | Promise<Uint8Array>;
-
-/**
- * An Sr25519 signer with its associated public key.
- *
- * Used by {@link StatementStoreClient.connect} to sign published statements.
- */
-export interface StatementSignerWithKey {
-    /** 32-byte Sr25519 public key. */
-    publicKey: Uint8Array;
-    /** Signing function. */
-    sign: StatementSigner;
+    /** The full statement from the transport for advanced inspection. */
+    raw: Statement;
 }
 
 // ============================================================================
 // Transport
 // ============================================================================
-
-/** Result status from submitting a statement via RPC. */
-export type SubmitStatus = "new" | "known" | "rejected";
 
 /** Handle returned by subscription methods. Call `unsubscribe()` to stop receiving events. */
 export interface Unsubscribable {
@@ -271,57 +249,46 @@ export interface Unsubscribable {
 /**
  * Low-level transport interface for statement store communication.
  *
- * Implementations handle the actual RPC or Host API calls.
- * Most consumers should use {@link StatementStoreClient} instead.
+ * Two built-in implementations:
+ * - **HostTransport** — uses the Host API's native binary protocol (inside containers).
+ * - **RpcTransport** — uses `@novasamatech/sdk-statement` over `@polkadot-api/substrate-client` (outside containers).
+ *
+ * Most consumers should use {@link StatementStoreClient} instead of this interface directly.
  */
 export interface StatementTransport {
     /**
      * Subscribe to statements matching a topic filter.
      *
-     * @param filter - Topic filter for the subscription.
-     * @param onStatement - Called with each statement's hex-encoded bytes.
+     * @param filter - sdk-statement topic filter.
+     * @param onStatements - Called with batches of received statements.
      * @param onError - Called when the subscription encounters an error.
      * @returns A handle to unsubscribe.
      */
     subscribe(
-        filter: TopicFilter,
-        onStatement: (statementHex: string) => void,
+        filter: SdkTopicFilter,
+        onStatements: (statements: Statement[]) => void,
         onError: (error: Error) => void,
     ): Unsubscribable;
 
     /**
-     * Submit a signed statement to the network.
+     * Sign and submit a statement.
      *
-     * @param statementHex - Hex-encoded SCALE-encoded signed statement.
-     * @returns The submission status: "new" (accepted), "known" (duplicate), or "rejected".
+     * - **Host mode**: delegates to the host API's `createProof` then `submit`.
+     * - **Local mode**: signs locally using `getStatementSigner` from sdk-statement, then submits.
+     *
+     * @param statement - The unsigned statement to sign and submit.
+     * @param credentials - Signing credentials (host accountId or local signer).
      */
-    submit(statementHex: string): Promise<SubmitStatus>;
+    signAndSubmit(statement: Statement, credentials: ConnectionCredentials): Promise<void>;
 
     /**
      * Query existing statements from the store.
      *
-     * Tries multiple RPC methods with graceful fallback:
-     * `statement_posted` -> `statement_broadcasts` -> `statement_dump`.
-     *
-     * @param topics - Topic hashes to filter by.
-     * @param decryptionKey - Optional hex-encoded decryption key for `statement_posted`.
-     * @returns Array of hex-encoded statement strings.
+     * Only available on RpcTransport (the host API subscription replays initial state).
+     * Returns undefined on HostTransport.
      */
-    query(topics: TopicHash[], decryptionKey?: string): Promise<string[]>;
+    query?(filter: SdkTopicFilter): Promise<Statement[]>;
 
     /** Destroy the transport and release all resources. */
     destroy(): void;
-}
-
-/**
- * Batched event format from the statement subscription API.
- *
- * The subscription returns batched events with metadata
- * instead of individual hex strings.
- */
-export interface StatementEvent {
-    /** Array of SCALE-encoded hex statements. */
-    statements: string[];
-    /** Count of remaining statements in initial sync. */
-    remaining?: number;
 }

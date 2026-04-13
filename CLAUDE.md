@@ -59,6 +59,7 @@ Follow the contributor guidelines in `README.md`.
 - Both return a `ChainClient<T>` with typed APIs per chain key, `.raw` for `PolkadotClient` access, and `.destroy()`.
 - `@polkadot-api/sdk-ink` is **not** a dependency of chain-client. Consumers who need contracts create `InkSdk` themselves: `createInkSdk(client.raw.assetHub, { atBest: true })`.
 - `isInsideContainerSync()` is available from both `@polkadot-apps/host` and `@polkadot-apps/chain-client` for synchronous container detection in performance-critical code paths. The async `isInsideContainer()` (which uses product-sdk) remains the primary API.
+- Bulletin RPC endpoints are imported from `@polkadot-apps/host`'s shared chain config (`BULLETIN_RPCS`), not hardcoded in presets.
 
 ## Contracts
 
@@ -70,6 +71,15 @@ Follow the contributor guidelines in `README.md`.
 - Each contract method exposes `.query()` (dry-run) and `.tx()` (submit transaction). Signer resolution order: explicit call option > `signerManager` > static `defaultSigner`.
 - The `@polkadot-apps/contracts/codegen` subpath export provides `generateContractTypes` separately for build-time use without pulling in runtime dependencies.
 - The `Contracts` interface in `types.ts` is augmentable via module augmentation — codegen extends it so `getContract()` returns fully-typed handles.
+
+## Statement Store
+
+- `@polkadot-apps/statement-store` provides publish/subscribe over the Polkadot Statement Store with topic-based routing and host-first transport.
+- **Transport is host-first**: Inside containers, uses the Host API's native `remote_statement_store_*` protocol (bypasses JSON-RPC). Outside containers, falls back to direct WebSocket via `@polkadot-api/substrate-client` + `@novasamatech/sdk-statement`.
+- **Two connection modes**: `{ mode: "host", accountId }` for containers (proof creation delegated to host), `{ mode: "local", signer }` for direct RPC (local Sr25519 signing via `getStatementSigner` from sdk-statement).
+- Dependencies: `@polkadot-apps/host`, `@polkadot-apps/logger`, `@polkadot-apps/utils`, `@novasamatech/sdk-statement`, `@polkadot-api/substrate-client`, `polkadot-api`. Does **not** depend on chain-client or descriptors.
+- `Statement` and `SignedStatement` types are re-exported from `@novasamatech/sdk-statement`.
+- Bulletin RPC endpoints are shared via `@polkadot-apps/host`'s `BULLETIN_RPCS` / `DEFAULT_BULLETIN_ENDPOINT` — single source of truth used by both chain-client presets and statement-store.
 
 ## Skills
 

@@ -1,6 +1,6 @@
 import { blake2b256 } from "@polkadot-apps/utils";
 
-import type { ChannelHash, SerializedTopicFilter, TopicFilter, TopicHash } from "./types.js";
+import type { ChannelHash, TopicFilter, TopicHash, SdkTopicFilter } from "./types.js";
 
 /**
  * Create a 32-byte topic hash from a human-readable string.
@@ -81,7 +81,7 @@ export function topicsEqual(a: Uint8Array, b: Uint8Array): boolean {
  * @param filter - The topic filter to serialize.
  * @returns A JSON-RPC compatible filter value.
  */
-export function serializeTopicFilter(filter: TopicFilter): SerializedTopicFilter {
+export function serializeTopicFilter(filter: TopicFilter): SdkTopicFilter {
     if (filter === "any") return "any";
 
     if ("matchAll" in filter) {

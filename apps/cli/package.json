@@ -20,7 +20,7 @@
         "@polkadot-apps/contracts": "workspace:*",
         "@polkadot-apps/keys": "workspace:*",
         "@polkadot-api/sdk-ink": "catalog:",
-        "@polkadot-apps/terminal": "file:/Users/charleshetterich/code/tmp2/polkadot-apps/packages/terminal",
+        "@polkadot-apps/terminal": "workspace:*",
         "bulletin-deploy": "^0.6.1",
         "@polkadot-labs/hdkd-helpers": "catalog:",
         "polkadot-api": "catalog:",

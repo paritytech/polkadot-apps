@@ -39,7 +39,10 @@ export default defineConfig({
         globals: true,
         includeSource: ["packages/*/src/**/*.ts", "apps/*/src/**/*.ts"],
         include: ["packages/**/tests/**/*.test.ts", "apps/**/tests/**/*.test.ts"],
-        exclude: ["**/node_modules/**", "**/dist/**"],
+        // Playwright E2E specs under examples/**/e2e live alongside vitest unit
+        // tests in this repo; exclude them so vitest doesn't try to execute
+        // `test.describe` from @playwright/test.
+        exclude: ["**/node_modules/**", "**/dist/**", "examples/**"],
         reporters: "verbose",
         environment: "node",
         coverage: {
