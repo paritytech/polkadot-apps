@@ -843,6 +843,52 @@ if (import.meta.vitest) {
             expect(client.isConnected()).toBe(true);
         });
 
+        test("publish adds topic2 to topics when option provided", async () => {
+            const client = new StatementStoreClient({ appName: "test-app" });
+            const transport = createMockTransport();
+            injectTransport(client, transport);
+
+            await client.publish({ type: "msg" }, { topic2: "room-1" });
+
+            expect(transport.signAndSubmitCalls.length).toBe(1);
+            const call = transport.signAndSubmitCalls[0] as { stmt: Statement };
+            // Topics should now have appTopic AND topic2
+            expect(call.stmt.topics?.length).toBe(2);
+        });
+
+        test("destroy unsubscribes from active subscription", () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            const unsubSpy = vi.fn();
+            // Inject an active subscription
+            const internal = client as unknown as {
+                subscription: Unsubscribable | null;
+                transport: StatementTransport | null;
+            };
+            internal.subscription = { unsubscribe: unsubSpy };
+            internal.transport = createMockTransport();
+
+            client.destroy();
+
+            expect(unsubSpy).toHaveBeenCalledOnce();
+        });
+
+        test("parseStatement returns null when decodeData throws", () => {
+            const client = new StatementStoreClient({ appName: "test" });
+            const parse = (
+                client as unknown as {
+                    parseStatement: <T>(stmt: Statement) => ReceivedStatement<T> | null;
+                }
+            ).parseStatement;
+
+            // Data is non-UTF-8 bytes which will fail JSON.parse
+            const invalidStmt = {
+                data: new Uint8Array([0xff, 0xfe, 0xfd]),
+                topics: [],
+            } as unknown as Statement;
+
+            expect(parse.call(client, invalidStmt)).toBeNull();
+        });
+
         test("connect throws after destroy (one-way lifecycle)", async () => {
             const client = new StatementStoreClient({ appName: "test" });
             client.destroy();

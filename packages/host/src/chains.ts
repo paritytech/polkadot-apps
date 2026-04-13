@@ -12,3 +12,23 @@ export const BULLETIN_RPCS = {
 
 /** Default bulletin endpoint (first paseo endpoint). */
 export const DEFAULT_BULLETIN_ENDPOINT: string = BULLETIN_RPCS.paseo[0];
+
+if (import.meta.vitest) {
+    const { describe, test, expect } = import.meta.vitest;
+
+    describe("chains config", () => {
+        test("BULLETIN_RPCS has paseo endpoint", () => {
+            expect(BULLETIN_RPCS.paseo.length).toBeGreaterThan(0);
+            expect(BULLETIN_RPCS.paseo[0]).toMatch(/^wss:\/\//);
+        });
+
+        test("BULLETIN_RPCS polkadot and kusama are empty until live", () => {
+            expect(BULLETIN_RPCS.polkadot).toEqual([]);
+            expect(BULLETIN_RPCS.kusama).toEqual([]);
+        });
+
+        test("DEFAULT_BULLETIN_ENDPOINT matches first paseo endpoint", () => {
+            expect(DEFAULT_BULLETIN_ENDPOINT).toBe(BULLETIN_RPCS.paseo[0]);
+        });
+    });
+}

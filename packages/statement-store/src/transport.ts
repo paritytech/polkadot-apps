@@ -600,6 +600,390 @@ if (import.meta.vitest) {
                 vi.doUnmock("@polkadot-apps/host");
             }
         });
+
+        test("returns HostTransport when host API is available", async () => {
+            const mockStore = {
+                subscribe: vi.fn(() => ({ unsubscribe: () => {}, onInterrupt: () => () => {} })),
+                createProof: vi.fn(),
+                submit: vi.fn(),
+            };
+            vi.doMock("@polkadot-apps/host", () => ({
+                getStatementStore: async () => mockStore,
+                DEFAULT_BULLETIN_ENDPOINT: "wss://example.com",
+            }));
+            try {
+                const { createTransport: createTransportFresh } = await import("./transport.js");
+                const transport = await createTransportFresh({});
+                expect(transport).toBeDefined();
+                expect(typeof transport.subscribe).toBe("function");
+                expect(typeof transport.signAndSubmit).toBe("function");
+            } finally {
+                vi.doUnmock("@polkadot-apps/host");
+            }
+        });
+
+        test("wraps RpcTransport.create errors in StatementConnectionError", async () => {
+            // Host unavailable, and RpcTransport.create will fail because the
+            // dynamic imports for polkadot-api/ws-provider/web will succeed but
+            // connecting to a bogus endpoint via system_name will fail non-fatally.
+            // Instead, we simulate an endpoint import failure by using an invalid endpoint.
+            // The error should wrap into StatementConnectionError.
+            vi.doMock("@polkadot-apps/host", () => ({
+                getStatementStore: async () => null,
+                DEFAULT_BULLETIN_ENDPOINT: "wss://example.com",
+            }));
+            // Mock substrate-client to throw on createClient
+            vi.doMock("@polkadot-api/substrate-client", () => ({
+                createClient: () => {
+                    throw new Error("mocked failure");
+                },
+            }));
+            try {
+                const { createTransport: createTransportFresh } = await import("./transport.js");
+                await expect(
+                    createTransportFresh({ endpoint: "wss://example.com" }),
+                ).rejects.toThrow(StatementConnectionError);
+            } finally {
+                vi.doUnmock("@polkadot-apps/host");
+                vi.doUnmock("@polkadot-api/substrate-client");
+            }
+        });
+    });
+
+    describe("RpcTransport (via mocked dynamic imports)", () => {
+        function setupRpcMocks(options?: {
+            submitResult?: { status: string; reason?: string };
+            statementsResult?: Statement[];
+            subscribeThrows?: boolean;
+            submitThrows?: boolean;
+            systemNameThrows?: boolean;
+        }) {
+            const destroyClient = vi.fn();
+            const mockSdk = {
+                submit: vi.fn(async () => {
+                    if (options?.submitThrows) throw new Error("submit failed");
+                    return options?.submitResult ?? { status: "new" };
+                }),
+                getStatements: vi.fn(async () => options?.statementsResult ?? []),
+                subscribeStatements: vi.fn(
+                    (
+                        _filter: SdkTopicFilter,
+                        _onStatement: (s: Statement) => void,
+                        _onError: (e: Error) => void,
+                    ) => {
+                        if (options?.subscribeThrows) throw new Error("subscribe failed");
+                        return () => {};
+                    },
+                ),
+                getBroadcasts: vi.fn(),
+                getPosted: vi.fn(),
+            };
+
+            vi.doMock("polkadot-api/ws-provider/web", () => ({
+                getWsProvider: () => ({}),
+            }));
+            vi.doMock("@polkadot-api/substrate-client", () => ({
+                createClient: () => ({
+                    _request: (
+                        method: string,
+                        _params: unknown[],
+                        callbacks: {
+                            onSuccess: (r: unknown) => void;
+                            onError: (e: Error) => void;
+                        },
+                    ) => {
+                        if (method === "system_name") {
+                            if (options?.systemNameThrows) {
+                                callbacks.onError(new Error("system_name failed"));
+                            } else {
+                                callbacks.onSuccess("test-node");
+                            }
+                        }
+                    },
+                    destroy: destroyClient,
+                }),
+            }));
+            vi.doMock("@novasamatech/sdk-statement", () => ({
+                createStatementSdk: () => mockSdk,
+                getStatementSigner: (publicKey: Uint8Array, type: string) => ({
+                    publicKey,
+                    sign: async (stmt: Statement) => ({
+                        ...stmt,
+                        proof: {
+                            type,
+                            value: { signature: "0x" + "00".repeat(64), signer: "0x" + "00".repeat(32) },
+                        },
+                    }),
+                }),
+            }));
+
+            return { mockSdk, destroyClient };
+        }
+
+        function teardownRpcMocks() {
+            vi.doUnmock("polkadot-api/ws-provider/web");
+            vi.doUnmock("@polkadot-api/substrate-client");
+            vi.doUnmock("@novasamatech/sdk-statement");
+        }
+
+        test("create + subscribe delivers statements via SDK", async () => {
+            const { mockSdk } = setupRpcMocks();
+            try {
+                const { createTransport: create } = await import("./transport.js");
+                vi.doMock("@polkadot-apps/host", () => ({
+                    getStatementStore: async () => null,
+                    DEFAULT_BULLETIN_ENDPOINT: "wss://example.com",
+                }));
+                const transport = await create({ endpoint: "wss://example.com" });
+                const received: Statement[][] = [];
+                transport.subscribe(
+                    "any",
+                    (stmts) => received.push(stmts),
+                    () => {},
+                );
+
+                expect(mockSdk.subscribeStatements).toHaveBeenCalled();
+
+                // Simulate sdk delivering a statement
+                const callback = mockSdk.subscribeStatements.mock.calls[0][1] as (
+                    s: Statement,
+                ) => void;
+                callback({ expiry: 1n } as Statement);
+                expect(received.length).toBe(1);
+
+                transport.destroy();
+                vi.doUnmock("@polkadot-apps/host");
+            } finally {
+                teardownRpcMocks();
+            }
+        });
+
+        test("subscribe calls onError when sdk throws synchronously", async () => {
+            setupRpcMocks({ subscribeThrows: true });
+            try {
+                const { createTransport: create } = await import("./transport.js");
+                vi.doMock("@polkadot-apps/host", () => ({
+                    getStatementStore: async () => null,
+                    DEFAULT_BULLETIN_ENDPOINT: "wss://example.com",
+                }));
+                const transport = await create({ endpoint: "wss://example.com" });
+                const errors: Error[] = [];
+                transport.subscribe("any", () => {}, (e) => errors.push(e));
+
+                expect(errors.length).toBe(1);
+                expect(errors[0]).toBeInstanceOf(StatementSubscriptionError);
+
+                transport.destroy();
+                vi.doUnmock("@polkadot-apps/host");
+            } finally {
+                teardownRpcMocks();
+            }
+        });
+
+        test("subscribe forwards sdk onError as StatementSubscriptionError", async () => {
+            const { mockSdk } = setupRpcMocks();
+            try {
+                const { createTransport: create } = await import("./transport.js");
+                vi.doMock("@polkadot-apps/host", () => ({
+                    getStatementStore: async () => null,
+                    DEFAULT_BULLETIN_ENDPOINT: "wss://example.com",
+                }));
+                const transport = await create({ endpoint: "wss://example.com" });
+                const errors: Error[] = [];
+                transport.subscribe("any", () => {}, (e) => errors.push(e));
+
+                const sdkErrorCb = mockSdk.subscribeStatements.mock.calls[0][2] as (
+                    e: Error,
+                ) => void;
+                sdkErrorCb(new Error("stream died"));
+
+                expect(errors.length).toBe(1);
+                expect(errors[0]).toBeInstanceOf(StatementSubscriptionError);
+
+                transport.destroy();
+                vi.doUnmock("@polkadot-apps/host");
+            } finally {
+                teardownRpcMocks();
+            }
+        });
+
+        test("signAndSubmit signs and calls sdk.submit", async () => {
+            const { mockSdk } = setupRpcMocks({ submitResult: { status: "new" } });
+            try {
+                const { createTransport: create } = await import("./transport.js");
+                vi.doMock("@polkadot-apps/host", () => ({
+                    getStatementStore: async () => null,
+                    DEFAULT_BULLETIN_ENDPOINT: "wss://example.com",
+                }));
+                const transport = await create({ endpoint: "wss://example.com" });
+
+                await transport.signAndSubmit({ data: new Uint8Array([1]) } as Statement, {
+                    mode: "local",
+                    signer: {
+                        publicKey: new Uint8Array(32),
+                        sign: () => new Uint8Array(64),
+                    },
+                });
+
+                expect(mockSdk.submit).toHaveBeenCalled();
+                transport.destroy();
+                vi.doUnmock("@polkadot-apps/host");
+            } finally {
+                teardownRpcMocks();
+            }
+        });
+
+        test("signAndSubmit throws for host credentials on RpcTransport", async () => {
+            setupRpcMocks();
+            try {
+                const { createTransport: create } = await import("./transport.js");
+                vi.doMock("@polkadot-apps/host", () => ({
+                    getStatementStore: async () => null,
+                    DEFAULT_BULLETIN_ENDPOINT: "wss://example.com",
+                }));
+                const transport = await create({ endpoint: "wss://example.com" });
+
+                await expect(
+                    transport.signAndSubmit({} as Statement, {
+                        mode: "host",
+                        accountId: ["addr", 0],
+                    }),
+                ).rejects.toThrow(StatementConnectionError);
+
+                transport.destroy();
+                vi.doUnmock("@polkadot-apps/host");
+            } finally {
+                teardownRpcMocks();
+            }
+        });
+
+        test("signAndSubmit throws when submit result is rejected", async () => {
+            setupRpcMocks({ submitResult: { status: "rejected", reason: "dataTooLarge" } });
+            try {
+                const { createTransport: create } = await import("./transport.js");
+                vi.doMock("@polkadot-apps/host", () => ({
+                    getStatementStore: async () => null,
+                    DEFAULT_BULLETIN_ENDPOINT: "wss://example.com",
+                }));
+                const transport = await create({ endpoint: "wss://example.com" });
+
+                await expect(
+                    transport.signAndSubmit({ data: new Uint8Array([1]) } as Statement, {
+                        mode: "local",
+                        signer: {
+                            publicKey: new Uint8Array(32),
+                            sign: () => new Uint8Array(64),
+                        },
+                    }),
+                ).rejects.toThrow(/rejected/);
+
+                transport.destroy();
+                vi.doUnmock("@polkadot-apps/host");
+            } finally {
+                teardownRpcMocks();
+            }
+        });
+
+        test("query delegates to sdk.getStatements", async () => {
+            const testStmt: Statement = { expiry: 5n };
+            const { mockSdk } = setupRpcMocks({ statementsResult: [testStmt] });
+            try {
+                const { createTransport: create } = await import("./transport.js");
+                vi.doMock("@polkadot-apps/host", () => ({
+                    getStatementStore: async () => null,
+                    DEFAULT_BULLETIN_ENDPOINT: "wss://example.com",
+                }));
+                const transport = await create({ endpoint: "wss://example.com" });
+
+                const result = await transport.query?.("any");
+                expect(result).toEqual([testStmt]);
+                expect(mockSdk.getStatements).toHaveBeenCalledWith("any");
+
+                transport.destroy();
+                vi.doUnmock("@polkadot-apps/host");
+            } finally {
+                teardownRpcMocks();
+            }
+        });
+
+        test("destroy calls client.destroy", async () => {
+            const { destroyClient } = setupRpcMocks();
+            try {
+                const { createTransport: create } = await import("./transport.js");
+                vi.doMock("@polkadot-apps/host", () => ({
+                    getStatementStore: async () => null,
+                    DEFAULT_BULLETIN_ENDPOINT: "wss://example.com",
+                }));
+                const transport = await create({ endpoint: "wss://example.com" });
+                transport.destroy();
+                expect(destroyClient).toHaveBeenCalledOnce();
+                vi.doUnmock("@polkadot-apps/host");
+            } finally {
+                teardownRpcMocks();
+            }
+        });
+
+        test("create still succeeds when system_name warmup fails", async () => {
+            setupRpcMocks({ systemNameThrows: true });
+            try {
+                const { createTransport: create } = await import("./transport.js");
+                vi.doMock("@polkadot-apps/host", () => ({
+                    getStatementStore: async () => null,
+                    DEFAULT_BULLETIN_ENDPOINT: "wss://example.com",
+                }));
+                const transport = await create({ endpoint: "wss://example.com" });
+                expect(transport).toBeDefined();
+                transport.destroy();
+                vi.doUnmock("@polkadot-apps/host");
+            } finally {
+                teardownRpcMocks();
+            }
+        });
+    });
+
+    describe("HostTransport additional coverage", () => {
+        test("subscribe skips statements with missing required fields gracefully", () => {
+            // Build a mock that delivers partial statements (missing proof, missing data, etc.)
+            const mockStore = {
+                subscribe: vi.fn(
+                    (
+                        _topics: Uint8Array[],
+                        callback: (stmts: HostSignedStatement[]) => void,
+                    ) => {
+                        // Deliver a statement with only expiry — no proof, no data
+                        callback([{ expiry: 1n } as unknown as HostSignedStatement]);
+                        return { unsubscribe: () => {}, onInterrupt: () => () => {} };
+                    },
+                ),
+                createProof: vi.fn(),
+                submit: vi.fn(),
+            } as unknown as HostStatementStore;
+
+            const transport = new HostTransport(mockStore);
+            const received: Statement[][] = [];
+            transport.subscribe("any", (stmts) => received.push(stmts), () => {});
+
+            expect(received.length).toBe(1);
+            // Statement with minimal fields should still be delivered (just no proof/data)
+            const stmt = received[0][0];
+            expect(stmt.expiry).toBe(1n);
+            expect(stmt.proof).toBeUndefined();
+        });
+
+        test("unsubscribe on returned handle calls store.subscribe's unsubscribe", () => {
+            const unsubSpy = vi.fn();
+            const mockStore = {
+                subscribe: vi.fn(() => ({ unsubscribe: unsubSpy, onInterrupt: () => () => {} })),
+                createProof: vi.fn(),
+                submit: vi.fn(),
+            } as unknown as HostStatementStore;
+
+            const transport = new HostTransport(mockStore);
+            const handle = transport.subscribe("any", () => {}, () => {});
+            handle.unsubscribe();
+
+            expect(unsubSpy).toHaveBeenCalledOnce();
+        });
     });
 
     describe("hostSignedStatementToSdk", () => {
