@@ -711,7 +711,10 @@ if (import.meta.vitest) {
                         ...stmt,
                         proof: {
                             type,
-                            value: { signature: "0x" + "00".repeat(64), signer: "0x" + "00".repeat(32) },
+                            value: {
+                                signature: "0x" + "00".repeat(64),
+                                signer: "0x" + "00".repeat(32),
+                            },
                         },
                     }),
                 }),
@@ -768,7 +771,11 @@ if (import.meta.vitest) {
                 }));
                 const transport = await create({ endpoint: "wss://example.com" });
                 const errors: Error[] = [];
-                transport.subscribe("any", () => {}, (e) => errors.push(e));
+                transport.subscribe(
+                    "any",
+                    () => {},
+                    (e) => errors.push(e),
+                );
 
                 expect(errors.length).toBe(1);
                 expect(errors[0]).toBeInstanceOf(StatementSubscriptionError);
@@ -790,7 +797,11 @@ if (import.meta.vitest) {
                 }));
                 const transport = await create({ endpoint: "wss://example.com" });
                 const errors: Error[] = [];
-                transport.subscribe("any", () => {}, (e) => errors.push(e));
+                transport.subscribe(
+                    "any",
+                    () => {},
+                    (e) => errors.push(e),
+                );
 
                 const sdkErrorCb = mockSdk.subscribeStatements.mock.calls[0][2] as (
                     e: Error,
@@ -946,10 +957,7 @@ if (import.meta.vitest) {
             // Build a mock that delivers partial statements (missing proof, missing data, etc.)
             const mockStore = {
                 subscribe: vi.fn(
-                    (
-                        _topics: Uint8Array[],
-                        callback: (stmts: HostSignedStatement[]) => void,
-                    ) => {
+                    (_topics: Uint8Array[], callback: (stmts: HostSignedStatement[]) => void) => {
                         // Deliver a statement with only expiry — no proof, no data
                         callback([{ expiry: 1n } as unknown as HostSignedStatement]);
                         return { unsubscribe: () => {}, onInterrupt: () => () => {} };
@@ -961,7 +969,11 @@ if (import.meta.vitest) {
 
             const transport = new HostTransport(mockStore);
             const received: Statement[][] = [];
-            transport.subscribe("any", (stmts) => received.push(stmts), () => {});
+            transport.subscribe(
+                "any",
+                (stmts) => received.push(stmts),
+                () => {},
+            );
 
             expect(received.length).toBe(1);
             // Statement with minimal fields should still be delivered (just no proof/data)
@@ -979,7 +991,11 @@ if (import.meta.vitest) {
             } as unknown as HostStatementStore;
 
             const transport = new HostTransport(mockStore);
-            const handle = transport.subscribe("any", () => {}, () => {});
+            const handle = transport.subscribe(
+                "any",
+                () => {},
+                () => {},
+            );
             handle.unsubscribe();
 
             expect(unsubSpy).toHaveBeenCalledOnce();
