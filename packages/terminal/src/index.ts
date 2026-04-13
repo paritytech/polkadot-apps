@@ -9,6 +9,9 @@ export type { TerminalAdapterOptions, TerminalAdapter } from "./adapter.js";
 // Session Signer
 export { createSessionSigner } from "./signer.js";
 
+// Session helpers
+export { waitForSessions } from "./sessions.js";
+
 // QR Encoding
 export { renderQrCode } from "./qr-encode.js";
 export type { QrRenderOptions } from "./qr-encode.js";

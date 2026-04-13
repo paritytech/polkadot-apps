@@ -22,6 +22,7 @@ import * as readline from "node:readline";
 import {
     createTerminalAdapter,
     renderQrCode,
+    waitForSessions,
     type PappAdapter,
     type PairingStatus,
     type AttestationStatus,
@@ -65,22 +66,7 @@ async function main(): Promise<void> {
     });
 
     // Wait for sessions to load from disk
-    const existingSessions = await new Promise<any[]>((resolve) => {
-        let resolved = false;
-        let unsub: (() => void) | null = null;
-        unsub = adapter.sessions.sessions.subscribe((sessions) => {
-            if (resolved) return;
-            resolved = true;
-            unsub?.();
-            resolve(sessions);
-        });
-        setTimeout(() => {
-            if (resolved) return;
-            resolved = true;
-            unsub?.();
-            resolve([]);
-        }, 2000);
-    });
+    const existingSessions = await waitForSessions(adapter, 2000);
 
     if (existingSessions.length > 0) {
         const session = existingSessions[0];
