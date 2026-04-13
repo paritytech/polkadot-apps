@@ -60,3 +60,30 @@ jobs:
                   name: playwright-report-signer-demo
                   path: examples/signer-demo/playwright-report/
                   retention-days: 7
+
+    contracts-demo:
+        name: contracts-demo
+        runs-on: parity-default
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm build
+            - name: Install Playwright browsers
+              run: pnpm --filter @polkadot-apps/contracts-demo exec playwright install --with-deps chromium
+            - name: Run contracts-demo E2E
+              run: pnpm --filter @polkadot-apps/contracts-demo test:e2e
+              env:
+                  CI: "true"
+            - name: Upload Playwright report on failure
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-report-contracts-demo
+                  path: examples/contracts-demo/playwright-report/
+                  retention-days: 7
