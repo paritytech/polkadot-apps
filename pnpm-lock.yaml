@@ -248,9 +248,6 @@ importers:
 
   packages/chain-client:
     dependencies:
-      '@polkadot-api/sdk-ink':
-        specifier: 'catalog:'
-        version: 0.6.2(@polkadot-api/ink-contracts@0.6.0)(polkadot-api@1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3))(rxjs@7.8.2)(typescript@5.9.3)
       '@polkadot-apps/descriptors':
         specifier: workspace:*
         version: link:../descriptors
@@ -428,20 +425,23 @@ importers:
   packages/terminal:
     dependencies:
       '@novasamatech/host-papp':
-        specifier: 0.6.12
-        version: 0.6.12(esbuild@0.27.4)(jiti@2.6.1)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
+        specifier: 0.6.17
+        version: 0.6.17(esbuild@0.27.4)(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
       '@novasamatech/statement-store':
-        specifier: 0.6.12
-        version: 0.6.12(esbuild@0.27.4)(jiti@2.6.1)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
+        specifier: 0.6.17
+        version: 0.6.17(esbuild@0.27.4)(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
       '@novasamatech/storage-adapter':
-        specifier: 0.6.12
-        version: 0.6.12
+        specifier: 0.6.17
+        version: 0.6.17
       '@polkadot-api/ws-provider':
         specifier: ^0.7.5
         version: 0.7.5
       neverthrow:
         specifier: ^8.2.0
         version: 8.2.0
+      polkadot-api:
+        specifier: ^1.23.3
+        version: 1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -1295,8 +1295,11 @@ packages:
   '@novasamatech/host-api@0.6.12':
     resolution: {integrity: sha512-OpWSOlNvnpLl8ffph491RCcmVt7jUY8yZ///1xK+udoLDGwhgbcAM40FsMVBqwLH/HU9dbfYrChFDfDMnwAQ4g==}
 
-  '@novasamatech/host-papp@0.6.12':
-    resolution: {integrity: sha512-61xMgrEqHqlt6WU1GTy/0qsBAW6LvO6iX/+olPGPKO/CYpeId1bfyZ6QTaVvP3sPWLGQ1bRb4xXKnexo40aIIQ==}
+  '@novasamatech/host-api@0.6.17':
+    resolution: {integrity: sha512-mJ1LZjTBK1qUcjxO2MOb3GOAISjkljcS0JEE758W2aYcLWsQP8xpRI67v5DqktqZnyrmITrXB+6QCKmoAUMtmw==}
+
+  '@novasamatech/host-papp@0.6.17':
+    resolution: {integrity: sha512-ZgtJi/C43DYHn3UCaVGmJwkMdwlQQbinrMFTfrjyX+/pp6CFHjiPNDFgQGAQ/tTT+uNOt7SxVrHRnhuWQLiSGg==}
 
   '@novasamatech/product-sdk@0.6.12':
     resolution: {integrity: sha512-ZEVfKEt7McsW8eF1dzcNTO84gFusP6ZDKWeTzkgf6mkPLPSh/LgvmZhtRTvmJ8n/Y0IxagLma11KVXLvWwJECA==}
@@ -1304,14 +1307,17 @@ packages:
   '@novasamatech/scale@0.6.12':
     resolution: {integrity: sha512-Mz9ZuQ0d1xfKxobaUNQ8CT0pardsnNXzJ/k9CiUOCf7fHOSlPu0aPDjZU+/umpTr37crRtJ4G5E7mAY+8VAPOg==}
 
+  '@novasamatech/scale@0.6.17':
+    resolution: {integrity: sha512-sBctqGfIELvONoqOFlk46Lb+u3K6nuEw5qml9AXJVceqSXjVkIBICHCQfHG1yFYsLh1ViCDAhVbBzeiMIwZR9w==}
+
   '@novasamatech/sdk-statement@0.5.0':
     resolution: {integrity: sha512-Cko04X12lFIMgknhfpigdt7kTrkrEHb7frsgX36zZzYvFIm+lCPCUo5sGq4LgHemT1DLNUgLVna+vKvsn4kJBg==}
 
-  '@novasamatech/statement-store@0.6.12':
-    resolution: {integrity: sha512-+qlY/Zr5LhHS8L0ojaeP6QSYBjzxTWIg0DQOn4vlKGAO9EzzFKK6o+mV/QHaO2ZfsaSkQW+ld0vqQKnwaYPtLg==}
+  '@novasamatech/statement-store@0.6.17':
+    resolution: {integrity: sha512-9pWQVfuMGjE9vkaZa3c7aYnTAF+l4mlrzi+OMHtZd9qDmSCBGSUtD3pADfNSVjf9tFi9DtGmsRY3UVmVKK7iHA==}
 
-  '@novasamatech/storage-adapter@0.6.12':
-    resolution: {integrity: sha512-vxR5oiFwwim5YK5gdbql3RcjA83GAyM8yo063EtgQY3GPiyO4Trdqz+esK4WojnsjJ7V5jEA/zbk+0E4qApUNw==}
+  '@novasamatech/storage-adapter@0.6.17':
+    resolution: {integrity: sha512-J8xKl0dshS/r8zcrpdjQcqB74d7Y1nISVPTBPS5/Ael4zv/TOi2MKM7SE/wwRkJ6qJsvWJMNHodrm75f8YWHlQ==}
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -4454,15 +4460,24 @@ snapshots:
       neverthrow: 8.2.0
       scale-ts: 1.6.1
 
-  '@novasamatech/host-papp@0.6.12(esbuild@0.27.4)(jiti@2.6.1)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)':
+  '@novasamatech/host-api@0.6.17':
+    dependencies:
+      '@novasamatech/scale': 0.6.17
+      '@polkadot-api/utils': 0.2.0
+      nanoevents: 9.1.0
+      nanoid: 5.1.7
+      neverthrow: 8.2.0
+      scale-ts: 1.6.1
+
+  '@novasamatech/host-papp@0.6.17(esbuild@0.27.4)(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)':
     dependencies:
       '@noble/ciphers': 2.1.1
       '@noble/curves': 2.0.1
       '@noble/hashes': 2.0.1
-      '@novasamatech/host-api': 0.6.12
-      '@novasamatech/scale': 0.6.12
-      '@novasamatech/statement-store': 0.6.12(esbuild@0.27.4)(jiti@2.6.1)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
-      '@novasamatech/storage-adapter': 0.6.12
+      '@novasamatech/host-api': 0.6.17
+      '@novasamatech/scale': 0.6.17
+      '@novasamatech/statement-store': 0.6.17(esbuild@0.27.4)(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
+      '@novasamatech/storage-adapter': 0.6.17
       '@polkadot-api/substrate-bindings': 0.17.0
       '@polkadot-api/utils': 0.2.0
       '@polkadot-labs/hdkd-helpers': 0.0.28
@@ -4505,6 +4520,11 @@ snapshots:
       '@polkadot-api/utils': 0.2.0
       scale-ts: 1.6.1
 
+  '@novasamatech/scale@0.6.17':
+    dependencies:
+      '@polkadot-api/utils': 0.2.0
+      scale-ts: 1.6.1
+
   '@novasamatech/sdk-statement@0.5.0(esbuild@0.27.4)(rxjs@7.8.2)':
     dependencies:
       '@polkadot-api/substrate-bindings': 0.19.0
@@ -4517,7 +4537,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@novasamatech/statement-store@0.6.12(esbuild@0.27.4)(jiti@2.6.1)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)':
+  '@novasamatech/statement-store@0.6.17(esbuild@0.27.4)(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)':
     dependencies:
       '@noble/ciphers': 2.1.1
       '@noble/hashes': 2.0.1
@@ -4543,7 +4563,7 @@ snapshots:
       - utf-8-validate
       - yaml
 
-  '@novasamatech/storage-adapter@0.6.12':
+  '@novasamatech/storage-adapter@0.6.17':
     dependencies:
       nanoevents: 9.1.0
       neverthrow: 8.2.0

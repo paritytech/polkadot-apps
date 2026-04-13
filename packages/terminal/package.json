@@ -27,11 +27,12 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
-        "@novasamatech/host-papp": "0.6.12",
-        "@novasamatech/statement-store": "0.6.12",
-        "@novasamatech/storage-adapter": "0.6.12",
+        "@novasamatech/host-papp": "0.6.17",
+        "@novasamatech/statement-store": "0.6.17",
+        "@novasamatech/storage-adapter": "0.6.17",
         "@polkadot-api/ws-provider": "^0.7.5",
         "neverthrow": "^8.2.0",
+        "polkadot-api": "^1.23.3",
         "qrcode": "^1.5.4"
     },
     "devDependencies": {
