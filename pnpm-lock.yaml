@@ -137,6 +137,34 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  examples/signer-demo:
+    dependencies:
+      '@novasamatech/host-api':
+        specifier: 'catalog:'
+        version: 0.6.17
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.17(@polkadot/api@16.5.4)(@polkadot/util@14.0.1)
+      '@polkadot-apps/signer':
+        specifier: workspace:*
+        version: link:../../packages/signer
+      polkadot-api:
+        specifier: 'catalog:'
+        version: 1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
+    devDependencies:
+      '@parity/host-api-test-sdk':
+        specifier: ^0.5.0
+        version: 0.5.0(@playwright/test@1.59.1)
+      '@playwright/test':
+        specifier: ^1.50.0
+        version: 1.59.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
   examples/t3rminal-lite:
     dependencies:
       '@polkadot-apps/address':
