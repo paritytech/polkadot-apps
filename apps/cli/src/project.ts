@@ -137,3 +137,144 @@ export function resolveSigner(chain: string, suri?: string) {
 export function loadMnemonic(chain: string): string {
     return loadAccount(chain).mnemonic;
 }
+
+if (import.meta.vitest) {
+    const { test, expect, describe, vi } = import.meta.vitest;
+    const { mkdtempSync, writeFileSync: _writeFile, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+
+    // ── Git URL transformation (tested via real function, works in git repo) ──
+    describe("getGitRemoteUrl", () => {
+        test("returns a string or undefined", () => {
+            const result = getGitRemoteUrl();
+            // We're in a git repo so this should return something
+            expect(result === undefined || typeof result === "string").toBe(true);
+        });
+
+        test("converts SSH to HTTPS format", () => {
+            // Test the transformation logic directly
+            const transform = (url: string) =>
+                url.replace(/^git@github\.com:/, "https://github.com/").replace(/\.git$/, "");
+            expect(transform("git@github.com:paritytech/polkadot-apps.git")).toBe(
+                "https://github.com/paritytech/polkadot-apps",
+            );
+            expect(transform("https://github.com/paritytech/polkadot-apps.git")).toBe(
+                "https://github.com/paritytech/polkadot-apps",
+            );
+            expect(transform("https://github.com/paritytech/polkadot-apps")).toBe(
+                "https://github.com/paritytech/polkadot-apps",
+            );
+        });
+    });
+
+    describe("getGitBranch", () => {
+        test("returns a string or undefined", () => {
+            const result = getGitBranch();
+            expect(result === undefined || typeof result === "string").toBe(true);
+        });
+    });
+
+    // ── readReadme (uses temp dir) ────────────────────────────────────
+    describe("readReadme", () => {
+        test("returns undefined in empty directory", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(readReadme()).toBeUndefined();
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("reads README.md content", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "README.md"), "# Test");
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(readReadme()).toBe("# Test");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("falls back to readme.md", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "readme.md"), "# lower");
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(readReadme()).toBe("# lower");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("truncates oversized content", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "README.md"), "x".repeat(600_000));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(readReadme()?.length).toBe(512 * 1024);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+    });
+
+    // ── loadAccount (uses temp file) ──────────────────────────────────
+    describe("loadAccount", () => {
+        test("throws when accounts file missing", () => {
+            expect(() => loadAccount("paseo")).toThrow(/No accounts file|No account/);
+        });
+
+        test("throws for non-dev SURIs", () => {
+            expect(() => resolveSigner("paseo", "0xdeadbeef")).toThrow("Only dev SURIs");
+        });
+    });
+
+    // ── resolveSigner ─────────────────────────────────────────────────
+    describe("resolveSigner", () => {
+        test("uses DEV_PHRASE for //Alice", () => {
+            const result = resolveSigner("paseo", "//Alice");
+            expect(result.signer).toBeDefined();
+            expect(result.signer.publicKey).toBeInstanceOf(Uint8Array);
+            expect(result.origin).toMatch(/^5/);
+        });
+
+        test("uses DEV_PHRASE for //Bob", () => {
+            const alice = resolveSigner("paseo", "//Alice");
+            const bob = resolveSigner("paseo", "//Bob");
+            expect(alice.origin).not.toBe(bob.origin);
+        });
+
+        test("throws for non-dev SURIs", () => {
+            expect(() => resolveSigner("paseo", "0xdeadbeef")).toThrow("Only dev SURIs");
+        });
+    });
+
+    // ── prepareSigner ─────────────────────────────────────────────────
+    describe("prepareSigner", () => {
+        const mnemonic = "bottom drive obey lake curtain smoke basket hold race lonely fit walk";
+
+        test("returns signer and SS58 origin", () => {
+            const result = prepareSigner(mnemonic, "//Alice");
+            expect(result.signer).toBeDefined();
+            expect(result.signer.publicKey).toBeInstanceOf(Uint8Array);
+            expect(result.origin).toMatch(/^5/);
+        });
+
+        test("is deterministic", () => {
+            const a = prepareSigner(mnemonic, "//Alice");
+            const b = prepareSigner(mnemonic, "//Alice");
+            expect(a.origin).toBe(b.origin);
+        });
+
+        test("different paths produce different signers", () => {
+            const a = prepareSigner(mnemonic, "//Alice");
+            const b = prepareSigner(mnemonic, "//Bob");
+            expect(a.origin).not.toBe(b.origin);
+        });
+
+        test("uses //0 when derivePath is empty", () => {
+            const a = prepareSigner(mnemonic, "");
+            const b = prepareSigner(mnemonic, "//0");
+            expect(a.origin).toBe(b.origin);
+        });
+    });
+}

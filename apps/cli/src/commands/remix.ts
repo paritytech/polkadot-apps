@@ -279,3 +279,87 @@ export const remixCommand = new Command("remix")
         console.log(`  ${dim("3.")} dot deploy`);
         console.log();
     });
+
+if (import.meta.vitest) {
+    const { test, expect, describe } = import.meta.vitest;
+    const {
+        mkdtempSync,
+        writeFileSync: _writeFile,
+        readFileSync: _readFile,
+        rmSync,
+    } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+
+    describe("slugify", () => {
+        test("lowercases and replaces spaces", () => {
+            expect(slugify("Hello World")).toBe("hello-world");
+        });
+        test("removes special characters", () => {
+            expect(slugify("my_app@v2!")).toBe("my-app-v2");
+        });
+        test("trims leading/trailing hyphens", () => {
+            expect(slugify("--test--")).toBe("test");
+        });
+        test("collapses multiple separators", () => {
+            expect(slugify("a   b...c")).toBe("a-b-c");
+        });
+        test("handles empty string", () => {
+            expect(slugify("")).toBe("");
+        });
+    });
+
+    describe("detectPackageManager", () => {
+        test("detects pnpm from lockfile", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "pnpm-lock.yaml"), "");
+            expect(detectPackageManager(dir)).toBe("pnpm");
+            rmSync(dir, { recursive: true });
+        });
+
+        test("detects bun from bun.lock", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "bun.lock"), "");
+            expect(detectPackageManager(dir)).toBe("bun");
+            rmSync(dir, { recursive: true });
+        });
+
+        test("defaults to pnpm when no lockfile", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            expect(detectPackageManager(dir)).toBe("pnpm");
+            rmSync(dir, { recursive: true });
+        });
+    });
+
+    describe("stripPostinstall", () => {
+        test("removes postinstall from package.json", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(
+                join(dir, "package.json"),
+                JSON.stringify({ scripts: { postinstall: "echo bad", build: "tsc" } }),
+            );
+            stripPostinstall(dir);
+            const result = JSON.parse(_readFile(join(dir, "package.json"), "utf-8"));
+            expect(result.scripts.postinstall).toBeUndefined();
+            expect(result.scripts.build).toBe("tsc");
+            rmSync(dir, { recursive: true });
+        });
+
+        test("does nothing when no package.json", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            stripPostinstall(dir); // should not throw
+            rmSync(dir, { recursive: true });
+        });
+
+        test("does nothing when no postinstall script", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const pkg = { scripts: { build: "tsc" } };
+            _writeFile(join(dir, "package.json"), JSON.stringify(pkg));
+            stripPostinstall(dir);
+            const result = JSON.parse(_readFile(join(dir, "package.json"), "utf-8"));
+            expect(result.scripts.build).toBe("tsc");
+            // File shouldn't be rewritten (no postinstall to remove)
+            rmSync(dir, { recursive: true });
+        });
+    });
+}

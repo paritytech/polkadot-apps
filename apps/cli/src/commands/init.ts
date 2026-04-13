@@ -63,10 +63,7 @@ const METADATA_URL =
     "https://gist.githubusercontent.com/ReinhardHatko/27415c91178d74196d7c1116d39056d5/raw/56e61d719251170828a80f12d34343a8617b9935/metadata.json";
 
 async function doQrLogin(): Promise<boolean> {
-    const {
-        createTerminalAdapter,
-        renderQrCode,
-    } = await import("@polkadot-apps/terminal");
+    const { createTerminalAdapter, renderQrCode } = await import("@polkadot-apps/terminal");
     type PairingStatus = import("@polkadot-apps/terminal").PairingStatus;
     type AttestationStatus = import("@polkadot-apps/terminal").AttestationStatus;
 
@@ -100,8 +97,7 @@ async function doQrLogin(): Promise<boolean> {
 
     if (existingSessions.length > 0) {
         const session = existingSessions[0];
-        const addr =
-            "0x" + Buffer.from(session.remoteAccount.accountId).toString("hex");
+        const addr = "0x" + Buffer.from(session.remoteAccount.accountId).toString("hex");
         console.log(`  ${green("✔")} Authenticated`);
         console.log(`    ${dim("Address:")} ${addr}`);
         process.exit(0);

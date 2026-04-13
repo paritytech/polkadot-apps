@@ -91,8 +91,9 @@ async function getSessionSigner(): Promise<{
     origin: string;
 } | null> {
     try {
-        const { createTerminalAdapter, createSessionSigner } =
-            await import("@polkadot-apps/terminal");
+        const { createTerminalAdapter, createSessionSigner } = await import(
+            "@polkadot-apps/terminal"
+        );
 
         const adapter = createTerminalAdapter({
             appId: "dot-cli",
@@ -132,7 +133,9 @@ async function getSessionSigner(): Promise<{
         // Don't destroy adapter — the session needs the WebSocket alive for signing
         return { signer, origin };
     } catch (err) {
-        console.log(`  ${dim("QR session not available:")} ${err instanceof Error ? err.message : String(err)}`);
+        console.log(
+            `  ${dim("QR session not available:")} ${err instanceof Error ? err.message : String(err)}`,
+        );
         return null;
     }
 }
@@ -426,23 +429,19 @@ export const deployCommand = new Command("deploy")
                     if (iconBytes) items.push({ data: iconBytes, label: "icon" });
                     items.push({ data: metadataBytes, label: "metadata" });
                     await client.batchUpload(items, queuedSigner);
-                    if (typeof (client as any).destroy === "function")
-                        (client as any).destroy();
+                    if (typeof (client as any).destroy === "function") (client as any).destroy();
                     s1.succeed();
                 })();
 
                 const registryPromise = (async () => {
-                    const result = await conn!.registry.publish.tx(
-                        fullDomain,
-                        metadataCid,
-                        { signer: queuedSigner, origin },
-                    );
+                    const result = await conn!.registry.publish.tx(fullDomain, metadataCid, {
+                        signer: queuedSigner,
+                        origin,
+                    });
                     if (!result.ok) {
                         const errDetail = result.dispatchError
-                            ? JSON.stringify(
-                                  result.dispatchError,
-                                  (_: string, v: unknown) =>
-                                      typeof v === "bigint" ? v.toString() : v,
+                            ? JSON.stringify(result.dispatchError, (_: string, v: unknown) =>
+                                  typeof v === "bigint" ? v.toString() : v,
                               )
                             : "Transaction failed";
                         throw new Error(errDetail);
@@ -450,10 +449,7 @@ export const deployCommand = new Command("deploy")
                     s2.succeed();
                 })();
 
-                const results = await Promise.allSettled([
-                    bulletinPromise,
-                    registryPromise,
-                ]);
+                const results = await Promise.allSettled([bulletinPromise, registryPromise]);
                 const failures = results.filter(
                     (r): r is PromiseRejectedResult => r.status === "rejected",
                 );
@@ -463,7 +459,9 @@ export const deployCommand = new Command("deploy")
                     throw failures[0].reason;
                 }
             } catch (err) {
-                console.log(`\n  ${red("✖")} ${bold("Registry publish failed:")} ${err instanceof Error ? err.message : String(err)}`);
+                console.log(
+                    `\n  ${red("✖")} ${bold("Registry publish failed:")} ${err instanceof Error ? err.message : String(err)}`,
+                );
                 failed = true;
             } finally {
                 conn?.destroy();
@@ -509,9 +507,7 @@ export const deployCommand = new Command("deploy")
                     fullDomain.replace(".dot", ""),
                     deployOpts,
                 );
-                s.succeed(
-                    `Frontend deployed to ${bold(result.fullDomain)} (${dim(result.cid)})`,
-                );
+                s.succeed(`Frontend deployed to ${bold(result.fullDomain)} (${dim(result.cid)})`);
             } catch (err) {
                 s.fail(err instanceof Error ? err.message : "Frontend deployment failed");
                 failed = true;

@@ -65,23 +65,73 @@ export function unwrapOption<T>(val: unknown): T | undefined {
 }
 
 if (import.meta.vitest) {
-    const { test, expect } = import.meta.vitest;
+    const { test, expect, describe } = import.meta.vitest;
 
-    test("unwraps Some value", () => {
-        expect(unwrapOption({ isSome: true, value: "hello" })).toBe("hello");
+    describe("unwrapOption", () => {
+        test("unwraps Some value", () => {
+            expect(unwrapOption({ isSome: true, value: "hello" })).toBe("hello");
+        });
+        test("returns undefined for None", () => {
+            expect(unwrapOption({ isSome: false, value: "" })).toBeUndefined();
+        });
+        test("passes through non-Option values", () => {
+            expect(unwrapOption("plain string")).toBe("plain string");
+            expect(unwrapOption(42)).toBe(42);
+            expect(unwrapOption(null)).toBe(null);
+        });
+        test("handles undefined input", () => {
+            expect(unwrapOption(undefined)).toBeUndefined();
+        });
     });
 
-    test("returns undefined for None", () => {
-        expect(unwrapOption({ isSome: false, value: "" })).toBeUndefined();
+    describe("resolveEnvironment", () => {
+        test("resolves paseo", () => {
+            expect(resolveEnvironment("paseo")).toBe("paseo");
+        });
+        test("resolves polkadot", () => {
+            expect(resolveEnvironment("polkadot")).toBe("polkadot");
+        });
+        test("throws for unsupported chain", () => {
+            expect(() => resolveEnvironment("local")).toThrow("not yet supported");
+        });
+        test("throws for unknown chain", () => {
+            expect(() => resolveEnvironment("fakenet")).toThrow("not yet supported");
+        });
+        test("error message lists supported chains", () => {
+            expect(() => resolveEnvironment("local")).toThrow("paseo, polkadot");
+        });
     });
 
-    test("passes through non-Option values", () => {
-        expect(unwrapOption("plain string")).toBe("plain string");
-        expect(unwrapOption(42)).toBe(42);
-        expect(unwrapOption(null)).toBe(null);
-    });
+    describe("fetchIpfs", () => {
+        test("constructs URL with separator", async () => {
+            const mockFetch = globalThis.fetch;
+            globalThis.fetch = (async (url: string) => {
+                expect(url).toBe("https://gateway.io/ipfs/bafk123");
+                return { ok: true, json: async () => ({ data: true }) };
+            }) as any;
+            const result = await fetchIpfs("bafk123", "https://gateway.io/ipfs");
+            expect(result).toEqual({ data: true });
+            globalThis.fetch = mockFetch;
+        });
 
-    test("handles undefined input", () => {
-        expect(unwrapOption(undefined)).toBeUndefined();
+        test("skips separator when gateway ends with /", async () => {
+            const mockFetch = globalThis.fetch;
+            globalThis.fetch = (async (url: string) => {
+                expect(url).toBe("https://gateway.io/ipfs/bafk123");
+                return { ok: true, json: async () => ({}) };
+            }) as any;
+            await fetchIpfs("bafk123", "https://gateway.io/ipfs/");
+            globalThis.fetch = mockFetch;
+        });
+
+        test("throws on non-ok response", async () => {
+            const mockFetch = globalThis.fetch;
+            globalThis.fetch = (async () => ({
+                ok: false,
+                statusText: "Not Found",
+            })) as any;
+            await expect(fetchIpfs("bafk", "https://gw")).rejects.toThrow("IPFS fetch failed");
+            globalThis.fetch = mockFetch;
+        });
     });
 }

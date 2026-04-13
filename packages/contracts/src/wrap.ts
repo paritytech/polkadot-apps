@@ -141,11 +141,7 @@ export function wrapContract(
                     // retry with the dev fallback. The signer's account may not
                     // be mapped for the Revive pallet, which causes dry-runs to
                     // fail even for read-only view calls.
-                    if (
-                        !result.success &&
-                        origin !== QUERY_FALLBACK_ORIGIN &&
-                        !overrides?.origin
-                    ) {
+                    if (!result.success && origin !== QUERY_FALLBACK_ORIGIN && !overrides?.origin) {
                         result = await inkContract.query(methodName, {
                             origin: QUERY_FALLBACK_ORIGIN,
                             ...queryOpts,
