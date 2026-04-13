@@ -185,13 +185,12 @@ export class ChannelStore<T extends { timestamp?: number }> {
     private handleStatement(statement: ReceivedStatement<T>): void {
         // We need a channel to determine the channel name.
         // Without a channel, we can't do last-write-wins deduplication.
-        if (!statement.channel) return;
+        if (!statement.channelHex) return;
 
-        // The channel hash is the blake2b of the channel name.
-        // We store by the hex representation of the hash since we
-        // don't have the original channel name from incoming statements.
-        const channelKey = topicToHex(statement.channel);
-        this.updateChannel(channelKey, statement.data);
+        // The channel hex is the blake2b of the channel name.
+        // We store by the hex representation since we don't have
+        // the original channel name from incoming statements.
+        this.updateChannel(statement.channelHex, statement.data);
     }
 
     private updateChannel(channelName: string, value: T): void {
@@ -441,15 +440,16 @@ if (import.meta.vitest) {
                 mockClient as unknown as StatementStoreClient,
             );
 
-            const channelHash = new Uint8Array(32).fill(0xab);
+            const channelHex = "0x" + "ab".repeat(32);
             mockClient._simulateStatement({
                 data: { type: "remote", timestamp: 500 },
-                channel: channelHash,
-                raw: {} as import("./types.js").DecodedStatement,
+                channelHex,
+                topics: [],
+                raw: {} as import("@novasamatech/sdk-statement").Statement,
             });
 
             // Channel is stored by hex of hash, accessible via readAll
-            const hexKey = "0x" + "ab".repeat(32);
+            const hexKey = channelHex;
             expect(store.readAll().get(hexKey)?.type).toBe("remote");
             expect(store.size).toBe(1);
         });
@@ -466,11 +466,13 @@ if (import.meta.vitest) {
             expect(store.size).toBe(1);
 
             // Network echo arrives with same channel hash
-            const channelHash = mkCh("presence/abc");
+            const { topicToHex: thx } = await import("./topics.js");
+            const channelHex = thx(mkCh("presence/abc"));
             mockClient._simulateStatement({
                 data: { type: "network-echo", timestamp: 200 },
-                channel: channelHash,
-                raw: {} as import("./types.js").DecodedStatement,
+                channelHex,
+                topics: [],
+                raw: {} as import("@novasamatech/sdk-statement").Statement,
             });
 
             // Should replace (not duplicate) since same hash key
@@ -488,7 +490,8 @@ if (import.meta.vitest) {
 
             mockClient._simulateStatement({
                 data: { type: "no-channel", timestamp: 1 },
-                raw: {} as import("./types.js").DecodedStatement,
+                topics: [],
+                raw: {} as import("@novasamatech/sdk-statement").Statement,
             });
 
             expect(onChange).not.toHaveBeenCalled();
@@ -526,14 +529,16 @@ if (import.meta.vitest) {
             await store.write("ch", { type: "first" });
 
             // Simulate incoming with explicit undefined timestamp via network
-            const channelHash = (await import("./topics.js")).createChannel("ch");
+            const { createChannel: mkCh, topicToHex: thx } = await import("./topics.js");
+            const channelHex = thx(mkCh("ch"));
             mockClient._simulateStatement({
                 data: { type: "network", timestamp: undefined } as unknown as {
                     type: string;
                     timestamp?: number;
                 },
-                channel: channelHash,
-                raw: {} as import("./types.js").DecodedStatement,
+                channelHex,
+                topics: [],
+                raw: {} as import("@novasamatech/sdk-statement").Statement,
             });
 
             // The undefined timestamp falls back to 0 via ?? 0

@@ -6,7 +6,7 @@ Package: `@polkadot-apps/statement-store`
 
 ### StatementStoreClient
 
-High-level client for the Polkadot Statement Store. Handles SCALE encoding, Sr25519 signing, topic management, and resilient delivery (subscription + polling fallback).
+High-level client for the Polkadot Statement Store. Handles topic management, signing delegation (host or local), and resilient delivery (subscription + polling fallback).
 
 ```ts
 import { StatementStoreClient } from "@polkadot-apps/statement-store";
@@ -23,10 +23,12 @@ Creates a new client. Does not connect -- call `connect()` to establish the tran
 #### Methods
 
 ```ts
-async connect(signer: StatementSignerWithKey): Promise<void>
+async connect(credentials: ConnectionCredentials): Promise<void>
 ```
 
-Connect to the statement store and start receiving statements. Establishes the transport connection (chain-client bulletin first, then endpoint fallback), starts a real-time subscription on the application's topic, fetches existing statements via polling, and begins the polling fallback (if enabled). Duplicate concurrent calls are deduplicated. No-op if already connected. Throws `StatementConnectionError` if the transport cannot be established.
+Connect to the statement store and start receiving statements. Establishes the transport connection (Host API first, then endpoint fallback), starts a real-time subscription on the application's topic, and begins the polling fallback (if enabled and the transport supports queries). Duplicate concurrent calls are deduplicated. No-op if already connected. Throws `StatementConnectionError` if the transport cannot be established.
+
+There is also a deprecated overload that accepts a bare `StatementSignerWithKey` -- this is internally converted to `{ mode: "local", signer }`.
 
 ---
 
@@ -34,7 +36,7 @@ Connect to the statement store and start receiving statements. Establishes the t
 async publish<T>(data: T, options?: PublishOptions): Promise<boolean>
 ```
 
-Publish typed data to the statement store. Encodes data as JSON, builds a SCALE-encoded statement with configured topics and TTL, signs it with Sr25519, and submits to the network. Returns `true` if accepted (`"new"` or `"known"`), `false` if rejected. Transport errors are caught and logged (returns `false`). Throws `StatementConnectionError` if not connected. Throws `StatementDataTooLargeError` if encoded data exceeds 512 bytes.
+Publish typed data to the statement store. Encodes data as JSON, builds a `Statement` object with configured topics, TTL, channel, and expiry, then delegates to the transport's `signAndSubmit()` method. In host mode, the host creates the proof; in local mode, `getStatementSigner` from sdk-statement signs with Sr25519. Returns `true` on success, `false` on rejection or transport error (errors are caught and logged, not thrown). Throws `StatementConnectionError` if not connected. Throws `StatementDataTooLargeError` if encoded data exceeds 512 bytes.
 
 ---
 
@@ -52,11 +54,10 @@ Subscribe to incoming statements on this application's topic. Receives both real
 ```ts
 async query<T>(options?: {
   topic2?: string;
-  decryptionKey?: Uint8Array;
 }): Promise<ReceivedStatement<T>[]>
 ```
 
-Query existing statements from the store. Useful for catching up on state published before the subscription started. If `decryptionKey` is omitted but `topic2` is provided, the decryption key is derived from the topic2 hash. Throws `StatementConnectionError` if not connected.
+Query existing statements from the store. Only available when the transport supports queries (RPC mode). In host mode, the subscription replays existing statements automatically, so this returns an empty array. Throws `StatementConnectionError` if not connected.
 
 ---
 
@@ -72,7 +73,7 @@ Whether the client is connected and ready to publish/subscribe.
 getPublicKeyHex(): string
 ```
 
-Get the signer's public key as a hex string with `0x` prefix. Returns empty string if not connected.
+Get the signer's public key as a hex string with `0x` prefix. Only returns a value in local mode. Returns empty string if not connected or in host mode.
 
 ---
 
@@ -201,25 +202,17 @@ Compare two topic or channel hashes for byte equality. Returns `false` if length
 ### serializeTopicFilter
 
 ```ts
-function serializeTopicFilter(filter: TopicFilter): SerializedTopicFilter
+function serializeTopicFilter(filter: TopicFilter): SdkTopicFilter
 ```
 
-Serialize a `TopicFilter` into the JSON-RPC format expected by statement store nodes. Converts topic hashes to hex strings.
+Serialize a `TopicFilter` into the format expected by `@novasamatech/sdk-statement`. Converts `TopicHash` arrays to hex-string arrays.
 
 ---
 
-## Codec Functions
+## Data Functions
 
 ```ts
-import {
-  encodeData,
-  decodeData,
-  encodeStatement,
-  decodeStatement,
-  createSignatureMaterial,
-  toHex,
-  fromHex,
-} from "@polkadot-apps/statement-store";
+import { encodeData, decodeData, toHex, fromHex } from "@polkadot-apps/statement-store";
 ```
 
 ### encodeData
@@ -237,34 +230,6 @@ function decodeData<T>(bytes: Uint8Array): T
 ```
 
 Decode a JSON-serialized data payload from UTF-8 bytes. Throws `StatementEncodingError` if the bytes are not valid UTF-8 or valid JSON.
-
-### encodeStatement
-
-```ts
-function encodeStatement(
-  fields: StatementFields,
-  signer: Uint8Array,
-  signature: Uint8Array,
-): Uint8Array
-```
-
-Encode a complete SCALE-encoded statement with all fields including the Sr25519 authenticity proof. `signer` is a 32-byte public key, `signature` is a 64-byte Sr25519 signature.
-
-### decodeStatement
-
-```ts
-function decodeStatement(hex: string): DecodedStatement
-```
-
-Decode a SCALE-encoded statement from a hex string (with or without `0x` prefix). Parses all known field tags (0, 2, 3, 4, 5, 6, 8). Throws `StatementEncodingError` on unknown tags or structural corruption.
-
-### createSignatureMaterial
-
-```ts
-function createSignatureMaterial(fields: StatementFields): Uint8Array
-```
-
-Create the byte sequence that gets signed with Sr25519. Includes all fields except the proof itself. Field tags: 2=expiry, 3=decryptionKey, 4=topic1, 5=topic2, 6=channel, 8=data.
 
 ### toHex
 
@@ -287,8 +252,7 @@ Convert a hex string (with or without `0x` prefix) to bytes.
 ## Transport
 
 ```ts
-import { RpcTransport, createTransport } from "@polkadot-apps/statement-store";
-import type { RpcClient } from "@polkadot-apps/statement-store";
+import { createTransport } from "@polkadot-apps/statement-store";
 ```
 
 ### createTransport
@@ -298,81 +262,11 @@ async function createTransport(config: { endpoint?: string }): Promise<Statement
 ```
 
 Create a statement store transport. Strategy:
-1. Try chain-client's bulletin chain connection (Host API routing in containers).
-2. Fall back to direct WebSocket using the provided `endpoint`.
+1. Try the Host API via `@polkadot-apps/host` -- uses the container's native statement store protocol (binary, not JSON-RPC). Returns a `HostTransport`.
+2. Fall back to a direct WebSocket connection using `@polkadot-api/substrate-client` with `@novasamatech/sdk-statement`. Returns an `RpcTransport`.
 3. Throw `StatementConnectionError` if neither works.
 
-### RpcTransport
-
-```ts
-class RpcTransport implements StatementTransport
-```
-
-Statement store transport using JSON-RPC over WebSocket.
-
-#### Constructor
-
-```ts
-constructor(client: RpcClient, ownsClient: boolean)
-```
-
-- `client`: The RPC client for communication.
-- `ownsClient`: If `true`, `destroy()` also destroys the client. Set `false` when sharing a client from chain-client.
-
-#### Methods
-
-```ts
-subscribe(
-  filter: TopicFilter,
-  onStatement: (statementHex: string) => void,
-  onError: (error: Error) => void,
-): Unsubscribable
-```
-
-Subscribe via `statement_subscribeStatement` RPC. Handles raw hex, `StatementEvent`, and nested wrapper formats.
-
-```ts
-async submit(statementHex: string): Promise<SubmitStatus>
-```
-
-Submit via `statement_submit` RPC. Returns `"new"`, `"known"`, or `"rejected"`.
-
-```ts
-async query(topics: TopicHash[], decryptionKey?: string): Promise<string[]>
-```
-
-Query via RPC with graceful fallback: `statement_posted` -> `statement_broadcasts` -> `statement_dump`.
-
-```ts
-destroy(): void
-```
-
-Destroy the transport. Only destroys the RPC client if `ownsClient` is `true`.
-
-### RpcClient (interface)
-
-```ts
-interface RpcClient {
-  request: (method: string, params: unknown[]) => Promise<unknown>;
-  _request: <T, S>(
-    method: string,
-    params: unknown[],
-    callbacks: {
-      onSuccess: (
-        subscriptionId: T,
-        followSubscription: (
-          id: T,
-          handlers: { next: (event: S) => void; error: (e: Error) => void },
-        ) => void,
-      ) => void;
-      onError: (error: Error) => void;
-    },
-  ) => () => void;
-  destroy: () => void;
-}
-```
-
-A PolkadotClient-compatible interface for raw RPC operations.
+The `endpoint` defaults to `DEFAULT_BULLETIN_ENDPOINT` from `@polkadot-apps/host`.
 
 ---
 
@@ -409,7 +303,7 @@ class StatementEncodingError extends StatementStoreError {
 }
 ```
 
-SCALE encoding or decoding failed. Corrupt data, unknown field tags, or invalid JSON.
+Encoding or decoding failed. Corrupt data or invalid JSON.
 
 ### StatementSubmitError
 
@@ -440,7 +334,7 @@ class StatementConnectionError extends StatementStoreError {
 }
 ```
 
-Failed to connect to the transport. WebSocket unreachable or chain-client bulletin not connected.
+Failed to connect to the transport. WebSocket unreachable or Host API unavailable.
 
 ### StatementDataTooLargeError
 
@@ -458,27 +352,96 @@ Statement data payload exceeds `MAX_STATEMENT_SIZE`. Default `maxSize` is 512. I
 
 ## Types
 
+### Re-exports from @novasamatech/sdk-statement
+
+```ts
+import type {
+  Statement,
+  SignedStatement,
+  UnsignedStatement,
+  Proof,
+  SubmitResult,
+  SdkTopicFilter,
+} from "@polkadot-apps/statement-store";
+```
+
+#### Statement
+
+The core statement type from `@novasamatech/sdk-statement`. Represents a statement on the network. Key fields:
+
+```ts
+interface Statement {
+  expiry?: bigint;
+  topics: `0x${string}`[];
+  channel?: `0x${string}`;
+  decryptionKey?: `0x${string}`;
+  data?: Uint8Array;
+  proof?: Proof;
+}
+```
+
+#### SignedStatement
+
+A statement that has been signed and includes a `proof` field.
+
+#### UnsignedStatement
+
+A statement without a proof, before signing.
+
+#### Proof
+
+The authenticity proof attached to a signed statement:
+
+```ts
+interface Proof {
+  type: "sr25519";
+  value: {
+    signature: `0x${string}`;
+    signer: `0x${string}`;
+  };
+}
+```
+
+#### SubmitResult
+
+Result from submitting a statement:
+
+```ts
+interface SubmitResult {
+  status: "new" | "known" | "rejected";
+  reason?: string;
+}
+```
+
+#### SdkTopicFilter
+
+Re-exported as `SdkTopicFilter` (aliased from `TopicFilter` in sdk-statement to avoid name collision):
+
+```ts
+type SdkTopicFilter = "any" | { matchAll: string[] } | { matchAny: string[] }
+```
+
+The serialized form with hex-encoded topic strings, used by the transport layer.
+
+### Package-specific Types
+
 ```ts
 import type {
   TopicHash,
   ChannelHash,
-  StatementFields,
-  DecodedStatement,
   TopicFilter,
-  SerializedTopicFilter,
+  ConnectionCredentials,
   StatementStoreConfig,
   PublishOptions,
   ReceivedStatement,
   StatementSigner,
   StatementSignerWithKey,
-  SubmitStatus,
   StatementTransport,
   Unsubscribable,
-  StatementEvent,
 } from "@polkadot-apps/statement-store";
 ```
 
-### TopicHash
+#### TopicHash
 
 ```ts
 type TopicHash = Uint8Array & { readonly __brand: "TopicHash" }
@@ -486,7 +449,7 @@ type TopicHash = Uint8Array & { readonly __brand: "TopicHash" }
 
 A 32-byte blake2b-256 hash used as a statement topic. Create with `createTopic()`.
 
-### ChannelHash
+#### ChannelHash
 
 ```ts
 type ChannelHash = Uint8Array & { readonly __brand: "ChannelHash" }
@@ -494,55 +457,27 @@ type ChannelHash = Uint8Array & { readonly __brand: "ChannelHash" }
 
 A 32-byte blake2b-256 hash used as a channel identifier. Create with `createChannel()`.
 
-### StatementFields
-
-```ts
-interface StatementFields {
-  expirationTimestamp: number;
-  sequenceNumber: number;
-  decryptionKey?: Uint8Array;
-  channel?: Uint8Array;
-  topic1?: Uint8Array;
-  topic2?: Uint8Array;
-  data?: Uint8Array;
-}
-```
-
-Raw statement fields before signing. Maps to SCALE-encoded on-chain format.
-
-### DecodedStatement
-
-```ts
-interface DecodedStatement {
-  signer?: Uint8Array;
-  expiry?: bigint;
-  decryptionKey?: Uint8Array;
-  topic1?: Uint8Array;
-  topic2?: Uint8Array;
-  channel?: Uint8Array;
-  data?: Uint8Array;
-}
-```
-
-Statement decoded from the network. `signer` is a 32-byte Sr25519 public key. `expiry` encodes timestamp in upper 32 bits and sequence number in lower 32 bits.
-
-### TopicFilter
+#### TopicFilter
 
 ```ts
 type TopicFilter = "any" | { matchAll: TopicHash[] } | { matchAny: TopicHash[] }
 ```
 
-Filter for subscriptions and queries. `"any"` matches all; `matchAll` requires all topics present; `matchAny` requires at least one.
+Filter for statement subscriptions and queries. `"any"` matches all; `matchAll` requires all topics present; `matchAny` requires at least one.
 
-### SerializedTopicFilter
+#### ConnectionCredentials
 
 ```ts
-type SerializedTopicFilter = "any" | { matchAll: string[] } | { matchAny: string[] }
+type ConnectionCredentials =
+  | { mode: "host"; accountId: [string, number] }
+  | { mode: "local"; signer: StatementSignerWithKey };
 ```
 
-JSON-RPC serialized form with hex-encoded topic strings.
+Credentials for connecting to the statement store:
+- **Host mode**: Inside a container. `accountId` is a `[ss58Address, chainPrefix]` tuple. Proof creation is delegated to the host API.
+- **Local mode**: Outside a container. `signer` provides an Sr25519 key pair for signing statements locally.
 
-### StatementStoreConfig
+#### StatementStoreConfig
 
 ```ts
 interface StatementStoreConfig {
@@ -551,12 +486,13 @@ interface StatementStoreConfig {
   pollIntervalMs?: number;    // default: 10_000
   defaultTtlSeconds?: number; // default: 30
   enablePolling?: boolean;    // default: true
+  transport?: StatementTransport;  // BYOD transport (skips auto-detection)
 }
 ```
 
-Configuration for `StatementStoreClient`.
+Configuration for `StatementStoreClient`. When `transport` is provided, auto-detection is skipped.
 
-### PublishOptions
+#### PublishOptions
 
 ```ts
 interface PublishOptions {
@@ -569,23 +505,28 @@ interface PublishOptions {
 
 Options for publishing a single statement. `channel` and `topic2` are human-readable strings (hashed internally with blake2b).
 
-### ReceivedStatement\<T\>
+#### ReceivedStatement\<T\>
 
 ```ts
 interface ReceivedStatement<T = unknown> {
   data: T;
-  signer?: Uint8Array;
-  channel?: Uint8Array;
-  topic1?: Uint8Array;
-  topic2?: Uint8Array;
+  signerHex?: string;
+  channelHex?: string;
+  topics: string[];
   expiry?: bigint;
-  raw: DecodedStatement;
+  raw: Statement;
 }
 ```
 
-A received statement with typed data and metadata. `data` is the parsed JSON payload.
+A received statement with typed data and metadata:
+- `data` -- the parsed JSON payload.
+- `signerHex` -- signer's public key as a hex string (extracted from `proof.value.signer`), if present.
+- `channelHex` -- channel as a hex string, if present.
+- `topics` -- array of topic hex strings.
+- `expiry` -- combined value (upper 32 bits = timestamp, lower 32 bits = sequence number).
+- `raw` -- the full `Statement` from `@novasamatech/sdk-statement`.
 
-### StatementSigner
+#### StatementSigner
 
 ```ts
 type StatementSigner = (message: Uint8Array) => Uint8Array | Promise<Uint8Array>
@@ -593,7 +534,7 @@ type StatementSigner = (message: Uint8Array) => Uint8Array | Promise<Uint8Array>
 
 A function that signs a message with an Sr25519 key. Takes signature material bytes, returns a 64-byte signature.
 
-### StatementSignerWithKey
+#### StatementSignerWithKey
 
 ```ts
 interface StatementSignerWithKey {
@@ -602,34 +543,36 @@ interface StatementSignerWithKey {
 }
 ```
 
-An Sr25519 signer with its associated public key. Required by `StatementStoreClient.connect()`.
+An Sr25519 signer with its associated public key. Used in `ConnectionCredentials` for local mode.
 
-### SubmitStatus
-
-```ts
-type SubmitStatus = "new" | "known" | "rejected"
-```
-
-Result status from submitting a statement via RPC.
-
-### StatementTransport
+#### StatementTransport
 
 ```ts
 interface StatementTransport {
   subscribe(
-    filter: TopicFilter,
-    onStatement: (statementHex: string) => void,
+    filter: SdkTopicFilter,
+    onStatements: (statements: Statement[]) => void,
     onError: (error: Error) => void,
   ): Unsubscribable;
-  submit(statementHex: string): Promise<SubmitStatus>;
-  query(topics: TopicHash[], decryptionKey?: string): Promise<string[]>;
+
+  signAndSubmit(
+    statement: Statement,
+    credentials: ConnectionCredentials,
+  ): Promise<void>;
+
+  query?(filter: SdkTopicFilter): Promise<Statement[]>;
+
   destroy(): void;
 }
 ```
 
-Low-level transport interface. Most consumers should use `StatementStoreClient` instead.
+Low-level transport interface for statement store communication:
+- `subscribe` -- subscribe to statements matching a topic filter. Receives batches of `Statement[]`.
+- `signAndSubmit` -- sign and submit a statement. Host mode delegates proof creation to the host; local mode signs with `getStatementSigner` from sdk-statement.
+- `query` -- (optional) query existing statements. Only available on `RpcTransport`. When absent, the client skips polling.
+- `destroy` -- release all resources.
 
-### Unsubscribable
+#### Unsubscribable
 
 ```ts
 interface Unsubscribable {
@@ -638,17 +581,6 @@ interface Unsubscribable {
 ```
 
 Handle returned by subscription methods.
-
-### StatementEvent
-
-```ts
-interface StatementEvent {
-  statements: string[];
-  remaining?: number;
-}
-```
-
-Batched event format from the subscription API. `remaining` indicates statements still in initial sync.
 
 ---
 
