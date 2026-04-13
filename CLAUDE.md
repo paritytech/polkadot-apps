@@ -25,14 +25,13 @@ Follow the contributor guidelines in `README.md`.
 - Commands are separate files in `apps/cli/src/commands/`, each exporting a `Command` instance registered via `program.addCommand()`.
 - Contract ABI (`cdm.json`) is managed by CDM — `postinstall` runs `cdm i` automatically if cdm is available.
 
-**Commands:** `init`, `remix`, `build`, `test`, `deploy`, `info`, `update`
+**Commands:** `init`, `remix`, `build`, `deploy`, `info`, `update`
 
 | Command | Purpose |
 |---------|---------|
 | `dot init` | Set up dev environment (Rust toolchain, gh CLI) and authenticate |
 | `dot remix [domain]` | Fork an app — interactive picker if no domain, `--quest` flag (stubbed) |
 | `dot build` | Detect and build contracts (Rust) and frontend |
-| `dot test` | Unified test runner: vitest for TS, cargo test for Rust |
 | `dot deploy` | Deploy contracts + frontend to Bulletin. `--playground` to also publish to registry |
 | `dot info <domain>` | Show detailed app information from the registry |
 | `dot update` | Self-update from GitHub Releases |
