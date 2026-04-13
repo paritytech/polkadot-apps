@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/signer",
     "description": "Multi-provider signer manager for Polkadot — Host API, browser extensions, and dev accounts",
-    "version": "0.2.1",
+    "version": "1.0.0",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -23,6 +23,7 @@
     },
     "dependencies": {
         "@polkadot-apps/address": "workspace:*",
+        "@polkadot-apps/host": "workspace:*",
         "@polkadot-apps/keys": "workspace:*",
         "@polkadot-apps/logger": "workspace:*",
         "polkadot-api": "catalog:"

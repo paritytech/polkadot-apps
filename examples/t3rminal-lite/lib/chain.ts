@@ -1,13 +1,16 @@
 import { getChainAPI, destroyAll } from "@polkadot-apps/chain-client";
-import type { ChainAPI } from "@polkadot-apps/chain-client";
+import type { ChainClient, PresetChains } from "@polkadot-apps/chain-client";
 
-let apiPromise: Promise<ChainAPI<"paseo">> | null = null;
+// Preset path — zero-config, built-in descriptors + RPCs.
+// For BYOD, use createChainClient({ chains, rpcs }) instead.
 
-export async function getApi(): Promise<ChainAPI<"paseo">> {
-    if (!apiPromise) {
-        apiPromise = getChainAPI("paseo");
+let clientPromise: Promise<ChainClient<PresetChains<"paseo">>> | null = null;
+
+export async function getApi(): Promise<ChainClient<PresetChains<"paseo">>> {
+    if (!clientPromise) {
+        clientPromise = getChainAPI("paseo");
     }
-    return apiPromise;
+    return clientPromise;
 }
 
 export async function getBalance(
@@ -23,6 +26,6 @@ export async function getBalance(
 }
 
 export function cleanup(): void {
-    apiPromise = null;
+    clientPromise = null;
     destroyAll();
 }

@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/chain-client",
-    "description": "Multi-chain Polkadot API client with typed access to Asset Hub, Bulletin, and Individuality chains",
-    "version": "0.3.8",
+    "description": "Multi-chain Polkadot API client — BYOD descriptors or built-in presets for Asset Hub, Bulletin, and Individuality",
+    "version": "2.0.0",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -24,7 +24,6 @@
     "dependencies": {
         "@polkadot-apps/descriptors": "workspace:*",
         "@polkadot-apps/host": "workspace:*",
-        "@polkadot-api/sdk-ink": "catalog:",
         "polkadot-api": "catalog:"
     },
     "devDependencies": {

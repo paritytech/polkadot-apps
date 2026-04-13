@@ -1,5 +1,12 @@
 # @polkadot-apps/storage
 
+## 0.2.6
+
+### Patch Changes
+
+- Updated dependencies [2692df9]
+  - @polkadot-apps/host@0.4.0
+
 ## 0.2.5
 
 ### Patch Changes

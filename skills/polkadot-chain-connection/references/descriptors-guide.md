@@ -38,9 +38,56 @@ Each subpath maps to a separate build output under `chains/<name>/generated/dist
 
 This per-chain split avoids bundling all chain metadata when a consumer only uses one chain.
 
+## When to Import Descriptors
+
+Descriptors are needed in two scenarios:
+
+### 1. BYOD with `createChainClient`
+
+When using the BYOD path, you import descriptors yourself and pass them in the config:
+
+```ts
+import { createChainClient } from "@polkadot-apps/chain-client";
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+import { bulletin } from "@polkadot-apps/descriptors/bulletin";
+
+const client = await createChainClient({
+  chains: { assetHub: paseo_asset_hub, bulletin },
+  rpcs: {
+    assetHub: ["wss://sys.ibp.network/asset-hub-paseo"],
+    bulletin: ["wss://paseo-bulletin-rpc.polkadot.io"],
+  },
+});
+```
+
+### 2. Low-level `polkadot-api` usage
+
+When working directly with the raw polkadot-api client:
+
+```ts
+import { createClient } from "polkadot-api";
+import { getWsProvider } from "polkadot-api/ws-provider/web";
+import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
+
+const client = createClient(getWsProvider("wss://sys.ibp.network/asset-hub-paseo"));
+const api = client.getTypedApi(paseo_asset_hub);
+```
+
+### Not needed: Preset with `getChainAPI`
+
+When using the preset (zero-config) path, descriptors are lazy-loaded internally -- you do not need to import them:
+
+```ts
+import { getChainAPI } from "@polkadot-apps/chain-client";
+
+const client = await getChainAPI("paseo");
+// No descriptor imports needed -- fully typed automatically
+const account = await client.assetHub.query.System.Account.getValue("5G...");
+```
+
 ## How chain-client Lazy-Loads Descriptors
 
-`chain-client` never imports descriptors at the top level. Instead, it uses dynamic imports in `loadDescriptors()`:
+`chain-client` never imports descriptors at the top level. The preset path (`getChainAPI`) uses dynamic imports in `loadDescriptors()`:
 
 ```ts
 // chain-client only imports the descriptor type (erased at compile time)
@@ -59,30 +106,7 @@ This means:
 - Runtime imports are lazy and environment-specific -- requesting `"paseo"` only loads `paseo-asset-hub`, not `polkadot-asset-hub` or `kusama-asset-hub`.
 - Bulletin and individuality descriptors are shared across all environments (same genesis hash).
 
-## Using Descriptors Directly (Without chain-client)
-
-If you need lower-level control, you can use descriptors directly with `polkadot-api`:
-
-```ts
-import { createClient } from "polkadot-api";
-import { getWsProvider } from "polkadot-api/ws-provider/web";
-import { paseo_asset_hub } from "@polkadot-apps/descriptors/paseo-asset-hub";
-
-// Create a raw client
-const provider = getWsProvider("wss://sys.ibp.network/asset-hub-paseo");
-const client = createClient(provider);
-
-// Get a typed API from the descriptor
-const api = client.getTypedApi(paseo_asset_hub);
-
-// Use the typed API
-const account = await api.query.System.Account.getValue("5G...");
-
-// Clean up
-client.destroy();
-```
-
-The descriptor object (e.g., `paseo_asset_hub`) is a `ChainDefinition` that carries the genesis hash and type information papi needs to provide typed access.
+The BYOD path (`createChainClient`) does not lazy-load -- you provide descriptors directly.
 
 ## Using Descriptors for Connection Checking
 
@@ -94,10 +118,12 @@ import { bulletin } from "@polkadot-apps/descriptors/bulletin";
 
 // Check connection status
 if (isConnected(bulletin)) {
-  const client = getClient(bulletin);
-  // use client...
+  const rawClient = getClient(bulletin);
+  // use rawClient...
 }
 ```
+
+Note: If you have a `ChainClient` instance, you can also access raw clients via `client.raw.<chainName>` without importing descriptors.
 
 ## Adding a New Chain
 
@@ -160,12 +186,15 @@ pnpm generate-descriptors
 
 ### Step 6: Wire into chain-client (if needed)
 
-If the new chain should be part of `ChainAPI`, update `packages/chain-client/src/clients.ts`:
+**For BYOD use:** No changes needed. Users can immediately import the new descriptor and pass it to `createChainClient`.
+
+**For preset use (adding to `getChainAPI`):** Update `packages/chain-client/src/presets.ts`:
 1. Add a type-only import for the new descriptor.
-2. Add its genesis hash to the `GENESIS` constant.
-3. Add RPC endpoints to the `rpcs` config.
-4. Update the `ChainAPI` type to include the new chain.
-5. Update `loadDescriptors()` and `initChainAPI()` to create the new client and typed API.
+2. Add RPC endpoints to the `rpcs` config.
+3. Update the `PresetChains` type to include the new chain.
+4. Update `loadDescriptors()` to dynamically import the new chain.
+
+**For both paths:** Update `packages/chain-client/src/clients.ts` if you need to register the genesis hash or add new utility functions.
 
 ## Build Pipeline
 

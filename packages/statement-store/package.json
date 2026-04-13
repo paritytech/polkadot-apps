@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/statement-store",
     "description": "Publish/subscribe client for the Polkadot Statement Store with topic-based routing and SCALE encoding",
-    "version": "0.2.10",
+    "version": "0.2.11",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",

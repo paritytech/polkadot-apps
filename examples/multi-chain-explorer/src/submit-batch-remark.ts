@@ -1,10 +1,10 @@
-import type { getChainAPI } from "@polkadot-apps/chain-client";
+import type { connect } from "./connect.js";
 import { batchSubmitAndWatch, createDevSigner } from "@polkadot-apps/tx";
 import { Binary } from "polkadot-api";
 
-type ChainAPI = Awaited<ReturnType<typeof getChainAPI>>;
+type Client = Awaited<ReturnType<typeof connect>>;
 
-export async function submitBatchRemark(api: ChainAPI) {
+export async function submitBatchRemark(api: Client) {
     console.log("\n--- Submit Batched System.remarks ---");
 
     const alice = createDevSigner("Alice");
