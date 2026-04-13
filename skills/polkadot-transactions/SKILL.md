@@ -262,7 +262,13 @@ const unsub = manager.subscribe((state) => {
   console.log(state.status, state.accounts, state.selectedAccount);
 });
 
-// Auto-detect: tries Host API (in container) or extensions (in browser)
+// Auto-detect: tries Host API (in container) or extensions (in browser).
+// Inside a host container, connect() also auto-requests the host's
+// `TransactionSubmit` permission — without this, production hosts (and the
+// @parity/host-api-test-sdk test host) reject every sign request with
+// `PermissionDenied`, which looks like a silently hanging transaction.
+// Pass { requestTransactionSubmitPermission: false } via createProvider if
+// your app needs to drive the prompt manually.
 const result = await manager.connect();
 // Or connect to a specific provider:
 // await manager.connect("dev");
@@ -373,6 +379,21 @@ const account = seedToAccount(
 6. **Forgetting account mapping** - EVM contract interactions on Asset Hub require calling `ensureAccountMapped` first. It is idempotent so safe to call every time.
 
 7. **Assuming `batch` mode is atomic** - The default `"batch_all"` mode is atomic, but `"batch"` mode stops at the first failure without reverting earlier calls. With `"force_batch"`, execution continues past failures. In both non-atomic modes, inspect `result.events` for `Utility.ItemFailed` or `Utility.BatchInterrupted` events to detect individual failures.
+
+8. **Missing `TransactionSubmit` permission inside a host container** - Since `@polkadot-apps/signer@1.0.2`, `SignerManager.connect()` requests this permission automatically on the host path. Before that, tx submissions could hang silently with no error. If you hit hangs after a clean connect, verify your signer package is >= 1.0.2, or opt-in explicitly with `new SignerManager({ createProvider: (type) => type === "host" ? new HostProvider({ requestTransactionSubmitPermission: true, ss58Prefix: 42 }) : ... })`.
+
+## End-to-end testing
+
+Canonical pattern: see `examples/tx-demo/` — a minimal Vite + vanilla-TS app that
+drives `SignerManager` + `getChainAPI("paseo")` + `submitAndWatch` /
+`batchSubmitAndWatch` with a Playwright suite powered by
+`@parity/host-api-test-sdk`. The test host injects dev accounts (Bob by
+default), auto-approves permissions, auto-signs payloads, and proxies chain
+RPC — so the demo exercises the real host path end-to-end against live Paseo
+Asset Hub. To bootstrap a new `<pkg>-demo`, copy that directory and swap the
+package under test; the same six files (`package.json`, `index.html`,
+`src/main.ts`, `playwright.config.ts`, `e2e/fixtures.ts`, `e2e/<flow>.spec.ts`)
+apply verbatim.
 
 ## Reference Files
 

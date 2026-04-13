@@ -28,6 +28,21 @@ export interface HostProviderOptions {
      * @internal
      */
     loadSdk?: () => Promise<ProductSdkModule>;
+    /**
+     * Custom loader for `@novasamatech/host-api` (used to construct the
+     * `TransactionSubmit` permission request). Defaults to dynamic import.
+     * @internal
+     */
+    loadHostApiEnum?: () => Promise<HostApiEnumHelper>;
+    /**
+     * Whether to request the host's `TransactionSubmit` permission after a
+     * successful `connect()`. Without this, subsequent signing requests are
+     * rejected by the host with `PermissionDenied`. Default: `true`.
+     *
+     * Set to `false` if your app needs to defer the permission prompt or
+     * drives it manually.
+     */
+    requestTransactionSubmitPermission?: boolean;
 }
 
 /**
@@ -105,14 +120,36 @@ export interface AccountsProvider {
 }
 
 /** @internal */
+export interface HostApiPermissionBridge {
+    /**
+     * Request a Host API permission. Product-sdk's `hostApi.permission(...)`
+     * takes a tagged enum like `enumValue("v1", { tag: "TransactionSubmit" })`
+     * and returns a neverthrow ResultAsync.
+     */
+    permission: (request: unknown) => NeverthrowResultAsync<unknown, unknown>;
+}
+
+/** @internal */
+export interface HostApiEnumHelper {
+    enumValue: (version: string, value: { tag: string; value?: unknown }) => unknown;
+}
+
+/** @internal */
 export interface ProductSdkModule {
     createAccountsProvider: () => AccountsProvider;
     injectSpektrExtension?: () => Promise<boolean>;
+    /** Present from product-sdk ≥ 0.6; used to request TransactionSubmit. */
+    hostApi?: HostApiPermissionBridge;
 }
 
 /* @integration */
 async function defaultLoadSdk(): Promise<ProductSdkModule> {
     return (await import("@novasamatech/product-sdk")) as unknown as ProductSdkModule;
+}
+
+/* @integration */
+async function defaultLoadHostApiEnum(): Promise<HostApiEnumHelper> {
+    return (await import("@novasamatech/host-api")) as unknown as HostApiEnumHelper;
 }
 
 /**
@@ -131,6 +168,8 @@ export class HostProvider implements SignerProvider {
     private readonly maxRetries: number;
     private readonly retryDelay: number;
     private readonly loadSdk: () => Promise<ProductSdkModule>;
+    private readonly loadHostApiEnum: () => Promise<HostApiEnumHelper>;
+    private readonly requestTxPermission: boolean;
 
     private accountsProvider: AccountsProvider | null = null;
     private statusCleanup: (() => void) | null = null;
@@ -142,6 +181,8 @@ export class HostProvider implements SignerProvider {
         this.maxRetries = options?.maxRetries ?? 3;
         this.retryDelay = options?.retryDelay ?? 500;
         this.loadSdk = options?.loadSdk ?? defaultLoadSdk;
+        this.loadHostApiEnum = options?.loadHostApiEnum ?? defaultLoadHostApiEnum;
+        this.requestTxPermission = options?.requestTransactionSubmitPermission ?? true;
     }
 
     /**
@@ -415,11 +456,43 @@ export class HostProvider implements SignerProvider {
             return err(new NoAccountsError("host"));
         }
 
-        // Step 4: Map to SignerAccount[]
+        // Step 4: Request TransactionSubmit permission up-front.
+        //
+        // The host gates signing on this permission — without it `handleSignPayload`
+        // (and the production host) rejects every sign request with
+        // `PermissionDenied`, which typically manifests as a silently-hanging tx.
+        // Doing it once during connect() matches what production apps need and
+        // spares consumers the boilerplate.
+        //
+        // We don't fail `connect()` if this step fails: the consumer can still
+        // use the signer for read-only code paths, and the actual sign call will
+        // surface a clear error if permission is missing.
+        if (this.requestTxPermission && sdk.hostApi) {
+            try {
+                const hostApiEnum = await this.loadHostApiEnum();
+                const request = hostApiEnum.enumValue("v1", {
+                    tag: "TransactionSubmit",
+                });
+                await sdk.hostApi.permission(request).match(
+                    () => {
+                        log.debug("TransactionSubmit permission granted");
+                    },
+                    (error) => {
+                        log.warn("TransactionSubmit permission rejected by host", {
+                            error: formatError(error),
+                        });
+                    },
+                );
+            } catch (cause) {
+                log.warn("failed to request TransactionSubmit permission", { cause });
+            }
+        }
+
+        // Step 5: Map to SignerAccount[]
         const accounts = this.mapAccounts(rawAccounts);
         log.info("host connected", { accounts: accounts.length });
 
-        // Step 5: Subscribe to connection status
+        // Step 6: Subscribe to connection status
         const sub = provider.subscribeAccountConnectionStatus((status) => {
             const mapped: ConnectionStatus = status === "connected" ? "connected" : "disconnected";
             log.debug("host status changed", { status: mapped });
@@ -533,9 +606,34 @@ if (import.meta.vitest) {
         };
     }
 
-    function createMockSdk(mockProvider: ReturnType<typeof createMockProvider>): ProductSdkModule {
-        return { createAccountsProvider: () => mockProvider as unknown as AccountsProvider };
+    function createMockSdk(
+        mockProvider: ReturnType<typeof createMockProvider>,
+        opts?: {
+            hostApi?: HostApiPermissionBridge;
+        },
+    ): ProductSdkModule {
+        return {
+            createAccountsProvider: () => mockProvider as unknown as AccountsProvider,
+            ...(opts?.hostApi ? { hostApi: opts.hostApi } : {}),
+        };
     }
+
+    /**
+     * A fake neverthrow ResultAsync-like object. Resolves via `onOk` when
+     * `error === undefined`, otherwise via `onErr`.
+     */
+    function fakeResult<T>(value: T, error?: unknown): NeverthrowResultAsync<T, unknown> {
+        return {
+            match: async (onOk, onErr) => {
+                if (error !== undefined) return onErr(error);
+                return onOk(value);
+            },
+        };
+    }
+
+    const fakeHostApiEnum: HostApiEnumHelper = {
+        enumValue: (version, value) => ({ version, value }),
+    };
 
     beforeEach(() => {
         vi.restoreAllMocks();
@@ -604,6 +702,103 @@ if (import.meta.vitest) {
                 expect(result.value[0].publicKey).toEqual(rawAccounts[0].publicKey);
                 expect(result.value[1].name).toBeNull();
             }
+        });
+
+        describe("TransactionSubmit permission on connect", () => {
+            test("requests permission after accounts when hostApi is available", async () => {
+                const rawAccounts: RawAccountTest[] = [
+                    { publicKey: new Uint8Array(32).fill(0xaa) },
+                ];
+                const mockProvider = createMockProvider({ accounts: rawAccounts });
+                const permissionSpy = vi.fn().mockReturnValue(fakeResult({}));
+                const hostApi: HostApiPermissionBridge = { permission: permissionSpy };
+                const provider = new HostProvider({
+                    maxRetries: 1,
+                    loadSdk: () => Promise.resolve(createMockSdk(mockProvider, { hostApi })),
+                    loadHostApiEnum: () => Promise.resolve(fakeHostApiEnum),
+                });
+                const result = await provider.connect();
+                expect(result.ok).toBe(true);
+                expect(permissionSpy).toHaveBeenCalledTimes(1);
+                // The request is an enumValue("v1", { tag: "TransactionSubmit" }) shape.
+                expect(permissionSpy.mock.calls[0][0]).toMatchObject({
+                    version: "v1",
+                    value: { tag: "TransactionSubmit" },
+                });
+            });
+
+            test("connect still succeeds when hostApi.permission rejects", async () => {
+                const rawAccounts: RawAccountTest[] = [
+                    { publicKey: new Uint8Array(32).fill(0xaa) },
+                ];
+                const mockProvider = createMockProvider({ accounts: rawAccounts });
+                const permissionSpy = vi
+                    .fn()
+                    .mockReturnValue(fakeResult({}, { tag: "UserDenied" }));
+                const hostApi: HostApiPermissionBridge = { permission: permissionSpy };
+                const provider = new HostProvider({
+                    maxRetries: 1,
+                    loadSdk: () => Promise.resolve(createMockSdk(mockProvider, { hostApi })),
+                    loadHostApiEnum: () => Promise.resolve(fakeHostApiEnum),
+                });
+                const result = await provider.connect();
+                expect(result.ok).toBe(true);
+                expect(permissionSpy).toHaveBeenCalledTimes(1);
+            });
+
+            test("skips permission request when sdk.hostApi is missing", async () => {
+                const rawAccounts: RawAccountTest[] = [
+                    { publicKey: new Uint8Array(32).fill(0xaa) },
+                ];
+                const mockProvider = createMockProvider({ accounts: rawAccounts });
+                const enumSpy = vi.fn().mockResolvedValue(fakeHostApiEnum);
+                const provider = new HostProvider({
+                    maxRetries: 1,
+                    loadSdk: () => Promise.resolve(createMockSdk(mockProvider)),
+                    loadHostApiEnum: enumSpy,
+                });
+                const result = await provider.connect();
+                expect(result.ok).toBe(true);
+                // hostApi missing → loadHostApiEnum must not be called either.
+                expect(enumSpy).not.toHaveBeenCalled();
+            });
+
+            test("skips permission request when requestTransactionSubmitPermission=false", async () => {
+                const rawAccounts: RawAccountTest[] = [
+                    { publicKey: new Uint8Array(32).fill(0xaa) },
+                ];
+                const mockProvider = createMockProvider({ accounts: rawAccounts });
+                const permissionSpy = vi.fn().mockReturnValue(fakeResult({}));
+                const hostApi: HostApiPermissionBridge = { permission: permissionSpy };
+                const provider = new HostProvider({
+                    maxRetries: 1,
+                    loadSdk: () => Promise.resolve(createMockSdk(mockProvider, { hostApi })),
+                    loadHostApiEnum: () => Promise.resolve(fakeHostApiEnum),
+                    requestTransactionSubmitPermission: false,
+                });
+                const result = await provider.connect();
+                expect(result.ok).toBe(true);
+                expect(permissionSpy).not.toHaveBeenCalled();
+            });
+
+            test("connect still succeeds when loadHostApiEnum throws", async () => {
+                const rawAccounts: RawAccountTest[] = [
+                    { publicKey: new Uint8Array(32).fill(0xaa) },
+                ];
+                const mockProvider = createMockProvider({ accounts: rawAccounts });
+                const hostApi: HostApiPermissionBridge = {
+                    permission: vi.fn().mockReturnValue(fakeResult({})),
+                };
+                const provider = new HostProvider({
+                    maxRetries: 1,
+                    loadSdk: () => Promise.resolve(createMockSdk(mockProvider, { hostApi })),
+                    loadHostApiEnum: () => Promise.reject(new Error("host-api missing")),
+                });
+                const result = await provider.connect();
+                expect(result.ok).toBe(true);
+                // permission must not be called when the enum helper fails to load.
+                expect(hostApi.permission).not.toHaveBeenCalled();
+            });
         });
 
         test("getSigner delegates to getNonProductAccountSigner", async () => {
