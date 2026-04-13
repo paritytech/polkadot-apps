@@ -67,8 +67,7 @@ export const buildCommand = new Command("build")
 
 if (import.meta.vitest) {
     const { test, expect, describe } = import.meta.vitest;
-    const { mkdtempSync, writeFileSync: _writeFile, mkdirSync, rmSync } =
-        await import("node:fs");
+    const { mkdtempSync, writeFileSync: _writeFile, mkdirSync, rmSync } = await import("node:fs");
     const { tmpdir } = await import("node:os");
     const { join } = await import("node:path");
 

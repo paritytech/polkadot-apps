@@ -532,8 +532,7 @@ export const deployCommand = new Command("deploy")
 
 if (import.meta.vitest) {
     const { test, expect, describe } = import.meta.vitest;
-    const { mkdtempSync, writeFileSync: _writeFile, mkdirSync, rmSync } =
-        await import("node:fs");
+    const { mkdtempSync, writeFileSync: _writeFile, mkdirSync, rmSync } = await import("node:fs");
     const { tmpdir } = await import("node:os");
     const { join } = await import("node:path");
 
@@ -639,10 +638,7 @@ if (import.meta.vitest) {
 
         test("falls back to build script", () => {
             const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
-            _writeFile(
-                join(dir, "package.json"),
-                JSON.stringify({ scripts: { build: "tsc" } }),
-            );
+            _writeFile(join(dir, "package.json"), JSON.stringify({ scripts: { build: "tsc" } }));
             const orig = process.cwd();
             process.chdir(dir);
             expect(getBuildCommand()).toBe("pnpm build");
