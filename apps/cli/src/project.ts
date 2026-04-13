@@ -144,6 +144,77 @@ if (import.meta.vitest) {
     const { tmpdir } = await import("node:os");
     const { join } = await import("node:path");
 
+    // ── loadProjectConfig / saveDotJson ─────────────────────────────
+    describe("loadProjectConfig", () => {
+        test("returns empty object when no dot.json", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(loadProjectConfig()).toEqual({});
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns parsed config from dot.json", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "dot.json"), JSON.stringify({ domain: "test" }));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(loadProjectConfig()).toEqual({ domain: "test" });
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns empty object on invalid JSON", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "dot.json"), "not json{{{");
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(loadProjectConfig()).toEqual({});
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+    });
+
+    describe("saveDotJson", () => {
+        test("creates dot.json with updates", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            saveDotJson({ domain: "test", name: "My App" });
+            const result = JSON.parse(readFileSync(join(dir, "dot.json"), "utf-8"));
+            expect(result.domain).toBe("test");
+            expect(result.name).toBe("My App");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("merges with existing dot.json", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "dot.json"), JSON.stringify({ domain: "old", tag: "defi" }));
+            const orig = process.cwd();
+            process.chdir(dir);
+            saveDotJson({ domain: "new" });
+            const result = JSON.parse(readFileSync(join(dir, "dot.json"), "utf-8"));
+            expect(result.domain).toBe("new");
+            expect(result.tag).toBe("defi"); // preserved
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("skips undefined values", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            saveDotJson({ domain: "test", name: undefined });
+            const result = JSON.parse(readFileSync(join(dir, "dot.json"), "utf-8"));
+            expect(result.domain).toBe("test");
+            expect("name" in result).toBe(false);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+    });
+
     // ── Git URL transformation (tested via real function, works in git repo) ──
     describe("getGitRemoteUrl", () => {
         test("returns a string or undefined", () => {
@@ -219,12 +290,58 @@ if (import.meta.vitest) {
 
     // ── loadAccount (uses temp file) ──────────────────────────────────
     describe("loadAccount", () => {
+        test("returns account when file and chain exist", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const accountsDir = join(dir, ".polkadot");
+            const { mkdirSync } = require("node:fs");
+            mkdirSync(accountsDir, { recursive: true });
+            _writeFile(
+                join(accountsDir, "accounts.json"),
+                JSON.stringify({ paseo: { address: "5X", mnemonic: "test words" } }),
+            );
+            // Temporarily override homedir
+            const origHome = process.env.HOME;
+            process.env.HOME = dir;
+            const account = loadAccount("paseo");
+            expect(account.address).toBe("5X");
+            expect(account.mnemonic).toBe("test words");
+            process.env.HOME = origHome;
+            rmSync(dir, { recursive: true });
+        });
+
         test("throws when accounts file missing", () => {
             expect(() => loadAccount("paseo")).toThrow(/No accounts file|No account/);
         });
 
-        test("throws for non-dev SURIs", () => {
-            expect(() => resolveSigner("paseo", "0xdeadbeef")).toThrow("Only dev SURIs");
+        test("throws when chain not in accounts", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const accountsDir = join(dir, ".polkadot");
+            const { mkdirSync } = require("node:fs");
+            mkdirSync(accountsDir, { recursive: true });
+            _writeFile(join(accountsDir, "accounts.json"), JSON.stringify({ polkadot: {} }));
+            const origHome = process.env.HOME;
+            process.env.HOME = dir;
+            expect(() => loadAccount("paseo")).toThrow("No account found");
+            process.env.HOME = origHome;
+            rmSync(dir, { recursive: true });
+        });
+    });
+
+    describe("loadMnemonic", () => {
+        test("returns mnemonic from loadAccount", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const accountsDir = join(dir, ".polkadot");
+            const { mkdirSync } = require("node:fs");
+            mkdirSync(accountsDir, { recursive: true });
+            _writeFile(
+                join(accountsDir, "accounts.json"),
+                JSON.stringify({ paseo: { address: "5X", mnemonic: "secret phrase" } }),
+            );
+            const origHome = process.env.HOME;
+            process.env.HOME = dir;
+            expect(loadMnemonic("paseo")).toBe("secret phrase");
+            process.env.HOME = origHome;
+            rmSync(dir, { recursive: true });
         });
     });
 

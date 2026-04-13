@@ -21,6 +21,7 @@ function detectFrontendBuildCommand(): string | undefined {
     return undefined;
 }
 
+/* @integration */
 export const buildCommand = new Command("build")
     .description("Build contracts and frontend")
     .option("--contracts-only", "Only build contracts")
@@ -63,3 +64,53 @@ export const buildCommand = new Command("build")
             console.log(`${green("✔")} ${bold("Build complete")}`);
         }
     });
+
+if (import.meta.vitest) {
+    const { test, expect, describe } = import.meta.vitest;
+    const { mkdtempSync, writeFileSync: _writeFile, mkdirSync, rmSync } =
+        await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+
+    describe("detectContracts", () => {
+        test("returns false in empty dir", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(detectContracts()).toBe(false);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns true with Cargo.toml", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "Cargo.toml"), "[package]");
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(detectContracts()).toBe(true);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+    });
+
+    describe("detectFrontendBuildCommand", () => {
+        test("returns undefined without package.json", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(detectFrontendBuildCommand()).toBeUndefined();
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("detects build script", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "package.json"), JSON.stringify({ scripts: { build: "vite" } }));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(detectFrontendBuildCommand()).toBe("pnpm build");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+    });
+}

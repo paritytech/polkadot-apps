@@ -7,6 +7,7 @@ import { connect, fetchIpfs, unwrapOption } from "../connection.js";
 import { type AppMetadata } from "../config.js";
 import { spinner, printTable, truncate, bold, green, dim, cyan, yellow } from "../ui.js";
 
+/* @integration */
 function ask(prompt: string, fallback?: string): Promise<string> {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     const suffix = fallback ? ` ${dim(`(${fallback})`)}` : "";
@@ -51,6 +52,7 @@ function stripPostinstall(dir: string) {
 // Interactive app picker (used when no domain arg is provided)
 // ---------------------------------------------------------------------------
 
+/* @integration */
 async function pickApp(
     chainName: string,
 ): Promise<{ domain: string; metadata?: AppMetadata } | null> {
@@ -136,6 +138,7 @@ async function pickApp(
 // Clone & setup (shared between interactive and direct modes)
 // ---------------------------------------------------------------------------
 
+/* @integration */
 async function cloneAndSetup(
     domain: string,
     metadata: AppMetadata,
@@ -187,6 +190,7 @@ async function cloneAndSetup(
 // Command
 // ---------------------------------------------------------------------------
 
+/* @integration */
 export const remixCommand = new Command("remix")
     .description("Fork an app to customize")
     .argument("[domain]", "App domain to remix (e.g. my-app)")

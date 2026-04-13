@@ -28,6 +28,7 @@ export interface Connection {
     destroy: () => void;
 }
 
+/* @integration */
 export async function connect(chainName?: string): Promise<Connection> {
     const name = chainName ?? DEFAULT_CHAIN;
     const chain = CHAINS[name];

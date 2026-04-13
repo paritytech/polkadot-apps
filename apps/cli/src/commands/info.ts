@@ -3,6 +3,7 @@ import { connect, fetchIpfs, unwrapOption } from "../connection.js";
 import { type AppMetadata } from "../config.js";
 import { spinner, bold, dim, cyan } from "../ui.js";
 
+/* @integration */
 export const infoCommand = new Command("info")
     .description("Show detailed information about an app")
     .argument("<domain>", "App domain (e.g. my-app.dot)")

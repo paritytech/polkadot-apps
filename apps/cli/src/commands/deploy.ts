@@ -86,6 +86,7 @@ function hasDistDir(): boolean {
 // Signer resolution: QR session → --suri → mnemonic file
 // ---------------------------------------------------------------------------
 
+/* @integration */
 async function getSessionSigner(): Promise<{
     signer: PolkadotSigner;
     origin: string;
@@ -140,6 +141,7 @@ async function getSessionSigner(): Promise<{
     }
 }
 
+/* @integration */
 async function resolveDeploySigner(
     chain: string,
     suri?: string,
@@ -199,6 +201,7 @@ function detectContractNames(): ContractInfo[] {
 
 type ContractAction = "deploy" | "rename" | "skip";
 
+/* @integration */
 async function promptContractAction(contracts: ContractInfo[]): Promise<ContractAction> {
     const cwd = process.cwd();
     console.log();
@@ -232,6 +235,7 @@ async function promptContractAction(contracts: ContractInfo[]): Promise<Contract
     }
 }
 
+/* @integration */
 async function renameContracts(contracts: ContractInfo[]): Promise<void> {
     const cfg = loadPlaygroundConfig();
     const suggestedOrg = cfg.domain ? `@${cfg.domain.replace(/\.dot$/, "")}` : undefined;
@@ -269,6 +273,7 @@ async function renameContracts(contracts: ContractInfo[]): Promise<void> {
 // Command
 // ---------------------------------------------------------------------------
 
+/* @integration */
 export const deployCommand = new Command("deploy")
     .description("Deploy contracts, frontend, and optionally publish to playground registry")
     .option("-n, --name <chain>", "Target chain", "paseo")
@@ -524,3 +529,183 @@ export const deployCommand = new Command("deploy")
             process.exit(0);
         }
     });
+
+if (import.meta.vitest) {
+    const { test, expect, describe } = import.meta.vitest;
+    const { mkdtempSync, writeFileSync: _writeFile, mkdirSync, rmSync } =
+        await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+
+    describe("loadPlaygroundConfig", () => {
+        test("reads playground:* fields from package.json", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(
+                join(dir, "package.json"),
+                JSON.stringify({
+                    name: "my-app",
+                    "playground:domain": "test",
+                    "playground:tag": "defi",
+                    "playground:description": "A test app",
+                }),
+            );
+            const orig = process.cwd();
+            process.chdir(dir);
+            const config = loadPlaygroundConfig();
+            expect(config.domain).toBe("test");
+            expect(config.tag).toBe("defi");
+            expect(config.description).toBe("A test app");
+            expect(config.name).toBe("my-app"); // falls back to pkg.name
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns empty when no package.json", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(loadPlaygroundConfig()).toEqual({});
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("prefers playground:name over name", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(
+                join(dir, "package.json"),
+                JSON.stringify({ name: "pkg-name", "playground:name": "Display Name" }),
+            );
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(loadPlaygroundConfig().name).toBe("Display Name");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+    });
+
+    describe("hasContracts", () => {
+        test("returns false in empty directory", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(hasContracts()).toBe(false);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns true when contracts/ exists", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            mkdirSync(join(dir, "contracts"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(hasContracts()).toBe(true);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns true when Cargo.toml exists", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "Cargo.toml"), "[package]");
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(hasContracts()).toBe(true);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+    });
+
+    describe("getBuildCommand", () => {
+        test("returns undefined when no package.json", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(getBuildCommand()).toBeUndefined();
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns build:frontend if present", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(
+                join(dir, "package.json"),
+                JSON.stringify({ scripts: { "build:frontend": "vite build", build: "tsc" } }),
+            );
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(getBuildCommand()).toBe("pnpm build:frontend");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("falls back to build script", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(
+                join(dir, "package.json"),
+                JSON.stringify({ scripts: { build: "tsc" } }),
+            );
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(getBuildCommand()).toBe("pnpm build");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns undefined when no build scripts", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest" } }));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(getBuildCommand()).toBeUndefined();
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+    });
+
+    describe("hasDistDir", () => {
+        test("returns false when no dist/", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(hasDistDir()).toBe(false);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns true when dist/ exists", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            mkdirSync(join(dir, "dist"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(hasDistDir()).toBe(true);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+    });
+
+    describe("detectContractNames", () => {
+        test("returns empty in directory without contracts", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(detectContractNames()).toEqual([]);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("detects #[pvm::contract(cdm = ...)] in Rust files", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            mkdirSync(join(dir, "contracts"));
+            _writeFile(
+                join(dir, "contracts", "lib.rs"),
+                '#[pvm::contract(cdm = "@myorg/counter")]\npub fn main() {}',
+            );
+            const orig = process.cwd();
+            process.chdir(dir);
+            const names = detectContractNames();
+            expect(names.length).toBe(1);
+            expect(names[0].name).toBe("@myorg/counter");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+    });
+}

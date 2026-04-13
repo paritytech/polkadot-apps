@@ -55,6 +55,38 @@ function hasCargoPvmContract(): boolean {
     return commandExists("cargo-pvm-contract");
 }
 
+if (import.meta.vitest) {
+    const { test, expect, describe } = import.meta.vitest;
+
+    describe("commandExists", () => {
+        test("returns true for common commands", () => {
+            expect(commandExists("node")).toBe(true);
+            expect(commandExists("git")).toBe(true);
+        });
+        test("returns false for nonexistent commands", () => {
+            expect(commandExists("definitely-not-a-real-command-xyz")).toBe(false);
+        });
+    });
+
+    describe("hasRustNightly", () => {
+        test("returns a boolean", () => {
+            expect(typeof hasRustNightly()).toBe("boolean");
+        });
+    });
+
+    describe("hasRustSrc", () => {
+        test("returns a boolean", () => {
+            expect(typeof hasRustSrc()).toBe("boolean");
+        });
+    });
+
+    describe("isGhAuthenticated", () => {
+        test("returns a boolean", () => {
+            expect(typeof isGhAuthenticated()).toBe("boolean");
+        });
+    });
+}
+
 // ---------------------------------------------------------------------------
 // QR Login
 // ---------------------------------------------------------------------------
@@ -62,6 +94,7 @@ function hasCargoPvmContract(): boolean {
 const METADATA_URL =
     "https://gist.githubusercontent.com/ReinhardHatko/27415c91178d74196d7c1116d39056d5/raw/56e61d719251170828a80f12d34343a8617b9935/metadata.json";
 
+/* @integration */
 async function doQrLogin(): Promise<boolean> {
     const { createTerminalAdapter, renderQrCode } = await import("@polkadot-apps/terminal");
     type PairingStatus = import("@polkadot-apps/terminal").PairingStatus;
@@ -191,6 +224,7 @@ async function doQrLogin(): Promise<boolean> {
 // Command
 // ---------------------------------------------------------------------------
 
+/* @integration */
 export const initCommand = new Command("init")
     .description("Set up your development environment and authenticate")
     .option("--skip-toolchain", "Skip Rust toolchain setup")

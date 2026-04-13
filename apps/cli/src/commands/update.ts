@@ -14,6 +14,24 @@ function platformAsset(): string {
     return `dot-${os}-${cpu}`;
 }
 
+if (import.meta.vitest) {
+    const { test, expect, describe } = import.meta.vitest;
+
+    describe("currentVersion", () => {
+        test("returns a semver string", () => {
+            expect(currentVersion()).toMatch(/^\d+\.\d+\.\d+$/);
+        });
+    });
+
+    describe("platformAsset", () => {
+        test("returns dot-{os}-{arch} format", () => {
+            const asset = platformAsset();
+            expect(asset).toMatch(/^dot-(darwin|linux)-(arm64|x64)$/);
+        });
+    });
+}
+
+/* @integration */
 export const updateCommand = new Command("update")
     .description("Update the dot CLI to the latest version")
     .action(async () => {
