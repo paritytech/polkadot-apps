@@ -106,48 +106,104 @@ importers:
         specifier: 'catalog:'
         version: 3.2.4(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
 
-  apps/cli:
+  examples/bulletin-demo:
     dependencies:
-      '@polkadot-api/sdk-ink':
+      '@novasamatech/host-api':
         specifier: 'catalog:'
-        version: 0.6.2(@polkadot-api/ink-contracts@0.6.0)(polkadot-api@1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3))(rxjs@7.8.2)(typescript@5.9.3)
+        version: 0.6.17
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.17(@polkadot/api@16.5.6)(@polkadot/util@14.0.3)
       '@polkadot-apps/bulletin':
         specifier: workspace:*
         version: link:../../packages/bulletin
       '@polkadot-apps/chain-client':
         specifier: workspace:*
         version: link:../../packages/chain-client
-      '@polkadot-apps/contracts':
+      '@polkadot-apps/descriptors':
         specifier: workspace:*
-        version: link:../../packages/contracts
-      '@polkadot-apps/keys':
+        version: link:../../packages/descriptors
+      '@polkadot-apps/signer':
         specifier: workspace:*
-        version: link:../../packages/keys
-      '@polkadot-apps/terminal':
-        specifier: workspace:*
-        version: link:../../packages/terminal
-      '@polkadot-apps/utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
-      '@polkadot-labs/hdkd-helpers':
-        specifier: 'catalog:'
-        version: 0.0.27
-      bulletin-deploy:
-        specifier: ^0.6.1
-        version: 0.6.1(@polkadot-api/ink-contracts@0.6.0)(@polkadot/util@13.5.9)(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
-      commander:
-        specifier: 'catalog:'
-        version: 12.1.0
+        version: link:../../packages/signer
       polkadot-api:
         specifier: 'catalog:'
-        version: 1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
-      ws:
-        specifier: ^8.18.0
-        version: 8.19.0
+        version: 1.23.3(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
     devDependencies:
+      '@parity/host-api-test-sdk':
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
+      '@playwright/test':
+        specifier: ^1.50.0
+        version: 1.59.1
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
+  examples/contracts-demo:
+    dependencies:
+      '@novasamatech/host-api':
+        specifier: 'catalog:'
+        version: 0.6.17
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.17(@polkadot/api@16.5.6)(@polkadot/util@14.0.3)
+      '@polkadot-apps/chain-client':
+        specifier: workspace:*
+        version: link:../../packages/chain-client
+      '@polkadot-apps/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@polkadot-apps/signer':
+        specifier: workspace:*
+        version: link:../../packages/signer
+      polkadot-api:
+        specifier: 'catalog:'
+        version: 1.23.3(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
+    devDependencies:
+      '@parity/host-api-test-sdk':
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
+      '@playwright/test':
+        specifier: ^1.50.0
+        version: 1.59.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
+  examples/host-demo:
+    dependencies:
+      '@novasamatech/host-api':
+        specifier: 'catalog:'
+        version: 0.6.17
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.17(@polkadot/api@16.5.6)(@polkadot/util@14.0.3)
+      '@polkadot-apps/host':
+        specifier: workspace:*
+        version: link:../../packages/host
+      '@polkadot-apps/signer':
+        specifier: workspace:*
+        version: link:../../packages/signer
+    devDependencies:
+      '@parity/host-api-test-sdk':
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
+      '@playwright/test':
+        specifier: ^1.50.0
+        version: 1.59.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
 
   examples/multi-chain-explorer:
     dependencies:
@@ -199,8 +255,67 @@ importers:
         version: 1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
     devDependencies:
       '@parity/host-api-test-sdk':
-        specifier: ^0.5.0
-        version: 0.5.0(@playwright/test@1.59.1)
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
+      '@playwright/test':
+        specifier: ^1.50.0
+        version: 1.59.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
+  examples/statement-store-demo:
+    dependencies:
+      '@novasamatech/host-api':
+        specifier: 'catalog:'
+        version: 0.6.17
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.17(@polkadot/api@16.5.6)(@polkadot/util@14.0.3)
+      '@polkadot-apps/signer':
+        specifier: workspace:*
+        version: link:../../packages/signer
+      '@polkadot-apps/statement-store':
+        specifier: workspace:*
+        version: link:../../packages/statement-store
+    devDependencies:
+      '@parity/host-api-test-sdk':
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
+      '@playwright/test':
+        specifier: ^1.50.0
+        version: 1.59.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
+  examples/storage-demo:
+    dependencies:
+      '@novasamatech/host-api':
+        specifier: 'catalog:'
+        version: 0.6.17
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.17(@polkadot/api@16.5.6)(@polkadot/util@14.0.3)
+      '@polkadot-apps/host':
+        specifier: workspace:*
+        version: link:../../packages/host
+      '@polkadot-apps/signer':
+        specifier: workspace:*
+        version: link:../../packages/signer
+      '@polkadot-apps/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
+    devDependencies:
+      '@parity/host-api-test-sdk':
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
       '@playwright/test':
         specifier: ^1.50.0
         version: 1.59.1
@@ -304,8 +419,8 @@ importers:
         version: 1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
     devDependencies:
       '@parity/host-api-test-sdk':
-        specifier: ^0.5.0
-        version: 0.5.0(@playwright/test@1.59.1)
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
       '@playwright/test':
         specifier: ^1.50.0
         version: 1.59.1
@@ -1460,196 +1575,8 @@ packages:
   '@novasamatech/storage-adapter@0.6.17':
     resolution: {integrity: sha512-J8xKl0dshS/r8zcrpdjQcqB74d7Y1nISVPTBPS5/Ael4zv/TOi2MKM7SE/wwRkJ6qJsvWJMNHodrm75f8YWHlQ==}
 
-  '@opentelemetry/api-logs@0.57.2':
-    resolution: {integrity: sha512-uIX52NnTM0iBh84MShlpouI7UKqkZ7MrUszTmaypHBu4r7NofznSnQRfJ+uUeDtQDj6w8eFGg5KBLDAwAPz1+A==}
-    engines: {node: '>=14'}
-
-  '@opentelemetry/api@1.9.1':
-    resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
-    engines: {node: '>=8.0.0'}
-
-  '@opentelemetry/context-async-hooks@1.30.1':
-    resolution: {integrity: sha512-s5vvxXPVdjqS3kTLKMeBMvop9hbWkwzBpu+mUO2M7sZtlkyDJGwFe33wRKnbaYDo8ExRVBIIdwIGrqpxHuKttA==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.10.0'
-
-  '@opentelemetry/core@1.30.1':
-    resolution: {integrity: sha512-OOCM2C/QIURhJMuKaekP3TRBxBKxG/TWWA0TL2J6nXUtDnuCtccy49LUJF8xPFXMX+0LMcxFpCo8M9cGY1W6rQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.10.0'
-
-  '@opentelemetry/instrumentation-amqplib@0.46.1':
-    resolution: {integrity: sha512-AyXVnlCf/xV3K/rNumzKxZqsULyITJH6OVLiW6730JPRqWA7Zc9bvYoVNpN6iOpTU8CasH34SU/ksVJmObFibQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-connect@0.43.1':
-    resolution: {integrity: sha512-ht7YGWQuV5BopMcw5Q2hXn3I8eG8TH0J/kc/GMcW4CuNTgiP6wCu44BOnucJWL3CmFWaRHI//vWyAhaC8BwePw==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-dataloader@0.16.1':
-    resolution: {integrity: sha512-K/qU4CjnzOpNkkKO4DfCLSQshejRNAJtd4esgigo/50nxCB6XCyi1dhAblUHM9jG5dRm8eu0FB+t87nIo99LYQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-express@0.47.1':
-    resolution: {integrity: sha512-QNXPTWteDclR2B4pDFpz0TNghgB33UMjUt14B+BZPmtH1MwUFAfLHBaP5If0Z5NZC+jaH8oF2glgYjrmhZWmSw==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-fs@0.19.1':
-    resolution: {integrity: sha512-6g0FhB3B9UobAR60BGTcXg4IHZ6aaYJzp0Ki5FhnxyAPt8Ns+9SSvgcrnsN2eGmk3RWG5vYycUGOEApycQL24A==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-generic-pool@0.43.1':
-    resolution: {integrity: sha512-M6qGYsp1cURtvVLGDrPPZemMFEbuMmCXgQYTReC/IbimV5sGrLBjB+/hANUpRZjX67nGLdKSVLZuQQAiNz+sww==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-graphql@0.47.1':
-    resolution: {integrity: sha512-EGQRWMGqwiuVma8ZLAZnExQ7sBvbOx0N/AE/nlafISPs8S+QtXX+Viy6dcQwVWwYHQPAcuY3bFt3xgoAwb4ZNQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-hapi@0.45.2':
-    resolution: {integrity: sha512-7Ehow/7Wp3aoyCrZwQpU7a2CnoMq0XhIcioFuKjBb0PLYfBfmTsFTUyatlHu0fRxhwcRsSQRTvEhmZu8CppBpQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-http@0.57.2':
-    resolution: {integrity: sha512-1Uz5iJ9ZAlFOiPuwYg29Bf7bJJc/GeoeJIFKJYQf67nTVKFe8RHbEtxgkOmK4UGZNHKXcpW4P8cWBYzBn1USpg==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-ioredis@0.47.1':
-    resolution: {integrity: sha512-OtFGSN+kgk/aoKgdkKQnBsQFDiG8WdCxu+UrHr0bXScdAmtSzLSraLo7wFIb25RVHfRWvzI5kZomqJYEg/l1iA==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-kafkajs@0.7.1':
-    resolution: {integrity: sha512-OtjaKs8H7oysfErajdYr1yuWSjMAectT7Dwr+axIoZqT9lmEOkD/H/3rgAs8h/NIuEi2imSXD+vL4MZtOuJfqQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-knex@0.44.1':
-    resolution: {integrity: sha512-U4dQxkNhvPexffjEmGwCq68FuftFK15JgUF05y/HlK3M6W/G2iEaACIfXdSnwVNe9Qh0sPfw8LbOPxrWzGWGMQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-koa@0.47.1':
-    resolution: {integrity: sha512-l/c+Z9F86cOiPJUllUCt09v+kICKvT+Vg1vOAJHtHPsJIzurGayucfCMq2acd/A/yxeNWunl9d9eqZ0G+XiI6A==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-lru-memoizer@0.44.1':
-    resolution: {integrity: sha512-5MPkYCvG2yw7WONEjYj5lr5JFehTobW7wX+ZUFy81oF2lr9IPfZk9qO+FTaM0bGEiymwfLwKe6jE15nHn1nmHg==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-mongodb@0.52.0':
-    resolution: {integrity: sha512-1xmAqOtRUQGR7QfJFfGV/M2kC7wmI2WgZdpru8hJl3S0r4hW0n3OQpEHlSGXJAaNFyvT+ilnwkT+g5L4ljHR6g==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-mongoose@0.46.1':
-    resolution: {integrity: sha512-3kINtW1LUTPkiXFRSSBmva1SXzS/72we/jL22N+BnF3DFcoewkdkHPYOIdAAk9gSicJ4d5Ojtt1/HeibEc5OQg==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-mysql2@0.45.2':
-    resolution: {integrity: sha512-h6Ad60FjCYdJZ5DTz1Lk2VmQsShiViKe0G7sYikb0GHI0NVvApp2XQNRHNjEMz87roFttGPLHOYVPlfy+yVIhQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-mysql@0.45.1':
-    resolution: {integrity: sha512-TKp4hQ8iKQsY7vnp/j0yJJ4ZsP109Ht6l4RHTj0lNEG1TfgTrIH5vJMbgmoYXWzNHAqBH2e7fncN12p3BP8LFg==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-pg@0.51.1':
-    resolution: {integrity: sha512-QxgjSrxyWZc7Vk+qGSfsejPVFL1AgAJdSBMYZdDUbwg730D09ub3PXScB9d04vIqPriZ+0dqzjmQx0yWKiCi2Q==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-redis-4@0.46.1':
-    resolution: {integrity: sha512-UMqleEoabYMsWoTkqyt9WAzXwZ4BlFZHO40wr3d5ZvtjKCHlD4YXLm+6OLCeIi/HkX7EXvQaz8gtAwkwwSEvcQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-tedious@0.18.1':
-    resolution: {integrity: sha512-5Cuy/nj0HBaH+ZJ4leuD7RjgvA844aY2WW+B5uLcWtxGjRZl3MNLuxnNg5DYWZNPO+NafSSnra0q49KWAHsKBg==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/instrumentation-undici@0.10.1':
-    resolution: {integrity: sha512-rkOGikPEyRpMCmNu9AQuV5dtRlDmJp2dK5sw8roVshAGoB6hH/3QjDtRhdwd75SsJwgynWUNRUYe0wAkTo16tQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.7.0
-
-  '@opentelemetry/instrumentation@0.57.2':
-    resolution: {integrity: sha512-BdBGhQBh8IjZ2oIIX6F2/Q3LKm/FDDKi6ccYKcBTeilh6SNdNKveDOLk73BkSJjQLJk6qe4Yh+hHw1UPhCDdrg==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-
-  '@opentelemetry/redis-common@0.36.2':
-    resolution: {integrity: sha512-faYX1N0gpLhej/6nyp6bgRjzAKXn5GOEMYY7YhciSfCoITAktLUtQ36d24QEWNA1/WA1y6qQunCe0OhHRkVl9g==}
-    engines: {node: '>=14'}
-
-  '@opentelemetry/resources@1.30.1':
-    resolution: {integrity: sha512-5UxZqiAgLYGFjS4s9qm5mBVo433u+dSPUFWVWXmLAD4wB65oMCoXaJP1KJa9DIYYMeHu3z4BZcStG3LC593cWA==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.10.0'
-
-  '@opentelemetry/sdk-trace-base@1.30.1':
-    resolution: {integrity: sha512-jVPgBbH1gCy2Lb7X0AVQ8XAfgg0pJ4nvl8/IiQA6nxOsPvS+0zMJaFSs2ltXe0J6C8dqjcnpyqINDJmU30+uOg==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.10.0'
-
-  '@opentelemetry/semantic-conventions@1.28.0':
-    resolution: {integrity: sha512-lp4qAiMTD4sNWW4DbKLBkfiMZ4jbAboJIGOQr5DvciMRI494OapieI9qiODpOt0XBr1LjIDy1xAGAnVs5supTA==}
-    engines: {node: '>=14'}
-
-  '@opentelemetry/semantic-conventions@1.40.0':
-    resolution: {integrity: sha512-cifvXDhcqMwwTlTK04GBNeIe7yyo28Mfby85QXFe1Yk8nmi36Ab/5UQwptOx84SsoGNRg+EVSjwzfSZMy6pmlw==}
-    engines: {node: '>=14'}
-
-  '@opentelemetry/sql-common@0.40.1':
-    resolution: {integrity: sha512-nSDlnHSqzC3pXn/wZEZVLuAuJ1MYMXPBwtv2qAbCa3847SaHItdE7SzUq/Jtb0KZmh1zfAbNi3AAMjztTT4Ugg==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.1.0
-
-  '@parity/host-api-test-sdk@0.5.0':
-    resolution: {integrity: sha512-11kRc9kUCpT3CUTOtxeCqivEeIygz2cZ/1JtKqJBAIxzhYhIL6+42vX4B/D58jT9i8fQoPrtIkq4epCCFlbKlg==}
+  '@parity/host-api-test-sdk@0.6.0':
+    resolution: {integrity: sha512-FNpnTiWaVwae6hrjKM6ytT2ISGUDhm232KuAwhm1ZOlWzfGWCKLEh5wtsd1xJbREEGH6Ixk8JdaTQElJnsrdVw==}
     peerDependencies:
       '@playwright/test': '>=1.0.0'
     peerDependenciesMeta:
@@ -5447,7 +5374,7 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/core': 1.30.1(@opentelemetry/api@1.9.1)
 
-  '@parity/host-api-test-sdk@0.5.0(@playwright/test@1.59.1)':
+  '@parity/host-api-test-sdk@0.6.0(@playwright/test@1.59.1)':
     dependencies:
       '@novasamatech/host-api': 0.6.17
     optionalDependencies:

@@ -59,6 +59,18 @@
         <span class="meta" style="flex:1;">Sends 3 System.remark calls as a single Utility.batch_all extrinsic.</span>
         <button id="btn-submit-batch" data-testid="btn-submit-batch" disabled>Submit batch (x3)</button>
       </div>
+
+      <h2>Submit remark — wait for finalization</h2>
+      <div class="action">
+        <input id="remark-finalized-input" type="text" placeholder="Remark text" data-testid="remark-finalized-input" value="Finalized remark" disabled />
+        <button id="btn-submit-remark-finalized" data-testid="btn-submit-remark-finalized" disabled>Submit (waitFor=finalized)</button>
+      </div>
+
+      <h2>Submit bad tx (expect dispatch error)</h2>
+      <div class="action">
+        <span class="meta" style="flex:1;">Calls Balances.force_set_balance — root-only, so dispatch fails with BadOrigin after the tx lands in a block.</span>
+        <button id="btn-submit-bad-tx" data-testid="btn-submit-bad-tx" disabled>Submit bad tx</button>
+      </div>
     </div>
 
     <div class="panel-log">

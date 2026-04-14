@@ -23,7 +23,7 @@
         "polkadot-api": "catalog:"
     },
     "devDependencies": {
-        "@parity/host-api-test-sdk": "^0.5.0",
+        "@parity/host-api-test-sdk": "^0.6.0",
         "@playwright/test": "^1.50.0",
         "typescript": "catalog:",
         "vite": "^6.3.0"
