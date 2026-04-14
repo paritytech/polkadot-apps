@@ -293,6 +293,7 @@ export const deployCommand = new Command("deploy")
     .option("--tag <tag>", `Category: ${TAGS.join(", ")}`)
     .option("--icon <path>", "Path to icon image file")
     .option("-y, --yes", "Skip interactive prompts (deploy contracts as-is)")
+    .option("--mobile-signer", "Use QR mobile wallet signer for bulletin-deploy (experimental)")
     .action(async (opts) => {
         const chain = opts.name;
         let failed = false;
@@ -315,20 +316,41 @@ export const deployCommand = new Command("deploy")
         if (opts.playground) console.log(`  ${dim("Registry:")} enabled`);
         console.log();
 
-        // ── Resolve signer: QR session → --suri → mnemonic ──────────────
+        // ── Resolve signer ────────────────────────────────────────────────
         const s0 = spinner("Signer", "Resolving...");
         let signer: PolkadotSigner;
         let origin: string;
         let signerMethod: string;
         try {
-            if (opts.suri) {
+            if (opts.mobileSigner) {
+                // QR session from mobile wallet
+                const resolved = await resolveDeploySigner(chain);
+                signer = resolved.signer;
+                origin = resolved.origin;
+                signerMethod = "QR mobile wallet";
+            } else if (opts.suri) {
+                const resolved = resolveSigner(chain, opts.suri);
+                signer = resolved.signer;
+                origin = resolved.origin;
                 signerMethod = `dev SURI (${opts.suri})`;
             } else {
-                signerMethod = "auto";
+                // Mnemonic file → Alice fallback (matches bulletin-deploy path)
+                let mnemonic: string | undefined;
+                try {
+                    mnemonic = loadMnemonic(chain);
+                } catch {}
+                if (mnemonic) {
+                    const resolved = resolveSigner(chain);
+                    signer = resolved.signer;
+                    origin = resolved.origin;
+                    signerMethod = "mnemonic file";
+                } else {
+                    const resolved = resolveSigner(chain, "//Alice");
+                    signer = resolved.signer;
+                    origin = resolved.origin;
+                    signerMethod = "dev mnemonic (Alice)";
+                }
             }
-            const resolved = await resolveDeploySigner(chain, opts.suri);
-            signer = resolved.signer;
-            origin = resolved.origin;
             s0.succeed(`Signer ready`);
             console.log(`    ${dim("Address:")} ${cyan(origin)}`);
             console.log(`    ${dim("Method:")}  ${signerMethod}`);
@@ -535,20 +557,26 @@ export const deployCommand = new Command("deploy")
                 const deployOpts: any = {};
                 let bulletinSignerMethod: string;
 
-                // Try mnemonic from accounts file first
-                let mnemonic: string | undefined;
-                try {
-                    mnemonic = loadMnemonic(chain);
-                } catch {}
-
-                if (mnemonic) {
-                    deployOpts.mnemonic = mnemonic;
-                    bulletinSignerMethod = "mnemonic file";
+                if (opts.mobileSigner) {
+                    deployOpts.signer = signer;
+                    deployOpts.signerAddress = origin;
+                    bulletinSignerMethod = "QR mobile signer (experimental)";
                 } else {
-                    // Default to dev mnemonic (Alice) until QR signing is supported
-                    const { DEV_PHRASE } = await import("@polkadot-labs/hdkd-helpers");
-                    deployOpts.mnemonic = DEV_PHRASE;
-                    bulletinSignerMethod = "dev mnemonic (Alice)";
+                    // Try mnemonic from accounts file first
+                    let mnemonic: string | undefined;
+                    try {
+                        mnemonic = loadMnemonic(chain);
+                    } catch {}
+
+                    if (mnemonic) {
+                        deployOpts.mnemonic = mnemonic;
+                        bulletinSignerMethod = "mnemonic file";
+                    } else {
+                        // Default to dev mnemonic (Alice)
+                        const { DEV_PHRASE } = await import("@polkadot-labs/hdkd-helpers");
+                        deployOpts.mnemonic = DEV_PHRASE;
+                        bulletinSignerMethod = "dev mnemonic (Alice)";
+                    }
                 }
                 console.log(`    ${dim("Signer:")} ${bulletinSignerMethod}`);
 
