@@ -308,6 +308,7 @@ export const remixCommand = new Command("remix")
         console.log(`  ${dim("2.")} claude`);
         console.log(`  ${dim("3.")} dot deploy`);
         console.log();
+        process.exit(0);
     });
 
 if (import.meta.vitest) {

@@ -1,6 +1,8 @@
 import { getChainAPI, type Environment } from "@polkadot-apps/chain-client";
 import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { ContractManager } from "@polkadot-apps/contracts";
+import { DEV_PHRASE } from "@polkadot-labs/hdkd-helpers";
+import { seedToAccount } from "@polkadot-apps/keys";
 import { CHAINS, DEFAULT_CHAIN } from "./config.js";
 
 // Import as JSON module so bun embeds it in the compiled binary
@@ -41,7 +43,10 @@ export async function connect(chainName?: string): Promise<Connection> {
     const env = resolveEnvironment(name);
     const client = await getChainAPI(env);
     const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
-    const manager = new ContractManager(cdmJson, inkSdk);
+    // Provide a default origin so contract queries don't spam
+    // "No origin configured — using dev fallback" warnings.
+    const aliceOrigin = seedToAccount(DEV_PHRASE, "//Alice").ss58Address;
+    const manager = new ContractManager(cdmJson, inkSdk, { defaultOrigin: aliceOrigin });
     const registry = manager.getContract("@example/playground-registry");
 
     return {
