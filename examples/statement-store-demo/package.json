@@ -1,9 +1,9 @@
 {
-    "name": "@polkadot-apps/signer-demo",
-    "version": "0.0.0",
+    "name": "@polkadot-apps/statement-store-demo",
+    "version": "0.0.1",
     "private": true,
     "type": "module",
-    "description": "E2E demo app for @polkadot-apps/signer — exercises connect/select/switch/signRaw/permission flows via the Host API path",
+    "description": "E2E demo app for @polkadot-apps/statement-store — exercises StatementStoreClient and ChannelStore via the Host API path",
     "scripts": {
         "dev": "vite",
         "build": "tsc && vite build",
@@ -14,9 +14,9 @@
     },
     "dependencies": {
         "@polkadot-apps/signer": "workspace:*",
+        "@polkadot-apps/statement-store": "workspace:*",
         "@novasamatech/host-api": "catalog:",
-        "@novasamatech/product-sdk": "catalog:",
-        "polkadot-api": "catalog:"
+        "@novasamatech/product-sdk": "catalog:"
     },
     "devDependencies": {
         "@parity/host-api-test-sdk": "^0.6.0",
