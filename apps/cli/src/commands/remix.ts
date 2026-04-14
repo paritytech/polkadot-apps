@@ -81,7 +81,9 @@ async function pickApp(
             const domains = await Promise.all(
                 indices.map(async (idx) => {
                     const res = await conn!.registry.getDomainAt.query(idx);
-                    return res.success ? String(res.value) : null;
+                    if (!res.success) return null;
+                    const domain = unwrapOption<string>(res.value);
+                    return domain ?? null;
                 }),
             );
 
