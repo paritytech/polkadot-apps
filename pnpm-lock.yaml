@@ -140,6 +140,43 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
 
+  examples/chain-client-demo:
+    dependencies:
+      '@novasamatech/host-api':
+        specifier: 'catalog:'
+        version: 0.6.17
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.17(@polkadot/api@16.5.6)(@polkadot/util@14.0.3)
+      '@polkadot-apps/chain-client':
+        specifier: workspace:*
+        version: link:../../packages/chain-client
+      '@polkadot-apps/descriptors':
+        specifier: workspace:*
+        version: link:../../packages/descriptors
+      '@polkadot-apps/host':
+        specifier: workspace:*
+        version: link:../../packages/host
+      '@polkadot-apps/signer':
+        specifier: workspace:*
+        version: link:../../packages/signer
+      polkadot-api:
+        specifier: 'catalog:'
+        version: 1.23.3(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
+    devDependencies:
+      '@parity/host-api-test-sdk':
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
+      '@playwright/test':
+        specifier: ^1.50.0
+        version: 1.59.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
   examples/contracts-demo:
     dependencies:
       '@novasamatech/host-api':
@@ -188,6 +225,40 @@ importers:
       '@polkadot-apps/signer':
         specifier: workspace:*
         version: link:../../packages/signer
+    devDependencies:
+      '@parity/host-api-test-sdk':
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
+      '@playwright/test':
+        specifier: ^1.50.0
+        version: 1.59.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
+  examples/keys-demo:
+    dependencies:
+      '@novasamatech/host-api':
+        specifier: 'catalog:'
+        version: 0.6.17
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.17(@polkadot/api@16.5.6)(@polkadot/util@14.0.3)
+      '@polkadot-apps/host':
+        specifier: workspace:*
+        version: link:../../packages/host
+      '@polkadot-apps/keys':
+        specifier: workspace:*
+        version: link:../../packages/keys
+      '@polkadot-apps/signer':
+        specifier: workspace:*
+        version: link:../../packages/signer
+      '@polkadot-apps/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
     devDependencies:
       '@parity/host-api-test-sdk':
         specifier: ^0.6.0
@@ -342,7 +413,7 @@ importers:
         version: link:../../packages/utils
       next:
         specifier: ^15.5.15
-        version: 15.5.15(@babel/core@7.29.0)(@playwright/test@1.59.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+        version: 15.5.15(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       polkadot-api:
         specifier: 'catalog:'
         version: 1.23.3(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
@@ -664,10 +735,10 @@ importers:
     dependencies:
       '@novasamatech/host-papp':
         specifier: 0.6.17
-        version: 0.6.17(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
+        version: 0.6.17(esbuild@0.25.12)(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
       '@novasamatech/statement-store':
         specifier: 0.6.17
-        version: 0.6.17(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
+        version: 0.6.17(esbuild@0.25.12)(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
       '@novasamatech/storage-adapter':
         specifier: 0.6.17
         version: 0.6.17
@@ -1562,6 +1633,10 @@ packages:
 
   '@novasamatech/storage-adapter@0.6.17':
     resolution: {integrity: sha512-J8xKl0dshS/r8zcrpdjQcqB74d7Y1nISVPTBPS5/Ael4zv/TOi2MKM7SE/wwRkJ6qJsvWJMNHodrm75f8YWHlQ==}
+
+  '@opentelemetry/api@1.9.1':
+    resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
+    engines: {node: '>=8.0.0'}
 
   '@parity/host-api-test-sdk@0.6.0':
     resolution: {integrity: sha512-FNpnTiWaVwae6hrjKM6ytT2ISGUDhm232KuAwhm1ZOlWzfGWCKLEh5wtsd1xJbREEGH6Ixk8JdaTQElJnsrdVw==}
@@ -4594,14 +4669,14 @@ snapshots:
       neverthrow: 8.2.0
       scale-ts: 1.6.1
 
-  '@novasamatech/host-papp@0.6.17(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)':
+  '@novasamatech/host-papp@0.6.17(esbuild@0.25.12)(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)':
     dependencies:
       '@noble/ciphers': 2.1.1
       '@noble/curves': 2.0.1
       '@noble/hashes': 2.0.1
       '@novasamatech/host-api': 0.6.17
       '@novasamatech/scale': 0.6.17
-      '@novasamatech/statement-store': 0.6.17(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
+      '@novasamatech/statement-store': 0.6.17(esbuild@0.25.12)(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
       '@novasamatech/storage-adapter': 0.6.17
       '@polkadot-api/substrate-bindings': 0.17.0
       '@polkadot-api/utils': 0.2.0
@@ -4645,6 +4720,18 @@ snapshots:
       '@polkadot-api/utils': 0.2.0
       scale-ts: 1.6.1
 
+  '@novasamatech/sdk-statement@0.5.0(esbuild@0.25.12)(rxjs@7.8.2)':
+    dependencies:
+      '@polkadot-api/substrate-bindings': 0.19.0
+      '@polkadot-api/utils': 0.3.0
+      polkadot-api: 2.0.0(esbuild@0.25.12)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - bufferutil
+      - esbuild
+      - rxjs
+      - supports-color
+      - utf-8-validate
+
   '@novasamatech/sdk-statement@0.5.0(esbuild@0.27.7)(rxjs@7.8.2)':
     dependencies:
       '@polkadot-api/substrate-bindings': 0.19.0
@@ -4657,11 +4744,11 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@novasamatech/statement-store@0.6.17(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)':
+  '@novasamatech/statement-store@0.6.17(esbuild@0.25.12)(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)':
     dependencies:
       '@noble/ciphers': 2.1.1
       '@noble/hashes': 2.0.1
-      '@novasamatech/sdk-statement': 0.5.0(esbuild@0.27.7)(rxjs@7.8.2)
+      '@novasamatech/sdk-statement': 0.5.0(esbuild@0.25.12)(rxjs@7.8.2)
       '@polkadot-api/substrate-bindings': 0.17.0
       '@polkadot-api/substrate-client': 0.5.0
       '@polkadot-api/utils': 0.2.0
@@ -4687,6 +4774,9 @@ snapshots:
     dependencies:
       nanoevents: 9.1.0
       neverthrow: 8.2.0
+
+  '@opentelemetry/api@1.9.1':
+    optional: true
 
   '@parity/host-api-test-sdk@0.6.0(@playwright/test@1.59.1)':
     dependencies:
@@ -4740,6 +4830,41 @@ snapshots:
       - tsx
       - utf-8-validate
       - yaml
+
+  '@polkadot-api/cli@0.20.1(esbuild@0.25.12)':
+    dependencies:
+      '@commander-js/extra-typings': 14.0.0(commander@14.0.3)
+      '@polkadot-api/codegen': 0.22.2
+      '@polkadot-api/ink-contracts': 0.6.0
+      '@polkadot-api/json-rpc-provider': 0.2.0
+      '@polkadot-api/known-chains': 0.11.1
+      '@polkadot-api/metadata-compatibility': 0.6.0
+      '@polkadot-api/observable-client': 0.18.3(rxjs@7.8.2)
+      '@polkadot-api/sm-provider': 0.3.0(@polkadot-api/smoldot@0.4.0)
+      '@polkadot-api/smoldot': 0.4.0
+      '@polkadot-api/substrate-bindings': 0.20.0
+      '@polkadot-api/substrate-client': 0.7.0
+      '@polkadot-api/utils': 0.4.0
+      '@polkadot-api/wasm-executor': 0.2.3
+      '@polkadot-api/ws-middleware': 0.3.0(rxjs@7.8.2)
+      '@polkadot-api/ws-provider': 0.9.0(rxjs@7.8.2)
+      '@types/node': 25.6.0
+      commander: 14.0.3
+      execa: 9.6.1
+      fs.promises.exists: 1.1.4
+      ora: 9.3.0
+      read-pkg: 10.1.0
+      rollup: 4.60.1
+      rollup-plugin-esbuild: 6.2.1(esbuild@0.25.12)(rollup@4.60.1)
+      rxjs: 7.8.2
+      tsc-prog: 2.3.0(typescript@6.0.2)
+      typescript: 6.0.2
+      write-package: 7.2.0
+    transitivePeerDependencies:
+      - bufferutil
+      - esbuild
+      - supports-color
+      - utf-8-validate
 
   '@polkadot-api/cli@0.20.1(esbuild@0.27.7)':
     dependencies:
@@ -5121,7 +5246,7 @@ snapshots:
 
   '@polkadot-labs/hdkd-helpers@0.0.28':
     dependencies:
-      '@noble/curves': 2.0.1
+      '@noble/curves': 2.2.0
       '@noble/hashes': 2.2.0
       '@scure/base': 2.0.0
       '@scure/sr25519': 1.0.0
@@ -5129,7 +5254,7 @@ snapshots:
 
   '@polkadot-labs/hdkd@0.0.26':
     dependencies:
-      '@polkadot-labs/hdkd-helpers': 0.0.27
+      '@polkadot-labs/hdkd-helpers': 0.0.28
 
   '@polkadot/api-augment@16.5.6':
     dependencies:
@@ -5591,7 +5716,7 @@ snapshots:
 
   '@scure/bip32@1.7.0':
     dependencies:
-      '@noble/curves': 1.9.1
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
 
@@ -5787,7 +5912,7 @@ snapshots:
 
   '@types/qrcode@1.5.6':
     dependencies:
-      '@types/node': 24.12.2
+      '@types/node': 25.6.0
 
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
     dependencies:
@@ -6514,7 +6639,7 @@ snapshots:
     optionalDependencies:
       '@rollup/rollup-linux-x64-gnu': 4.60.1
 
-  next@15.5.15(@babel/core@7.29.0)(@playwright/test@1.59.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
+  next@15.5.15(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
     dependencies:
       '@next/env': 15.5.15
       '@swc/helpers': 0.5.15
@@ -6532,6 +6657,7 @@ snapshots:
       '@next/swc-linux-x64-musl': 15.5.15
       '@next/swc-win32-arm64-msvc': 15.5.15
       '@next/swc-win32-x64-msvc': 15.5.15
+      '@opentelemetry/api': 1.9.1
       '@playwright/test': 1.59.1
       sharp: 0.34.5
     transitivePeerDependencies:
@@ -6713,6 +6839,34 @@ snapshots:
       - utf-8-validate
       - yaml
 
+  polkadot-api@2.0.0(esbuild@0.25.12)(rxjs@7.8.2):
+    dependencies:
+      '@polkadot-api/cli': 0.20.1(esbuild@0.25.12)
+      '@polkadot-api/ink-contracts': 0.6.0
+      '@polkadot-api/json-rpc-provider': 0.2.0
+      '@polkadot-api/known-chains': 0.11.1
+      '@polkadot-api/logs-provider': 0.2.0
+      '@polkadot-api/metadata-builders': 0.14.0
+      '@polkadot-api/metadata-compatibility': 0.6.0
+      '@polkadot-api/observable-client': 0.18.3(rxjs@7.8.2)
+      '@polkadot-api/pjs-signer': 0.7.0
+      '@polkadot-api/polkadot-signer': 0.1.6
+      '@polkadot-api/signer': 0.3.0
+      '@polkadot-api/sm-provider': 0.3.0(@polkadot-api/smoldot@0.4.0)
+      '@polkadot-api/smoldot': 0.4.0
+      '@polkadot-api/substrate-bindings': 0.20.0
+      '@polkadot-api/substrate-client': 0.7.0
+      '@polkadot-api/utils': 0.4.0
+      '@polkadot-api/ws-middleware': 0.3.0(rxjs@7.8.2)
+      '@polkadot-api/ws-provider': 0.9.0(rxjs@7.8.2)
+      '@rx-state/core': 0.1.4(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - bufferutil
+      - esbuild
+      - supports-color
+      - utf-8-validate
+
   polkadot-api@2.0.0(esbuild@0.27.7)(rxjs@7.8.2):
     dependencies:
       '@polkadot-api/cli': 0.20.1(esbuild@0.27.7)
@@ -6830,6 +6984,17 @@ snapshots:
       signal-exit: 4.1.0
 
   reusify@1.1.0: {}
+
+  rollup-plugin-esbuild@6.2.1(esbuild@0.25.12)(rollup@4.60.1):
+    dependencies:
+      debug: 4.4.3
+      es-module-lexer: 1.7.0
+      esbuild: 0.25.12
+      get-tsconfig: 4.13.7
+      rollup: 4.60.1
+      unplugin-utils: 0.2.5
+    transitivePeerDependencies:
+      - supports-color
 
   rollup-plugin-esbuild@6.2.1(esbuild@0.27.7)(rollup@4.60.1):
     dependencies:

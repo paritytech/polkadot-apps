@@ -36,8 +36,8 @@ const rpcs = {
     },
     paseo: {
         assetHub: [
+            "wss://asset-hub-paseo-rpc.n.dwellir.com",
             "wss://sys.ibp.network/asset-hub-paseo",
-            "wss://asset-hub-paseo-rpc.dwellir.com",
         ],
         bulletin: [...BULLETIN_RPCS.paseo],
         individuality: ["wss://pop3-testnet.parity-lab.parity.io/people"],
