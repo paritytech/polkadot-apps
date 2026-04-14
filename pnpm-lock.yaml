@@ -46,8 +46,8 @@ catalogs:
       specifier: ^3.1.4
       version: 3.2.4
     bulletin-deploy:
-      specifier: ^0.6.3
-      version: 0.6.3
+      specifier: ^0.6.4
+      version: 0.6.4
     commander:
       specifier: ^12.0.0
       version: 12.1.0
@@ -89,6 +89,10 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      bulletin-deploy:
+        specifier: link:../bulletin-deploy
+        version: link:../bulletin-deploy
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
@@ -146,7 +150,7 @@ importers:
         version: 0.0.27
       bulletin-deploy:
         specifier: 'catalog:'
-        version: 0.6.3(@polkadot-api/ink-contracts@0.6.0)(@polkadot/util@13.5.9)(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+        version: 0.6.4(@polkadot-api/ink-contracts@0.6.0)(@polkadot/util@13.5.9)(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
       commander:
         specifier: 'catalog:'
         version: 12.1.0
@@ -2888,8 +2892,8 @@ packages:
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
     hasBin: true
 
-  bulletin-deploy@0.6.3:
-    resolution: {integrity: sha512-rDTLrGf2+nDtnZDAkXka3U6g7f6nlEe8Fq8xPcCWb72LNK8dE9CkB61WmVfz21lRiitIv/CHErr8RuiXBI4i4w==}
+  bulletin-deploy@0.6.4:
+    resolution: {integrity: sha512-HunhqWHZ4tSuMZgtRLkcsMZhjnztqzI+fkg0R6QLsMYHKekLpyjlHiYFDD1irUTzH/mraSQ6o//PJ2i2CMKd1Q==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -6944,7 +6948,7 @@ snapshots:
       node-releases: 2.0.37
       update-browserslist-db: 1.2.3(browserslist@4.28.2)
 
-  bulletin-deploy@0.6.3(@polkadot-api/ink-contracts@0.6.0)(@polkadot/util@13.5.9)(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3):
+  bulletin-deploy@0.6.4(@polkadot-api/ink-contracts@0.6.0)(@polkadot/util@13.5.9)(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3):
     dependencies:
       '@dotdm/cdm': 0.5.4(@polkadot-api/ink-contracts@0.6.0)(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
       '@ipld/dag-pb': 4.1.5
