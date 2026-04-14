@@ -1,10 +1,12 @@
 import { Command } from "commander";
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { resolve, basename } from "node:path";
 import { createInterface } from "node:readline";
 import { connect, fetchIpfs, unwrapOption } from "../connection.js";
 import { type AppMetadata } from "../config.js";
+import { detectPackageManager } from "../project.js";
 import { spinner, printTable, truncate, bold, green, dim, cyan, yellow } from "../ui.js";
 
 /* @integration */
@@ -27,13 +29,7 @@ function slugify(s: string): string {
 }
 
 function randomSuffix(): string {
-    return Math.floor(Math.random() * 100).toString();
-}
-
-function detectPackageManager(dir: string): "pnpm" | "npm" | "bun" {
-    if (existsSync(resolve(dir, "pnpm-lock.yaml"))) return "pnpm";
-    if (existsSync(resolve(dir, "bun.lockb")) || existsSync(resolve(dir, "bun.lock"))) return "bun";
-    return "pnpm";
+    return randomBytes(3).toString("hex");
 }
 
 function stripPostinstall(dir: string) {
@@ -45,7 +41,9 @@ function stripPostinstall(dir: string) {
             delete pkg.scripts.postinstall;
             writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
         }
-    } catch {}
+    } catch {
+        // Malformed package.json — leave as-is
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -147,12 +145,12 @@ async function cloneAndSetup(
     newName: string,
     opts: { install: boolean },
 ) {
-    const branchFlag = metadata.branch ? ` --branch ${metadata.branch}` : "";
-    const s = spinner(
-        "Clone",
-        `${metadata.repository}${metadata.branch ? ` (${metadata.branch})` : ""}...`,
-    );
-    execSync(`git clone${branchFlag} ${metadata.repository} ${targetDir}`, { stdio: "pipe" });
+    const branchLabel = metadata.branch ? ` (${metadata.branch})` : "";
+    const s = spinner("Clone", `${metadata.repository}${branchLabel}...`);
+    const gitArgs = ["clone"];
+    if (metadata.branch) gitArgs.push("--branch", metadata.branch);
+    gitArgs.push(metadata.repository!, targetDir);
+    execFileSync("git", gitArgs, { stdio: "pipe" });
 
     rmSync(`${targetDir}/.git`, { recursive: true, force: true });
     execSync(`git init`, { cwd: targetDir, stdio: "pipe" });
@@ -310,28 +308,6 @@ if (import.meta.vitest) {
         });
         test("handles empty string", () => {
             expect(slugify("")).toBe("");
-        });
-    });
-
-    describe("detectPackageManager", () => {
-        test("detects pnpm from lockfile", () => {
-            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
-            _writeFile(join(dir, "pnpm-lock.yaml"), "");
-            expect(detectPackageManager(dir)).toBe("pnpm");
-            rmSync(dir, { recursive: true });
-        });
-
-        test("detects bun from bun.lock", () => {
-            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
-            _writeFile(join(dir, "bun.lock"), "");
-            expect(detectPackageManager(dir)).toBe("bun");
-            rmSync(dir, { recursive: true });
-        });
-
-        test("defaults to pnpm when no lockfile", () => {
-            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
-            expect(detectPackageManager(dir)).toBe("pnpm");
-            rmSync(dir, { recursive: true });
         });
     });
 

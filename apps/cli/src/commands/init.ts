@@ -2,16 +2,6 @@ import { Command } from "commander";
 import { execSync } from "node:child_process";
 import { spinner, bold, dim, green, yellow } from "../ui.js";
 
-// WebSocket polyfill for Node.js (required by host-papp SDK)
-import { WebSocket as _WS } from "ws";
-const WebSocket = new Proxy(_WS, {
-    construct(target, args) {
-        const [url, protocols, opts] = args;
-        return new target(url, protocols, { followRedirects: true, ...opts });
-    },
-});
-Object.assign(globalThis, { WebSocket });
-
 function commandExists(cmd: string): boolean {
     try {
         execSync(`command -v ${cmd}`, { stdio: "pipe" });
@@ -133,7 +123,7 @@ async function doQrLogin(): Promise<boolean> {
         const addr = "0x" + Buffer.from(session.remoteAccount.accountId).toString("hex");
         console.log(`  ${green("✔")} Authenticated`);
         console.log(`    ${dim("Address:")} ${addr}`);
-        process.exit(0);
+        return true;
     }
 
     // No existing session — start QR pairing
@@ -214,10 +204,10 @@ async function doQrLogin(): Promise<boolean> {
         });
     }
 
-    // Session persisted, just exit. adapter.destroy() has a bug where it
-    // disconnects the WebSocket before unsubscribing statement store listeners,
-    // causing async DestroyedError noise. Skip it — process.exit cleans up.
-    process.exit(success ? 0 : 1);
+    // Note: adapter.destroy() has a bug where it disconnects the WebSocket
+    // before unsubscribing statement store listeners, causing async
+    // DestroyedError noise. Skip it — process.exit in the caller cleans up.
+    return success;
 }
 
 // ---------------------------------------------------------------------------
@@ -307,7 +297,10 @@ export const initCommand = new Command("init")
 
         // ── Step 2: QR Authentication ─────────────────────────────────
         if (!opts.skipAuth) {
-            await doQrLogin();
+            const authOk = await doQrLogin();
+            if (!authOk) {
+                process.exitCode = 1;
+            }
         }
 
         console.log();

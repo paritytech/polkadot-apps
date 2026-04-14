@@ -95,6 +95,39 @@ export function readReadme(): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
+// Project detection helpers (shared by build + deploy commands)
+// ---------------------------------------------------------------------------
+
+export function detectPackageManager(dir: string): "pnpm" | "npm" | "bun" {
+    if (existsSync(resolve(dir, "pnpm-lock.yaml"))) return "pnpm";
+    if (existsSync(resolve(dir, "package-lock.json"))) return "npm";
+    if (existsSync(resolve(dir, "bun.lockb")) || existsSync(resolve(dir, "bun.lock"))) return "bun";
+    return "pnpm";
+}
+
+export function hasContracts(): boolean {
+    return (
+        existsSync(resolve(process.cwd(), "contracts")) ||
+        existsSync(resolve(process.cwd(), "Cargo.toml"))
+    );
+}
+
+export function getBuildCommand(): string | undefined {
+    const pkg = resolve(process.cwd(), "package.json");
+    try {
+        const p = JSON.parse(readFileSync(pkg, "utf-8"));
+        if (p["playground:build"]) return p["playground:build"];
+        const pm = detectPackageManager(process.cwd());
+        const scripts = p.scripts ?? {};
+        if (scripts["build:frontend"]) return `${pm} build:frontend`;
+        if (scripts.build) return `${pm} build`;
+    } catch {
+        // No package.json — no build command
+    }
+    return undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Account & signer
 // ---------------------------------------------------------------------------
 
@@ -362,6 +395,141 @@ if (import.meta.vitest) {
 
         test("throws for non-dev SURIs", () => {
             expect(() => resolveSigner("paseo", "0xdeadbeef")).toThrow("Only dev SURIs");
+        });
+    });
+
+    // ── detectPackageManager ────────────────────────────────────────────
+    describe("detectPackageManager", () => {
+        test("detects pnpm from lockfile", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "pnpm-lock.yaml"), "");
+            expect(detectPackageManager(dir)).toBe("pnpm");
+            rmSync(dir, { recursive: true });
+        });
+
+        test("detects npm from package-lock.json", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "package-lock.json"), "{}");
+            expect(detectPackageManager(dir)).toBe("npm");
+            rmSync(dir, { recursive: true });
+        });
+
+        test("detects bun from bun.lock", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "bun.lock"), "");
+            expect(detectPackageManager(dir)).toBe("bun");
+            rmSync(dir, { recursive: true });
+        });
+
+        test("defaults to pnpm when no lockfile", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            expect(detectPackageManager(dir)).toBe("pnpm");
+            rmSync(dir, { recursive: true });
+        });
+    });
+
+    // ── hasContracts ─────────────────────────────────────────────────
+    describe("hasContracts", () => {
+        test("returns false in empty directory", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(hasContracts()).toBe(false);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns true when contracts/ exists", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const { mkdirSync } = require("node:fs");
+            mkdirSync(join(dir, "contracts"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(hasContracts()).toBe(true);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns true when Cargo.toml exists", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "Cargo.toml"), "[package]");
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(hasContracts()).toBe(true);
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+    });
+
+    // ── getBuildCommand ──────────────────────────────────────────────
+    describe("getBuildCommand", () => {
+        test("returns undefined when no package.json", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(getBuildCommand()).toBeUndefined();
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns build:frontend if present", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(
+                join(dir, "package.json"),
+                JSON.stringify({ scripts: { "build:frontend": "vite build", build: "tsc" } }),
+            );
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(getBuildCommand()).toBe("pnpm build:frontend");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("falls back to build script", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "package.json"), JSON.stringify({ scripts: { build: "tsc" } }));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(getBuildCommand()).toBe("pnpm build");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("returns undefined when no build scripts", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "package.json"), JSON.stringify({ scripts: { test: "vitest" } }));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(getBuildCommand()).toBeUndefined();
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("uses bun prefix when bun.lock present", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(join(dir, "bun.lock"), "");
+            _writeFile(join(dir, "package.json"), JSON.stringify({ scripts: { build: "vite" } }));
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(getBuildCommand()).toBe("bun build");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
+        });
+
+        test("prefers playground:build over scripts", () => {
+            const dir = mkdtempSync(join(tmpdir(), "cli-test-"));
+            _writeFile(
+                join(dir, "package.json"),
+                JSON.stringify({
+                    "playground:build": "custom-build-cmd",
+                    scripts: { build: "tsc" },
+                }),
+            );
+            const orig = process.cwd();
+            process.chdir(dir);
+            expect(getBuildCommand()).toBe("custom-build-cmd");
+            process.chdir(orig);
+            rmSync(dir, { recursive: true });
         });
     });
 

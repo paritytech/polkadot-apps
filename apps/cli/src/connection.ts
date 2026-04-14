@@ -6,10 +6,10 @@ import { CHAINS, DEFAULT_CHAIN } from "./config.js";
 // Import as JSON module so bun embeds it in the compiled binary
 import cdmJson from "../cdm.json" with { type: "json" };
 
-// Map config chain names to chain-client Environment
+// Map config chain names to chain-client Environment.
+// Only paseo is currently available in chain-client presets.
 const CHAIN_TO_ENV: Record<string, Environment> = {
     paseo: "paseo",
-    polkadot: "polkadot",
 };
 
 function resolveEnvironment(chainName: string): Environment {
@@ -93,9 +93,6 @@ if (import.meta.vitest) {
         test("resolves paseo", () => {
             expect(resolveEnvironment("paseo")).toBe("paseo");
         });
-        test("resolves polkadot", () => {
-            expect(resolveEnvironment("polkadot")).toBe("polkadot");
-        });
         test("throws for unsupported chain", () => {
             expect(() => resolveEnvironment("local")).toThrow("not yet supported");
         });
@@ -103,7 +100,7 @@ if (import.meta.vitest) {
             expect(() => resolveEnvironment("fakenet")).toThrow("not yet supported");
         });
         test("error message lists supported chains", () => {
-            expect(() => resolveEnvironment("local")).toThrow("paseo, polkadot");
+            expect(() => resolveEnvironment("local")).toThrow("paseo");
         });
     });
 

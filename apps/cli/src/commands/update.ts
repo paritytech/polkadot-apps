@@ -3,9 +3,10 @@ import { writeFileSync, chmodSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir, platform, arch } from "node:os";
 import { spinner, bold, dim } from "../ui.js";
+import pkg from "../../package.json" with { type: "json" };
 
 function currentVersion(): string {
-    return "0.1.0";
+    return pkg.version;
 }
 
 function platformAsset(): string {

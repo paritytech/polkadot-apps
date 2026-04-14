@@ -67,6 +67,5 @@ export const infoCommand = new Command("info")
             process.exitCode = 1;
         } finally {
             conn?.destroy();
-            process.exit(process.exitCode ?? 0);
         }
     });
