@@ -5,9 +5,9 @@ import { execSync, execFileSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { computeCid, BulletinClient } from "@polkadot-apps/bulletin";
 import { getBalance, formatBalance } from "@polkadot-apps/utils";
-import { DEFAULT_METADATA_URL, DEFAULT_PEOPLE_ENDPOINTS } from "@polkadot-apps/terminal";
 import type { PolkadotSigner } from "polkadot-api";
 import { connect, type Connection } from "../connection.js";
+import { getSessionSigner } from "../utils/session.js";
 import { TAGS } from "../config.js";
 import {
     loadProjectConfig,
@@ -70,60 +70,6 @@ function hasDistDir(): boolean {
 // ---------------------------------------------------------------------------
 // Signer resolution: QR session → --suri → mnemonic file
 // ---------------------------------------------------------------------------
-
-/* @integration */
-async function getSessionSigner(): Promise<{
-    signer: PolkadotSigner;
-    origin: string;
-} | null> {
-    try {
-        const { createTerminalAdapter, createSessionSigner } = await import(
-            "@polkadot-apps/terminal"
-        );
-
-        const adapter = createTerminalAdapter({
-            appId: "dot-cli",
-            metadataUrl: DEFAULT_METADATA_URL,
-            endpoints: DEFAULT_PEOPLE_ENDPOINTS,
-        });
-
-        const session = await new Promise<any | null>((resolve) => {
-            let resolved = false;
-            let unsub: (() => void) | null = null;
-            unsub = adapter.sessions.sessions.subscribe((sessions: any[]) => {
-                if (sessions.length > 0 && !resolved) {
-                    resolved = true;
-                    queueMicrotask(() => unsub?.());
-                    resolve(sessions[0]);
-                }
-            });
-            setTimeout(() => {
-                if (!resolved) {
-                    resolved = true;
-                    unsub?.();
-                    resolve(null);
-                }
-            }, 3000);
-        });
-
-        if (!session) {
-            adapter.destroy();
-            return null;
-        }
-
-        const { ss58Address } = await import("@polkadot-labs/hdkd-helpers");
-        const signer = createSessionSigner(session);
-        const origin = ss58Address(new Uint8Array(session.remoteAccount.accountId));
-
-        // Don't destroy adapter — the session needs the WebSocket alive for signing
-        return { signer, origin };
-    } catch (err) {
-        console.log(
-            `  ${dim("QR session not available:")} ${err instanceof Error ? err.message : String(err)}`,
-        );
-        return null;
-    }
-}
 
 /* @integration */
 async function resolveDeploySigner(

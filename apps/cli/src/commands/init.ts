@@ -210,9 +210,7 @@ async function ensureAccountFunded(address: string): Promise<void> {
             );
             try {
                 await fundFromAlice(client, address);
-                fundSpinner.succeed(
-                    `Funded ${formatBalance(FUND_AMOUNT, { symbol: "PAS" })}`,
-                );
+                fundSpinner.succeed(`Funded ${formatBalance(FUND_AMOUNT, { symbol: "PAS" })}`);
             } catch (err) {
                 fundSpinner.fail("Failed to fund account");
                 console.log(`    ${dim(String(err))}`);

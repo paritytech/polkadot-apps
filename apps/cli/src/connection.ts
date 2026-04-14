@@ -1,9 +1,9 @@
 import { getChainAPI, type Environment } from "@polkadot-apps/chain-client";
 import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { ContractManager } from "@polkadot-apps/contracts";
-import { DEV_PHRASE } from "@polkadot-labs/hdkd-helpers";
-import { seedToAccount } from "@polkadot-apps/keys";
+import type { SS58String } from "polkadot-api";
 import { CHAINS, DEFAULT_CHAIN } from "./config.js";
+import { getSessionSigner } from "./utils/session.js";
 
 // Import as JSON module so bun embeds it in the compiled binary
 import cdmJson from "../cdm.json" with { type: "json" };
@@ -43,17 +43,23 @@ export async function connect(chainName?: string): Promise<Connection> {
     const env = resolveEnvironment(name);
     const client = await getChainAPI(env);
     const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
-    // Provide a default origin so contract queries don't spam
-    // "No origin configured — using dev fallback" warnings.
-    const aliceOrigin = seedToAccount(DEV_PHRASE, "//Alice").ss58Address;
-    const manager = new ContractManager(cdmJson, inkSdk, { defaultOrigin: aliceOrigin });
+
+    // Load persisted QR session so contract queries use the real account as origin
+    // instead of falling back to Alice with a noisy warning.
+    const session = await getSessionSigner();
+    const manager = new ContractManager(cdmJson, inkSdk, {
+        ...(session ? { defaultOrigin: session.origin as SS58String } : {}),
+    });
     const registry = manager.getContract("@example/playground-registry");
 
     return {
         registry,
         assetHub: client.assetHub,
         ipfsGateway: chain.ipfsGateway,
-        destroy: () => client.destroy(),
+        destroy: () => {
+            session?.destroy();
+            client.destroy();
+        },
     };
 }
 

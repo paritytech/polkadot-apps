@@ -5,13 +5,8 @@ import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { Enum } from "polkadot-api";
 import { DEV_PHRASE } from "@polkadot-labs/hdkd-helpers";
 import { submitAndWatch, ensureAccountMapped } from "@polkadot-apps/tx";
-import {
-    createTerminalAdapter,
-    createSessionSigner,
-    DEFAULT_METADATA_URL,
-    DEFAULT_PEOPLE_ENDPOINTS,
-} from "@polkadot-apps/terminal";
 import { prepareSigner } from "../project.js";
+import { getSessionSigner } from "./session.js";
 
 type PaseoClient = ChainClient<PresetChains<"paseo">>;
 
@@ -85,35 +80,12 @@ export async function fundFromAlice(client: PaseoClient, address: string): Promi
  * Uses the provided signer if given, otherwise falls back to the QR session signer.
  */
 export async function mapAccount(client: PaseoClient, address: string): Promise<void> {
-    const adapter = createTerminalAdapter({
-        appId: "dot-cli",
-        metadataUrl: DEFAULT_METADATA_URL,
-        endpoints: DEFAULT_PEOPLE_ENDPOINTS,
-    });
-    const session = await new Promise<any | null>((resolve) => {
-        let resolved = false;
-        let unsub: (() => void) | null = null;
-        unsub = adapter.sessions.sessions.subscribe((sessions: any[]) => {
-            if (sessions.length > 0 && !resolved) {
-                resolved = true;
-                queueMicrotask(() => unsub?.());
-                resolve(sessions[0]);
-            }
-        });
-        setTimeout(() => {
-            if (!resolved) {
-                resolved = true;
-                unsub?.();
-                resolve(null);
-            }
-        }, 3000);
-    });
+    const session = await getSessionSigner();
     if (!session) {
         throw new Error("No session available for signing");
     }
-    const userSigner = createSessionSigner(session);
     const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
-    await ensureAccountMapped(address, userSigner, inkSdk, client.assetHub);
+    await ensureAccountMapped(address, session.signer, inkSdk, client.assetHub);
 }
 
 /**
