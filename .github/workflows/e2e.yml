@@ -87,3 +87,165 @@ jobs:
                   name: playwright-report-contracts-demo
                   path: examples/contracts-demo/playwright-report/
                   retention-days: 7
+
+    statement-store-demo:
+        name: statement-store-demo
+        runs-on: parity-default
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm build
+            - name: Install Playwright browsers
+              run: pnpm --filter @polkadot-apps/statement-store-demo exec playwright install --with-deps chromium
+            - name: Run statement-store-demo E2E
+              run: pnpm --filter @polkadot-apps/statement-store-demo test:e2e
+              env:
+                  CI: "true"
+            - name: Upload Playwright report on failure
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-report-statement-store-demo
+                  path: examples/statement-store-demo/playwright-report/
+                  retention-days: 7
+
+    bulletin-demo:
+        name: bulletin-demo
+        runs-on: parity-default
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm build
+            - name: Install Playwright browsers
+              run: pnpm --filter @polkadot-apps/bulletin-demo exec playwright install --with-deps chromium
+            - name: Run bulletin-demo E2E
+              run: pnpm --filter @polkadot-apps/bulletin-demo test:e2e
+              env:
+                  CI: "true"
+            - name: Upload Playwright report on failure
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-report-bulletin-demo
+                  path: examples/bulletin-demo/playwright-report/
+                  retention-days: 7
+
+    host-demo:
+        name: host-demo
+        runs-on: parity-default
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm build
+            - name: Install Playwright browsers
+              run: pnpm --filter @polkadot-apps/host-demo exec playwright install --with-deps chromium
+            - name: Run host-demo E2E
+              run: pnpm --filter @polkadot-apps/host-demo test:e2e
+              env:
+                  CI: "true"
+            - name: Upload Playwright report on failure
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-report-host-demo
+                  path: examples/host-demo/playwright-report/
+                  retention-days: 7
+
+    storage-demo:
+        name: storage-demo
+        runs-on: parity-default
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm build
+            - name: Install Playwright browsers
+              run: pnpm --filter @polkadot-apps/storage-demo exec playwright install --with-deps chromium
+            - name: Run storage-demo E2E
+              run: pnpm --filter @polkadot-apps/storage-demo test:e2e
+              env:
+                  CI: "true"
+            - name: Upload Playwright report on failure
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-report-storage-demo
+                  path: examples/storage-demo/playwright-report/
+                  retention-days: 7
+
+    chain-client-demo:
+        name: chain-client-demo
+        runs-on: parity-default
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm build
+            - name: Install Playwright browsers
+              run: pnpm --filter @polkadot-apps/chain-client-demo exec playwright install --with-deps chromium
+            - name: Run chain-client-demo E2E
+              run: pnpm --filter @polkadot-apps/chain-client-demo test:e2e
+              env:
+                  CI: "true"
+            - name: Upload Playwright report on failure
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-report-chain-client-demo
+                  path: examples/chain-client-demo/playwright-report/
+                  retention-days: 7
+
+    keys-demo:
+        name: keys-demo
+        runs-on: parity-default
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm build
+            - name: Install Playwright browsers
+              run: pnpm --filter @polkadot-apps/keys-demo exec playwright install --with-deps chromium
+            - name: Run keys-demo E2E
+              run: pnpm --filter @polkadot-apps/keys-demo test:e2e
+              env:
+                  CI: "true"
+            - name: Upload Playwright report on failure
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-report-keys-demo
+                  path: examples/keys-demo/playwright-report/
+                  retention-days: 7
