@@ -1,7 +1,13 @@
 import { Command } from "commander";
 import { ss58Encode } from "@polkadot-apps/address";
 import { getChainAPI } from "@polkadot-apps/chain-client";
-import { createTerminalAdapter, renderQrCode, createSessionSigner } from "@polkadot-apps/terminal";
+import {
+    createTerminalAdapter,
+    renderQrCode,
+    createSessionSigner,
+    DEFAULT_METADATA_URL,
+    DEFAULT_PEOPLE_ENDPOINTS,
+} from "@polkadot-apps/terminal";
 import type { PairingStatus, AttestationStatus } from "@polkadot-apps/terminal";
 import { formatBalance } from "@polkadot-apps/utils";
 import { ensureToolchain, commandExists, isGhAuthenticated } from "../project.js";
@@ -41,15 +47,12 @@ if (import.meta.vitest) {
 // QR Login
 // ---------------------------------------------------------------------------
 
-const METADATA_URL =
-    "https://gist.githubusercontent.com/ReinhardHatko/27415c91178d74196d7c1116d39056d5/raw/56e61d719251170828a80f12d34343a8617b9935/metadata.json";
-
 /* @integration */
 async function doQrLogin(): Promise<string | null> {
     const adapter = createTerminalAdapter({
         appId: "dot-cli",
-        metadataUrl: METADATA_URL,
-        endpoints: ["wss://paseo-people-next-rpc.polkadot.io"],
+        metadataUrl: DEFAULT_METADATA_URL,
+        endpoints: DEFAULT_PEOPLE_ENDPOINTS,
     });
 
     // Check for existing session

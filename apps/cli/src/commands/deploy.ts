@@ -5,6 +5,7 @@ import { execSync, execFileSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { computeCid, BulletinClient } from "@polkadot-apps/bulletin";
 import { getBalance, formatBalance } from "@polkadot-apps/utils";
+import { DEFAULT_METADATA_URL, DEFAULT_PEOPLE_ENDPOINTS } from "@polkadot-apps/terminal";
 import type { PolkadotSigner } from "polkadot-api";
 import { connect, type Connection } from "../connection.js";
 import { TAGS } from "../config.js";
@@ -82,9 +83,8 @@ async function getSessionSigner(): Promise<{
 
         const adapter = createTerminalAdapter({
             appId: "dot-cli",
-            metadataUrl:
-                "https://gist.githubusercontent.com/ReinhardHatko/27415c91178d74196d7c1116d39056d5/raw/56e61d719251170828a80f12d34343a8617b9935/metadata.json",
-            endpoints: ["wss://paseo-people-next-rpc.polkadot.io"],
+            metadataUrl: DEFAULT_METADATA_URL,
+            endpoints: DEFAULT_PEOPLE_ENDPOINTS,
         });
 
         const session = await new Promise<any | null>((resolve) => {

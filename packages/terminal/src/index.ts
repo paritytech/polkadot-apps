@@ -1,6 +1,8 @@
 // Terminal Adapter
 export {
     createTerminalAdapter,
+    DEFAULT_METADATA_URL,
+    DEFAULT_PEOPLE_ENDPOINTS,
     SS_STABLE_STAGE_ENDPOINTS,
     SS_PASEO_STABLE_STAGE_ENDPOINTS,
 } from "./adapter.js";

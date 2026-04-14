@@ -7,7 +7,12 @@ import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { Enum } from "polkadot-api";
 import { DEV_PHRASE } from "@polkadot-labs/hdkd-helpers";
 import { submitAndWatch, ensureAccountMapped } from "@polkadot-apps/tx";
-import { createTerminalAdapter, createSessionSigner } from "@polkadot-apps/terminal";
+import {
+    createTerminalAdapter,
+    createSessionSigner,
+    DEFAULT_METADATA_URL,
+    DEFAULT_PEOPLE_ENDPOINTS,
+} from "@polkadot-apps/terminal";
 import { prepareSigner } from "../project.js";
 
 type PaseoClient = ChainClient<PresetChains<"paseo">>;
@@ -16,9 +21,6 @@ const MIN_BALANCE = 10_000_000_000n; // 1 PAS
 export const FUND_AMOUNT = 100_000_000_000n; // 10 PAS
 export const BULLETIN_TRANSACTIONS = 1000;
 export const BULLETIN_BYTES = 100_000_000n; // 100 MB
-
-const METADATA_URL =
-    "https://gist.githubusercontent.com/ReinhardHatko/27415c91178d74196d7c1116d39056d5/raw/56e61d719251170828a80f12d34343a8617b9935/metadata.json";
 
 export interface AccountStatus {
     balance: AccountBalance;
@@ -64,8 +66,8 @@ export async function fundFromAlice(client: PaseoClient, address: string): Promi
 export async function mapAccount(client: PaseoClient, address: string): Promise<void> {
     const adapter = createTerminalAdapter({
         appId: "dot-cli",
-        metadataUrl: METADATA_URL,
-        endpoints: ["wss://paseo-people-next-rpc.polkadot.io"],
+        metadataUrl: DEFAULT_METADATA_URL,
+        endpoints: DEFAULT_PEOPLE_ENDPOINTS,
     });
     const session = await new Promise<any | null>((resolve) => {
         let resolved = false;
