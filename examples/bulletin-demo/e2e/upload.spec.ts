@@ -92,8 +92,14 @@ test.describe("@polkadot-apps/bulletin via Host API — upload", () => {
         // Second upload with different data
         await frame.locator('[data-testid="upload-input"]').fill("second-upload");
         await frame.locator('[data-testid="btn-upload"]').click();
-        await expect(frame.locator('[data-testid="btn-upload"]')).toBeDisabled();
-        await expect(frame.locator('[data-testid="btn-upload"]')).toBeEnabled({ timeout: 30_000 });
+
+        // Wait for second upload to complete — the log will contain two "Uploaded" lines.
+        // The preimage path resolves nearly instantly (in-memory in the test host),
+        // so the button's disabled state is too transient for toBeDisabled() to observe.
+        await expect(logLoc.locator(':text("Uploaded (preimage):")')).toHaveCount(2, {
+            timeout: 30_000,
+        });
+        await expect(frame.locator('[data-testid="btn-upload"]')).toBeEnabled({ timeout: 10_000 });
 
         // Verify CID changed (different data → different CID)
         const secondCid = await frame.locator('[data-testid="last-cid"]').textContent();
