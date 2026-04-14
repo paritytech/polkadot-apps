@@ -34,10 +34,11 @@ The `skills/` directory contains skills that enable AI coding assistants to buil
 | `polkadot-statement-store` | statement-store | "pub/sub", "statement store", "topics" |
 | `polkadot-utilities` | address, crypto, utils, storage, logger | "SS58", "encrypt", "format token", "key-value store" |
 
-See the `examples/` directory for sample apps built with these packages:
+See the `examples/` directory for sample apps and E2E test packages built with these packages:
 
 - **`examples/multi-chain-explorer/`** — CLI app that queries Paseo chain state, balances, and submits a remark transaction.
 - **`examples/t3rminal-lite/`** — Next.js web app demonstrating wallet connection, address display, and transaction submission.
+- **E2E demos** — 9 Playwright test packages (`tx-demo`, `signer-demo`, `contracts-demo`, `statement-store-demo`, `bulletin-demo`, `host-demo`, `storage-demo`, `chain-client-demo`, `keys-demo`) that exercise each package's Host API path end-to-end.
 
 ### Using the Skills
 
@@ -129,6 +130,7 @@ pnpm test
 | `pnpm format:check` | Check formatting without writing |
 | `pnpm clean` | Remove build artifacts |
 | `pnpm docs` | Generate API docs with TypeDoc |
+| `pnpm --filter @polkadot-apps/<demo> test:e2e` | Run E2E tests for a specific demo package |
 
 ## Contributing
 
@@ -158,6 +160,20 @@ if (import.meta.vitest) {
 ```
 
 The `if (import.meta.vitest)` block is tree-shaken out of production builds. No separate test files needed for unit tests, though `tests/*.test.ts` files are also supported for integration tests.
+
+### E2E Integration Tests
+
+E2E tests use [Playwright](https://playwright.dev/) with [`@parity/host-api-test-sdk`](https://github.com/paritytech/host-api-test-sdk) to run each demo app inside a simulated Host container (Polkadot Desktop/Mobile). This tests the real Host API path — signing, chain connections, storage, preimages, and statement store — without requiring actual Polkadot Desktop.
+
+```bash
+# Run a single demo's tests
+pnpm --filter @polkadot-apps/tx-demo test:e2e
+
+# Run with headed browser (useful for debugging)
+pnpm --filter @polkadot-apps/tx-demo test:e2e:headed
+```
+
+Each demo lives in `examples/<name>-demo/` and follows the same structure: `src/main.ts` (app), `e2e/*.spec.ts` (tests), `e2e/fixtures.ts` (test host setup). All 9 demos run in CI via `.github/workflows/e2e.yml`.
 
 ### Adding a New Package
 

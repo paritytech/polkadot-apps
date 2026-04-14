@@ -56,8 +56,8 @@ The parachain for fungible/non-fungible assets, smart contracts (via Revive/Soli
 - `@polkadot-apps/descriptors/paseo-asset-hub`
 
 **RPC endpoints (Paseo):**
+- `wss://asset-hub-paseo-rpc.n.dwellir.com`
 - `wss://sys.ibp.network/asset-hub-paseo`
-- `wss://asset-hub-paseo-rpc.dwellir.com`
 
 ### Bulletin Chain
 

@@ -11,8 +11,8 @@ export async function connect() {
     chains: { assetHub: paseo_asset_hub, bulletin, individuality },
     rpcs: {
       assetHub: [
+        "wss://asset-hub-paseo-rpc.n.dwellir.com",
         "wss://sys.ibp.network/asset-hub-paseo",
-        "wss://asset-hub-paseo-rpc.dwellir.com",
       ],
       bulletin: ["wss://paseo-bulletin-rpc.polkadot.io"],
       individuality: ["wss://pop3-testnet.parity-lab.parity.io/people"],
