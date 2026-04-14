@@ -1,6 +1,6 @@
 {
     "name": "@polkadot-apps/chain-client-demo",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "private": true,
     "type": "module",
     "description": "E2E demo app for @polkadot-apps/chain-client — exercises preset and BYOD chain connections via the Host API path",

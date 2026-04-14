@@ -1,6 +1,6 @@
 {
     "name": "@polkadot-apps/tx-demo",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "private": true,
     "type": "module",
     "description": "Pilot E2E demo app for @polkadot-apps/tx — exercises submitAndWatch and batchSubmitAndWatch via the Host API path",

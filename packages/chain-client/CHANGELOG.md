@@ -1,5 +1,11 @@
 # @polkadot-apps/chain-client
 
+## 2.0.3
+
+### Patch Changes
+
+- 6ba8ae6: Fix Paseo Asset Hub primary RPC endpoint (dwellir.com → n.dwellir.com)
+
 ## 2.0.2
 
 ### Patch Changes
