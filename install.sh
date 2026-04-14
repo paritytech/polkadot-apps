@@ -34,6 +34,10 @@ else
   curl -fsSL -L "https://github.com/$REPO/releases/download/$TAG/$ASSET" -o "$DOT_DIR/bin/$BIN"
 fi
 chmod +x "$DOT_DIR/bin/$BIN"
+# Strip macOS quarantine/provenance xattrs so Gatekeeper won't block the unsigned binary
+if [ "$OS" = "darwin" ] && command -v xattr >/dev/null 2>&1; then
+  xattr -c "$DOT_DIR/bin/$BIN" 2>/dev/null || true
+fi
 ln -sf "$DOT_DIR/bin/$BIN" "$HOME/.local/bin/$BIN"
 
 echo "Installed $BIN ($OS/$ARCH) from $TAG -> $DOT_DIR/bin/$BIN"
