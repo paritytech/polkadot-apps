@@ -14,24 +14,24 @@ import { waitForAppReady } from "./helpers";
  *   - getHostLocalStorage() → host localStorage bridge
  */
 test.describe("@polkadot-apps/storage via Host API — boot", () => {
-	test("KvStore auto-detects host backend inside container", async ({ testHost }) => {
-		const frame = await waitForAppReady(testHost);
+    test("KvStore auto-detects host backend inside container", async ({ testHost }) => {
+        const frame = await waitForAppReady(testHost);
 
-		// Backend type should be "host" (auto-detected inside container)
-		await expect(frame.locator('[data-testid="backend-type"]')).toHaveText("host");
+        // Backend type should be "host" (auto-detected inside container)
+        await expect(frame.locator('[data-testid="backend-type"]')).toHaveText("host");
 
-		// Store status should be "ready"
-		await expect(frame.locator('[data-testid="store-status"]')).toHaveText("ready");
+        // Store status should be "ready"
+        await expect(frame.locator('[data-testid="store-status"]')).toHaveText("ready");
 
-		// Account address should be a valid Paseo SS58 address (prefix 0 → starts with "1")
-		const address = await frame.locator('[data-testid="account-address"]').textContent();
-		expect(address).toBeTruthy();
-		expect(SS58_PREFIX).toBe(0);
-		expect(address!.trim().startsWith("1")).toBe(true);
+        // Account address should be a valid Paseo SS58 address (prefix 0 → starts with "1")
+        const address = await frame.locator('[data-testid="account-address"]').textContent();
+        expect(address).toBeTruthy();
+        expect(SS58_PREFIX).toBe(0);
+        expect(address!.trim().startsWith("1")).toBe(true);
 
-		// Log should confirm host backend
-		await expect(frame.locator('[data-testid="storage-log"]')).toContainText(
-			/KvStore created.*host backend/i,
-		);
-	});
+        // Log should confirm host backend
+        await expect(frame.locator('[data-testid="storage-log"]')).toContainText(
+            /KvStore created.*host backend/i,
+        );
+    });
 });
