@@ -209,9 +209,9 @@ async function ensureAccountFunded(address: string): Promise<void> {
                 `Transferring ${formatBalance(FUND_AMOUNT, { symbol: "PAS" })} from Alice...`,
             );
             try {
-                const newFree = await fundFromAlice(client, address);
+                await fundFromAlice(client, address);
                 fundSpinner.succeed(
-                    `Funded — ${formatBalance(newFree, { symbol: "PAS", maxDecimals: 4 })}`,
+                    `Funded ${formatBalance(FUND_AMOUNT, { symbol: "PAS" })}`,
                 );
             } catch (err) {
                 fundSpinner.fail("Failed to fund account");
@@ -310,7 +310,8 @@ export const initCommand = new Command("init")
         }
 
         // ── Step 3: Account Status ───────────────────────────────────
-        if (address) {
+        // if (address) { TEMPORARILY DISABLE
+        if (false) {
             console.log();
             await ensureAccountFunded(address);
         }

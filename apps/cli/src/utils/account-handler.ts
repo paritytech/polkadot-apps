@@ -1,8 +1,6 @@
 import type { ChainClient, PresetChains } from "@polkadot-apps/chain-client";
 import type { AccountBalance } from "@polkadot-apps/utils";
 import type { AuthorizationStatus } from "@polkadot-apps/bulletin";
-import { getBalance } from "@polkadot-apps/utils";
-import { checkAuthorization } from "@polkadot-apps/bulletin";
 import { createInkSdk } from "@polkadot-api/sdk-ink";
 import { Enum } from "polkadot-api";
 import { DEV_PHRASE } from "@polkadot-labs/hdkd-helpers";
@@ -30,15 +28,39 @@ export interface AccountStatus {
 
 /**
  * Fetch the account's on-chain status: Asset Hub balance, Revive mapping, and Bulletin allowance.
+ * All queries use best-block to stay consistent with transactions that resolve at best-block.
  */
 export async function fetchAccountStatus(
     client: PaseoClient,
     address: string,
 ): Promise<AccountStatus> {
-    const balance = await getBalance(client.assetHub, address);
+    const AT_BEST = { at: "best" as const };
+
+    // Balance at best-block
+    const account = await client.assetHub.query.System.Account.getValue(address, AT_BEST);
+    const balance: AccountBalance = {
+        free: account.data.free,
+        reserved: account.data.reserved,
+        frozen: account.data.frozen,
+    };
+
+    // Mapping check — inkSdk created with atBest: true already queries best-block
     const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
     const mapped = await inkSdk.addressIsMapped(address);
-    const auth = await checkAuthorization(client.bulletin, address);
+
+    // Bulletin allowance at best-block
+    const authRaw = await client.bulletin.query.TransactionStorage.Authorizations.getValue(
+        Enum("Account", address),
+        AT_BEST,
+    );
+    const auth: AuthorizationStatus = authRaw
+        ? {
+              authorized: true,
+              remainingTransactions: authRaw.extent.transactions,
+              remainingBytes: authRaw.extent.bytes,
+              expiration: authRaw.expiration,
+          }
+        : { authorized: false, remainingTransactions: 0, remainingBytes: 0n, expiration: 0 };
 
     return { balance, mapped, auth };
 }
@@ -47,7 +69,7 @@ export async function fetchAccountStatus(
  * Transfer PAS from Alice to the given address on Asset Hub.
  * Returns the new balance after funding.
  */
-export async function fundFromAlice(client: PaseoClient, address: string): Promise<bigint> {
+export async function fundFromAlice(client: PaseoClient, address: string): Promise<void> {
     const alice = prepareSigner(DEV_PHRASE, "//Alice");
     await submitAndWatch(
         client.assetHub.tx.Balances.transfer_keep_alive({
@@ -56,12 +78,11 @@ export async function fundFromAlice(client: PaseoClient, address: string): Promi
         }),
         alice.signer,
     );
-    const newBalance = await getBalance(client.assetHub, address);
-    return newBalance.free;
 }
 
 /**
- * Map the account for the Revive pallet using the user's QR session signer.
+ * Map the account for the Revive pallet.
+ * Uses the provided signer if given, otherwise falls back to the QR session signer.
  */
 export async function mapAccount(client: PaseoClient, address: string): Promise<void> {
     const adapter = createTerminalAdapter({
