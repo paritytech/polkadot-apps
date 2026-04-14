@@ -89,10 +89,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      bulletin-deploy:
-        specifier: link:../bulletin-deploy
-        version: link:../bulletin-deploy
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
