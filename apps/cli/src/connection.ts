@@ -56,10 +56,11 @@ export async function connect(chainName?: string): Promise<Connection> {
         registry,
         assetHub: client.assetHub,
         ipfsGateway: chain.ipfsGateway,
-        destroy: () => {
-            session?.destroy();
-            client.destroy();
-        },
+        // Note: we intentionally skip session?.destroy() here because the
+        // terminal adapter has a bug where it disconnects the WebSocket before
+        // unsubscribing statement store listeners, causing DestroyedError noise.
+        // The process exits shortly after anyway.
+        destroy: () => client.destroy(),
     };
 }
 
