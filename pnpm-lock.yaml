@@ -174,6 +174,34 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
 
+  examples/host-demo:
+    dependencies:
+      '@novasamatech/host-api':
+        specifier: 'catalog:'
+        version: 0.6.17
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.17(@polkadot/api@16.5.6)(@polkadot/util@14.0.3)
+      '@polkadot-apps/host':
+        specifier: workspace:*
+        version: link:../../packages/host
+      '@polkadot-apps/signer':
+        specifier: workspace:*
+        version: link:../../packages/signer
+    devDependencies:
+      '@parity/host-api-test-sdk':
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
+      '@playwright/test':
+        specifier: ^1.50.0
+        version: 1.59.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
   examples/multi-chain-explorer:
     dependencies:
       '@polkadot-apps/address':
@@ -250,6 +278,37 @@ importers:
       '@polkadot-apps/statement-store':
         specifier: workspace:*
         version: link:../../packages/statement-store
+    devDependencies:
+      '@parity/host-api-test-sdk':
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
+      '@playwright/test':
+        specifier: ^1.50.0
+        version: 1.59.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
+  examples/storage-demo:
+    dependencies:
+      '@novasamatech/host-api':
+        specifier: 'catalog:'
+        version: 0.6.17
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.17(@polkadot/api@16.5.6)(@polkadot/util@14.0.3)
+      '@polkadot-apps/host':
+        specifier: workspace:*
+        version: link:../../packages/host
+      '@polkadot-apps/signer':
+        specifier: workspace:*
+        version: link:../../packages/signer
+      '@polkadot-apps/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
     devDependencies:
       '@parity/host-api-test-sdk':
         specifier: ^0.6.0
