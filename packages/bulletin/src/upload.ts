@@ -1,5 +1,5 @@
 import { createLogger } from "@polkadot-apps/logger";
-import { submitAndWatch } from "@polkadot-apps/tx";
+import { submitAndWatch, withRetry } from "@polkadot-apps/tx";
 import type { PolkadotSigner } from "polkadot-api";
 import { Binary } from "polkadot-api";
 
@@ -57,11 +57,13 @@ export async function upload(
     }
 
     log.info("uploading via TransactionStorage.store", { cid, size: data.byteLength });
-    const tx = api.tx.TransactionStorage.store({ data: Binary.fromBytes(data) });
-    const result = await submitAndWatch(tx, strategy.signer, {
-        waitFor: options?.waitFor,
-        timeoutMs: options?.timeoutMs,
-        onStatus: options?.onStatus,
+    const result = await withRetry(() => {
+        const tx = api.tx.TransactionStorage.store({ data: Binary.fromBytes(data) });
+        return submitAndWatch(tx, strategy.signer, {
+            waitFor: options?.waitFor,
+            timeoutMs: options?.timeoutMs,
+            onStatus: options?.onStatus,
+        });
     });
 
     log.info("transaction included in block", { cid, blockHash: result.block.hash });
@@ -128,12 +130,14 @@ export async function batchUpload(
                     index: i,
                     total: items.length,
                 });
-                const tx = api.tx.TransactionStorage.store({
-                    data: Binary.fromBytes(item.data),
-                });
-                const result = await submitAndWatch(tx, strategy.signer, {
-                    waitFor: options?.waitFor,
-                    timeoutMs: options?.timeoutMs,
+                const result = await withRetry(() => {
+                    const tx = api.tx.TransactionStorage.store({
+                        data: Binary.fromBytes(item.data),
+                    });
+                    return submitAndWatch(tx, strategy.signer, {
+                        waitFor: options?.waitFor,
+                        timeoutMs: options?.timeoutMs,
+                    });
                 });
 
                 const entry: BatchUploadResult = {
@@ -307,16 +311,27 @@ if (import.meta.vitest) {
         });
 
         test("captures individual failures without aborting batch", async () => {
-            const callCount = { value: 0 };
             const api = createMockApi();
-            // Make the second call fail
+            // Make the second call fail with a dispatch error (non-retryable)
+            let callCount = 0;
             api.tx.TransactionStorage.store.mockImplementation(() => {
-                callCount.value++;
-                if (callCount.value === 2) {
+                callCount++;
+                if (callCount === 2) {
                     return {
                         signSubmitAndWatch: () => ({
-                            subscribe: (handlers: { error: (e: Error) => void }) => {
-                                queueMicrotask(() => handlers.error(new Error("tx failed")));
+                            subscribe: (handlers: { next: (e: unknown) => void }) => {
+                                queueMicrotask(() => {
+                                    handlers.next({ type: "signed", txHash: "0x" });
+                                    handlers.next({
+                                        type: "txBestBlocksState",
+                                        txHash: "0x",
+                                        found: true,
+                                        ok: false,
+                                        block: { hash: "0xblock", number: 1, index: 0 },
+                                        events: [],
+                                        dispatchError: { type: "BadOrigin" },
+                                    });
+                                });
                                 return { unsubscribe: vi.fn() };
                             },
                         }),
@@ -355,7 +370,7 @@ if (import.meta.vitest) {
             const f1 = results[1]!;
             expect(f1.kind).toBe("transaction");
             expect(f1.success).toBe(false);
-            if (!f1.success) expect(f1.error).toContain("tx failed");
+            if (!f1.success) expect(f1.error).toContain("BadOrigin");
             expect(results[2]!.success).toBe(true);
         });
 
