@@ -185,11 +185,15 @@ async function ensureAccountFunded(address: string): Promise<void> {
 
         // ── Display ──────────────────────────────────────────────────
         console.log(`  Address     ${bold(address)}`);
-        console.log(`  Asset Hub   ${balance.free > 0n ? green(formatBalance(balance.free, { symbol: "PAS", maxDecimals: 4 })) : red("0 PAS")}`);
+        console.log(
+            `  Asset Hub   ${balance.free > 0n ? green(formatBalance(balance.free, { symbol: "PAS", maxDecimals: 4 })) : red("0 PAS")}`,
+        );
         console.log(`  Mapped      ${mapped ? green("yes") : red("no")}`);
         if (auth.authorized) {
             const mb = (Number(auth.remainingBytes) / 1_000_000).toFixed(1);
-            console.log(`  Bulletin    ${green(`${auth.remainingTransactions} txns`)}  ${green(`${mb} MB`)}`);
+            console.log(
+                `  Bulletin    ${green(`${auth.remainingTransactions} txns`)}  ${green(`${mb} MB`)}`,
+            );
         } else {
             console.log(`  Bulletin    ${dim("no allowance")}`);
         }
@@ -197,10 +201,15 @@ async function ensureAccountFunded(address: string): Promise<void> {
         // ── Fund if needed ───────────────────────────────────────────
         if (needsFunding(balance)) {
             console.log();
-            const fundSpinner = spinner("Fund", `Transferring ${formatBalance(FUND_AMOUNT, { symbol: "PAS" })} from Alice...`);
+            const fundSpinner = spinner(
+                "Fund",
+                `Transferring ${formatBalance(FUND_AMOUNT, { symbol: "PAS" })} from Alice...`,
+            );
             try {
                 const newFree = await fundFromAlice(client, address);
-                fundSpinner.succeed(`Funded — ${formatBalance(newFree, { symbol: "PAS", maxDecimals: 4 })}`);
+                fundSpinner.succeed(
+                    `Funded — ${formatBalance(newFree, { symbol: "PAS", maxDecimals: 4 })}`,
+                );
             } catch (err) {
                 fundSpinner.fail("Failed to fund account");
                 console.log(`    ${dim(String(err))}`);

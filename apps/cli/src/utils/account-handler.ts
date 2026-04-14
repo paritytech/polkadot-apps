@@ -29,7 +29,10 @@ export interface AccountStatus {
 /**
  * Fetch the account's on-chain status: Asset Hub balance, Revive mapping, and Bulletin allowance.
  */
-export async function fetchAccountStatus(client: PaseoClient, address: string): Promise<AccountStatus> {
+export async function fetchAccountStatus(
+    client: PaseoClient,
+    address: string,
+): Promise<AccountStatus> {
     const balance = await getBalance(client.assetHub, address);
     const inkSdk = createInkSdk(client.raw.assetHub, { atBest: true });
     const mapped = await inkSdk.addressIsMapped(address);
@@ -75,7 +78,11 @@ export async function mapAccount(client: PaseoClient, address: string): Promise<
             }
         });
         setTimeout(() => {
-            if (!resolved) { resolved = true; unsub?.(); resolve(null); }
+            if (!resolved) {
+                resolved = true;
+                unsub?.();
+                resolve(null);
+            }
         }, 3000);
     });
     if (!session) {

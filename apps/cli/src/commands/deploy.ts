@@ -382,9 +382,7 @@ export const deployCommand = new Command("deploy")
                 const display = formatBalance(balance.free, { symbol: "PAS", maxDecimals: 4 });
                 if (balance.free === 0n) {
                     s0b.fail(`Account has no funds (${display})`);
-                    console.log(
-                        `    ${dim("Fund this account on Asset Hub before deploying.")}`,
-                    );
+                    console.log(`    ${dim("Fund this account on Asset Hub before deploying.")}`);
                     process.exit(1);
                 } else if (balance.free < MIN_BALANCE) {
                     s0b.fail(`Low balance: ${display}`);
@@ -455,17 +453,13 @@ export const deployCommand = new Command("deploy")
                     const iconPath = opts.icon ?? config.icon;
 
                     if (tag && !(TAGS as readonly string[]).includes(tag)) {
-                        throw new Error(
-                            `Invalid tag "${tag}". Must be one of: ${TAGS.join(", ")}`,
-                        );
+                        throw new Error(`Invalid tag "${tag}". Must be one of: ${TAGS.join(", ")}`);
                     }
 
                     let iconBytes: Uint8Array | undefined;
                     let iconCid: string | undefined;
                     if (iconPath) {
-                        iconBytes = new Uint8Array(
-                            readFileSync(resolve(process.cwd(), iconPath)),
-                        );
+                        iconBytes = new Uint8Array(readFileSync(resolve(process.cwd(), iconPath)));
                         iconCid = computeCid(iconBytes);
                     }
 
@@ -526,20 +520,14 @@ export const deployCommand = new Command("deploy")
                     })();
 
                     const registryPromise = (async () => {
-                        const result = await conn!.registry.publish.tx(
-                            fullDomain,
-                            metadataCid,
-                            {
-                                signer: queuedSigner,
-                                origin,
-                            },
-                        );
+                        const result = await conn!.registry.publish.tx(fullDomain, metadataCid, {
+                            signer: queuedSigner,
+                            origin,
+                        });
                         if (!result.ok) {
                             const errDetail = result.dispatchError
-                                ? JSON.stringify(
-                                      result.dispatchError,
-                                      (_: string, v: unknown) =>
-                                          typeof v === "bigint" ? v.toString() : v,
+                                ? JSON.stringify(result.dispatchError, (_: string, v: unknown) =>
+                                      typeof v === "bigint" ? v.toString() : v,
                                   )
                                 : "Transaction failed";
                             throw new Error(errDetail);
@@ -624,9 +612,7 @@ export const deployCommand = new Command("deploy")
                 } catch (err) {
                     s.fail(err instanceof Error ? err.message : "Frontend deployment failed");
                     if (err instanceof Error && err.stack) {
-                        console.log(
-                            `    ${dim(err.stack.split("\n").slice(1, 4).join("\n    "))}`,
-                        );
+                        console.log(`    ${dim(err.stack.split("\n").slice(1, 4).join("\n    "))}`);
                     }
                     failed = true;
                 }

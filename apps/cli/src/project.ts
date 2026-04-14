@@ -193,10 +193,10 @@ const TOOLCHAIN_STEPS: ToolchainStep[] = [
 
         check: () => commandExists("rustup"),
         install: () =>
-            execSync(
-                'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
-                { stdio: "inherit", shell: "/bin/bash" },
-            ),
+            execSync('curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y', {
+                stdio: "inherit",
+                shell: "/bin/bash",
+            }),
         manualHint: "Install manually: https://rustup.rs",
     },
     {
@@ -277,7 +277,11 @@ export interface ToolchainResult {
 export function ensureToolchain(options?: {
     verbose?: boolean;
     /** When provided, spinner-style callbacks for install progress. */
-    onStep?: (name: string, status: "checking" | "installing" | "ok" | "failed", msg?: string) => void;
+    onStep?: (
+        name: string,
+        status: "checking" | "installing" | "ok" | "failed",
+        msg?: string,
+    ) => void;
 }): ToolchainResult[] {
     const verbose = options?.verbose ?? false;
     const onStep = options?.onStep;
