@@ -80,10 +80,29 @@ AI coding assistants (Claude Code, Copilot, Gemini, Codex) use the skills in `sk
 
 ## Examples
 
-The `examples/` directory contains sample applications for validation and benchmarking:
+The `examples/` directory contains sample applications and E2E test packages:
 
 - **`examples/multi-chain-explorer/`** — CLI app that queries Paseo chain state, balances, submits a remark transaction, and demonstrates batch transaction submission. Run with `pnpm start` from the example directory (after `pnpm build` from root).
 - **`examples/t3rminal-lite/`** — Next.js web app demonstrating wallet connection, address display, and transaction submission. Run with `pnpm dev` from the example directory.
+
+### E2E Integration Tests
+
+Nine demo packages exercise the Host API path of each package via Playwright + `@parity/host-api-test-sdk`. Each runs a Vite dev server inside the test host's iframe, driving the UI with `data-testid` selectors.
+
+| Demo | Package Tested | Tests |
+|------|---------------|-------|
+| `tx-demo` | tx, signer | Transaction submission, batch, finalization, dispatch errors |
+| `signer-demo` | signer | Connect, select, switch, signRaw, permissions |
+| `contracts-demo` | contracts | ContractManager, query, tx, signing rejection |
+| `statement-store-demo` | statement-store | Publish, subscribe, inject, channel store |
+| `bulletin-demo` | bulletin | Preimage upload/query, CID round-trip |
+| `host-demo` | host | Container detection, host localStorage CRUD |
+| `storage-demo` | storage | KvStore auto-detection, host backend, prefix |
+| `chain-client-demo` | chain-client | Preset, BYOD, lifecycle/destroy |
+| `keys-demo` | keys | Session key lifecycle, derivation, host persistence |
+
+Run a single demo's tests: `pnpm --filter @polkadot-apps/tx-demo test:e2e`
+Run all E2E tests: each demo runs independently in CI (`.github/workflows/e2e.yml`).
 
 ## Reference Repos
 

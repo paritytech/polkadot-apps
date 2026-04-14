@@ -288,6 +288,6 @@ Client connections are cached on `globalThis.__chainClientCache` to survive hot 
 
 | Chain | RPC Endpoints |
 |---|---|
-| Asset Hub | `wss://sys.ibp.network/asset-hub-paseo`, `wss://asset-hub-paseo-rpc.dwellir.com` |
+| Asset Hub | `wss://asset-hub-paseo-rpc.n.dwellir.com`, `wss://sys.ibp.network/asset-hub-paseo` |
 | Bulletin | `wss://paseo-bulletin-rpc.polkadot.io` |
 | Individuality | `wss://pop3-testnet.parity-lab.parity.io/people` |
