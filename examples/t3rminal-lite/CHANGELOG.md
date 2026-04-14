@@ -1,5 +1,12 @@
 # t3rminal-lite
 
+## 0.0.11
+
+### Patch Changes
+
+- Updated dependencies [6ba8ae6]
+  - @polkadot-apps/chain-client@2.0.3
+
 ## 0.0.10
 
 ### Patch Changes

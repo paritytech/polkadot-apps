@@ -8,8 +8,8 @@ import { expect, type FrameLocator } from "@playwright/test";
  *   1. Host connection established
  *   2. Signer connected ("connected")
  *   3. Account address resolved (not "-")
- *   4. KvStore ready ("ready")
- *   5. Controls enabled (set button)
+ *   4. Session status = "ready"
+ *   5. Controls enabled (create button)
  */
 export async function waitForAppReady(
     testHost: TestHost,
@@ -27,13 +27,13 @@ export async function waitForAppReady(
     });
     await expect(frame.locator('[data-testid="account-address"]')).not.toHaveText("-", { timeout });
 
-    // KvStore created and ready
-    await expect(frame.locator('[data-testid="store-status"]')).toHaveText("ready", {
+    // Session key manager should be ready
+    await expect(frame.locator('[data-testid="session-status"]')).toHaveText("ready", {
         timeout,
     });
 
-    // Controls should be enabled (set button not disabled)
-    await expect(frame.locator('[data-testid="btn-set"]')).toBeEnabled({ timeout });
+    // Controls should be enabled (create button not disabled)
+    await expect(frame.locator('[data-testid="btn-create"]')).toBeEnabled({ timeout });
 
     return frame;
 }

@@ -9,7 +9,7 @@ export default defineConfig({
         "import.meta.vitest": "undefined",
     },
     server: {
-        port: 5250,
+        port: 5260,
     },
     build: {
         outDir: "dist",

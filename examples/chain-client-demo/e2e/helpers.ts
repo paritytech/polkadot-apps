@@ -2,14 +2,14 @@ import type { TestHost } from "@parity/host-api-test-sdk/playwright";
 import { expect, type FrameLocator } from "@playwright/test";
 
 /**
- * Wait for the demo app to fully boot inside the test host.
+ * Wait for the chain-client demo app to fully boot inside the test host.
  *
  * Waits for:
  *   1. Host connection established
  *   2. Signer connected ("connected")
  *   3. Account address resolved (not "-")
- *   4. KvStore ready ("ready")
- *   5. Controls enabled (set button)
+ *   4. Preset status = "connected"
+ *   5. BYOD status = "connected"
  */
 export async function waitForAppReady(
     testHost: TestHost,
@@ -27,13 +27,13 @@ export async function waitForAppReady(
     });
     await expect(frame.locator('[data-testid="account-address"]')).not.toHaveText("-", { timeout });
 
-    // KvStore created and ready
-    await expect(frame.locator('[data-testid="store-status"]')).toHaveText("ready", {
+    // Both preset and BYOD should be connected
+    await expect(frame.locator('[data-testid="preset-status"]')).toHaveText("connected", {
         timeout,
     });
-
-    // Controls should be enabled (set button not disabled)
-    await expect(frame.locator('[data-testid="btn-set"]')).toBeEnabled({ timeout });
+    await expect(frame.locator('[data-testid="byod-status"]')).toHaveText("connected", {
+        timeout,
+    });
 
     return frame;
 }

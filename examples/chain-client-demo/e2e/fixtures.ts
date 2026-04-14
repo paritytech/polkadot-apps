@@ -6,9 +6,9 @@ import {
     type TestHost,
 } from "@parity/host-api-test-sdk/playwright";
 
-// Paseo Asset Hub uses SS58 prefix 0 → addresses start with "1".
+// Paseo Asset Hub uses SS58 prefix 0 -> addresses start with "1".
 export const SS58_PREFIX = 0;
-const PRODUCT_URL = "http://localhost:5250";
+const PRODUCT_URL = "http://localhost:5260";
 
 /**
  * Paseo Asset Hub config with a configurable RPC endpoint.
@@ -27,15 +27,12 @@ const PASEO_AH: ChainConfig = {
  *
  * `productAccounts` maps this app's DotNS-derived account (used by `SignerManager`
  * when it asks the host for a non-product account) to the funded dev keypair.
- *
- * The chain config is for the host container's account resolution; the storage
- * operations themselves route through the host's localStorage bridge.
  */
 const bobFixture = createTestHostFixture({
     productUrl: PRODUCT_URL,
     accounts: ["bob"],
     chain: PASEO_AH,
-    productAccounts: { "storage-demo.dot/0": "bob" },
+    productAccounts: { "chain-client-demo.dot/0": "bob" },
 });
 
 export const test = base.extend<{ testHost: TestHost }>(bobFixture);
