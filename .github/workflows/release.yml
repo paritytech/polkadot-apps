@@ -13,6 +13,9 @@ jobs:
     release:
         if: github.event.workflow_run.conclusion == 'success'
         runs-on: parity-default
+        outputs:
+            should_release: ${{ steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true' }}
+            cli_tag: ${{ steps.cli_tag.outputs.tag }}
         steps:
             - uses: actions/checkout@v4
               with:
@@ -127,14 +130,12 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.NPM_PUBLISH_AUTOMATION_TOKEN }}
 
-            # Compile CLI binaries for all platforms
-            - name: Compile CLI binaries
+            # Compile Linux CLI binaries
+            - name: Compile Linux CLI binaries
               if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
               run: |
                   bun build --compile --target=bun-linux-x64 ./apps/cli/src/index.ts --outfile dot-linux-x64
                   bun build --compile --target=bun-linux-arm64 ./apps/cli/src/index.ts --outfile dot-linux-arm64
-                  bun build --compile --target=bun-darwin-x64 ./apps/cli/src/index.ts --outfile dot-darwin-x64
-                  bun build --compile --target=bun-darwin-arm64 ./apps/cli/src/index.ts --outfile dot-darwin-arm64
 
             - name: Generate CLI release tag
               if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
@@ -145,12 +146,60 @@ jobs:
                   echo "tag=$TAG" >> $GITHUB_OUTPUT
                   echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-            - name: Create GitHub Release
+            - name: Upload Linux binaries
               if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: linux-binaries
+                  path: |
+                      dot-linux-x64
+                      dot-linux-arm64
+
+    # macOS binaries must be built on macOS for proper ad-hoc code signing
+    build-macos:
+        needs: release
+        if: needs.release.outputs.should_release == 'true'
+        runs-on: parity-macos
+        steps:
+            - uses: actions/checkout@v4
+            - uses: oven-sh/setup-bun@v2
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+
+            - run: pnpm install
+            - run: pnpm build
+
+            - name: Compile macOS binaries
+              run: |
+                  bun build --compile --target=bun-darwin-x64 ./apps/cli/src/index.ts --outfile dot-darwin-x64
+                  bun build --compile --target=bun-darwin-arm64 ./apps/cli/src/index.ts --outfile dot-darwin-arm64
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: macos-binaries
+                  path: |
+                      dot-darwin-x64
+                      dot-darwin-arm64
+
+    create-release:
+        needs: [release, build-macos]
+        if: needs.release.outputs.should_release == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                  name: linux-binaries
+            - uses: actions/download-artifact@v4
+              with:
+                  name: macos-binaries
+
+            - name: Create GitHub Release
               uses: softprops/action-gh-release@v2
               with:
-                  tag_name: ${{ steps.cli_tag.outputs.tag }}
-                  name: Release ${{ steps.cli_tag.outputs.tag }}
+                  tag_name: ${{ needs.release.outputs.cli_tag }}
+                  name: Release ${{ needs.release.outputs.cli_tag }}
                   files: |
                       dot-linux-x64
                       dot-linux-arm64

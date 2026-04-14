@@ -13,29 +13,26 @@ ASSET="$BIN-$OS-$ARCH"
 # 2) Resolve release tag
 if [ -n "$DOT_TAG" ]; then
   TAG="$DOT_TAG"
-elif command -v gh >/dev/null 2>&1; then
-  # Try latest non-prerelease, then fall back to newest release of any kind
-  TAG=$(gh release view --repo "$REPO" --json tagName -q '.tagName' 2>/dev/null) \
-    || TAG=$(gh release list --repo "$REPO" --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null) \
-    || true
-fi
-if [ -z "$TAG" ]; then
-  # Fallback: unauthenticated redirect (works for public repos only)
+else
+  # Try latest stable release first
   TAG=$(curl -fsSI "https://github.com/$REPO/releases/latest" \
         | sed -n 's|^location:.*/tag/\(.*\)$|\1|p' | tr -d '\r' | head -n1) || true
+  # Fall back to newest release of any kind (including pre-releases)
+  if [ -z "$TAG" ]; then
+    TAG=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=1" \
+          | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1) || true
+  fi
 fi
 [ -z "$TAG" ] && echo "Could not determine latest release" && exit 1
 
 # 3) Install binary
 mkdir -p "$DOT_DIR/bin" "$HOME/.local/bin"
-if command -v gh >/dev/null 2>&1; then
-  gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --output "$DOT_DIR/bin/$BIN" --clobber
-else
-  curl -fsSL -L "https://github.com/$REPO/releases/download/$TAG/$ASSET" -o "$DOT_DIR/bin/$BIN"
-fi
+curl -fsSL "https://github.com/$REPO/releases/download/$TAG/$ASSET" -o "$DOT_DIR/bin/$BIN"
 chmod +x "$DOT_DIR/bin/$BIN"
-# Strip macOS quarantine/provenance xattrs so Gatekeeper won't block the unsigned binary
-if [ "$OS" = "darwin" ] && command -v xattr >/dev/null 2>&1; then
+if [ "$OS" = "darwin" ]; then
+  # Ad-hoc sign — Apple Silicon requires at least this to run a binary
+  codesign --sign - --force "$DOT_DIR/bin/$BIN" 2>/dev/null || true
+  # Strip quarantine/provenance xattrs
   xattr -c "$DOT_DIR/bin/$BIN" 2>/dev/null || true
 fi
 ln -sf "$DOT_DIR/bin/$BIN" "$HOME/.local/bin/$BIN"
