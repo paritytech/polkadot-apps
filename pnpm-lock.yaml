@@ -125,8 +125,8 @@ importers:
         version: 1.23.3(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
     devDependencies:
       '@parity/host-api-test-sdk':
-        specifier: ^0.5.0
-        version: 0.5.0(@playwright/test@1.59.1)
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
       '@playwright/test':
         specifier: ^1.50.0
         version: 1.59.1
@@ -187,8 +187,36 @@ importers:
         version: 1.23.3(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
     devDependencies:
       '@parity/host-api-test-sdk':
-        specifier: ^0.5.0
-        version: 0.5.0(@playwright/test@1.59.1)
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
+      '@playwright/test':
+        specifier: ^1.50.0
+        version: 1.59.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
+  examples/statement-store-demo:
+    dependencies:
+      '@novasamatech/host-api':
+        specifier: 'catalog:'
+        version: 0.6.17
+      '@novasamatech/product-sdk':
+        specifier: 'catalog:'
+        version: 0.6.17(@polkadot/api@16.5.6)(@polkadot/util@14.0.3)
+      '@polkadot-apps/signer':
+        specifier: workspace:*
+        version: link:../../packages/signer
+      '@polkadot-apps/statement-store':
+        specifier: workspace:*
+        version: link:../../packages/statement-store
+    devDependencies:
+      '@parity/host-api-test-sdk':
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
       '@playwright/test':
         specifier: ^1.50.0
         version: 1.59.1
@@ -292,8 +320,8 @@ importers:
         version: 1.23.3(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
     devDependencies:
       '@parity/host-api-test-sdk':
-        specifier: ^0.5.0
-        version: 0.5.0(@playwright/test@1.59.1)
+        specifier: ^0.6.0
+        version: 0.6.0(@playwright/test@1.59.1)
       '@playwright/test':
         specifier: ^1.50.0
         version: 1.59.1
@@ -1439,8 +1467,8 @@ packages:
   '@novasamatech/storage-adapter@0.6.17':
     resolution: {integrity: sha512-J8xKl0dshS/r8zcrpdjQcqB74d7Y1nISVPTBPS5/Ael4zv/TOi2MKM7SE/wwRkJ6qJsvWJMNHodrm75f8YWHlQ==}
 
-  '@parity/host-api-test-sdk@0.5.0':
-    resolution: {integrity: sha512-11kRc9kUCpT3CUTOtxeCqivEeIygz2cZ/1JtKqJBAIxzhYhIL6+42vX4B/D58jT9i8fQoPrtIkq4epCCFlbKlg==}
+  '@parity/host-api-test-sdk@0.6.0':
+    resolution: {integrity: sha512-FNpnTiWaVwae6hrjKM6ytT2ISGUDhm232KuAwhm1ZOlWzfGWCKLEh5wtsd1xJbREEGH6Ixk8JdaTQElJnsrdVw==}
     peerDependencies:
       '@playwright/test': '>=1.0.0'
     peerDependenciesMeta:
@@ -4564,7 +4592,7 @@ snapshots:
       nanoevents: 9.1.0
       neverthrow: 8.2.0
 
-  '@parity/host-api-test-sdk@0.5.0(@playwright/test@1.59.1)':
+  '@parity/host-api-test-sdk@0.6.0(@playwright/test@1.59.1)':
     dependencies:
       '@novasamatech/host-api': 0.6.17
     optionalDependencies:
