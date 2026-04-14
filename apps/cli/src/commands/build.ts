@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { execSync } from "node:child_process";
-import { hasContracts, getBuildCommand } from "../project.js";
-import { spinner, bold, dim, green } from "../ui.js";
+import { hasContracts, getBuildCommand, ensureToolchain } from "../project.js";
+import { spinner, bold, dim, green, red } from "../ui.js";
 
 /* @integration */
 export const buildCommand = new Command("build")
@@ -10,6 +10,33 @@ export const buildCommand = new Command("build")
     .option("--frontend-only", "Only build frontend")
     .action((opts) => {
         let failed = false;
+
+        // Ensure toolchain (quiet — only prints when installing)
+        {
+            let activeSpinner: ReturnType<typeof spinner> | null = null;
+            const results = ensureToolchain({
+                onStep: (name, status, msg) => {
+                    if (status === "installing") {
+                        activeSpinner = spinner(name, msg ?? `Installing ${name}...`);
+                    } else if (status === "ok" && activeSpinner) {
+                        activeSpinner.succeed(msg ?? name);
+                        activeSpinner = null;
+                    } else if (status === "failed") {
+                        activeSpinner?.fail(msg ?? `Failed to install ${name}`);
+                        activeSpinner = null;
+                    }
+                },
+            });
+            const failures = results.filter((r) => !r.ok);
+            if (failures.length > 0) {
+                for (const f of failures) {
+                    console.log(`  ${red("✖")} ${f.name}: ${f.error}`);
+                    if (f.manualHint) console.log(`    ${dim(f.manualHint)}`);
+                }
+                process.exitCode = 1;
+                return;
+            }
+        }
 
         // Contracts
         if (!opts.frontendOnly && hasContracts()) {

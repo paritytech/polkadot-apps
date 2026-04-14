@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, platform } from "node:os";
 import { resolve } from "node:path";
 import { execSync } from "node:child_process";
 import { seedToAccount } from "@polkadot-apps/keys";
@@ -125,6 +125,192 @@ export function getBuildCommand(): string | undefined {
         // No package.json — no build command
     }
     return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Toolchain helpers
+// ---------------------------------------------------------------------------
+
+function commandExists(cmd: string): boolean {
+    try {
+        execSync(`command -v ${cmd}`, { stdio: "pipe" });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function hasRustNightly(): boolean {
+    try {
+        const out = execSync("rustup toolchain list", { encoding: "utf-8", stdio: "pipe" });
+        return out.includes("nightly");
+    } catch {
+        return false;
+    }
+}
+
+function hasRustSrc(): boolean {
+    try {
+        const out = execSync("rustup component list --toolchain nightly", {
+            encoding: "utf-8",
+            stdio: "pipe",
+        });
+        return out.includes("rust-src (installed)");
+    } catch {
+        return false;
+    }
+}
+
+function hasCdm(): boolean {
+    return commandExists("cdm") && commandExists("cargo-pvm-contract");
+}
+
+function isIpfsInitialized(): boolean {
+    return existsSync(resolve(homedir(), ".ipfs"));
+}
+
+function isGhAuthenticated(): boolean {
+    try {
+        execSync("gh auth status", { stdio: "pipe" });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+export { commandExists, isGhAuthenticated };
+
+interface ToolchainStep {
+    name: string;
+    check: () => boolean;
+    install: () => void;
+    manualHint?: string;
+}
+
+const TOOLCHAIN_STEPS: ToolchainStep[] = [
+    {
+        name: "rustup",
+
+        check: () => commandExists("rustup"),
+        install: () =>
+            execSync(
+                'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
+                { stdio: "inherit", shell: "/bin/bash" },
+            ),
+        manualHint: "Install manually: https://rustup.rs",
+    },
+    {
+        name: "Rust nightly",
+
+        check: () => hasRustNightly(),
+        install: () => execSync("rustup toolchain install nightly", { stdio: "inherit" }),
+    },
+    {
+        name: "rust-src",
+
+        check: () => hasRustSrc(),
+        install: () =>
+            execSync("rustup component add rust-src --toolchain nightly", { stdio: "inherit" }),
+    },
+    {
+        name: "cdm & cargo-pvm-contract",
+
+        check: () => hasCdm(),
+        install: () =>
+            execSync(
+                "curl -fsSL https://raw.githubusercontent.com/paritytech/contract-dependency-manager/main/install.sh | bash",
+                { stdio: "inherit", shell: "/bin/bash" },
+            ),
+        manualHint:
+            "Install manually: curl -fsSL https://raw.githubusercontent.com/paritytech/contract-dependency-manager/main/install.sh | bash",
+    },
+    {
+        name: "IPFS",
+
+        check: () => commandExists("ipfs") && isIpfsInitialized(),
+        install: () => {
+            if (!commandExists("ipfs")) {
+                if (platform() === "darwin" && commandExists("brew")) {
+                    execSync("brew install ipfs", { stdio: "inherit" });
+                } else if (platform() === "darwin") {
+                    execSync(
+                        "curl -fsSL https://dist.ipfs.tech/kubo/v0.33.2/kubo_v0.33.2_darwin-arm64.tar.gz | tar xz && cd kubo && sudo bash install.sh && cd .. && rm -rf kubo",
+                        { stdio: "inherit", shell: "/bin/bash" },
+                    );
+                } else {
+                    execSync(
+                        "curl -fsSL https://dist.ipfs.tech/kubo/v0.33.2/kubo_v0.33.2_linux-amd64.tar.gz | tar xz && cd kubo && sudo bash install.sh && cd .. && rm -rf kubo",
+                        { stdio: "inherit", shell: "/bin/bash" },
+                    );
+                }
+            }
+            if (!isIpfsInitialized()) {
+                execSync("ipfs init", { stdio: "inherit" });
+            }
+        },
+        manualHint: "Install: https://docs.ipfs.tech/install/ then run: ipfs init",
+    },
+];
+
+export interface ToolchainResult {
+    name: string;
+    ok: boolean;
+    installed: boolean;
+    error?: string;
+    manualHint?: string;
+}
+
+/**
+ * Ensure dev toolchain dependencies are installed.
+ *
+ * In **quiet** mode (default): prints nothing when everything is already
+ * installed. Only prints spinner + status when something needs installing.
+ *
+ * In **verbose** mode: prints a checkmark for each tool that's already
+ * present, matching `dot init` output style.
+ *
+ * Use `scopes` to only check/install tools needed for the current command.
+ * Omit scopes (or pass empty) to check everything (used by `dot init`).
+ *
+ * @returns Array of results for each toolchain step.
+ */
+export function ensureToolchain(options?: {
+    verbose?: boolean;
+    /** When provided, spinner-style callbacks for install progress. */
+    onStep?: (name: string, status: "checking" | "installing" | "ok" | "failed", msg?: string) => void;
+}): ToolchainResult[] {
+    const verbose = options?.verbose ?? false;
+    const onStep = options?.onStep;
+    const results: ToolchainResult[] = [];
+
+    for (const step of TOOLCHAIN_STEPS) {
+        if (step.check()) {
+            if (verbose) {
+                onStep?.(step.name, "ok");
+            }
+            results.push({ name: step.name, ok: true, installed: false });
+            continue;
+        }
+
+        onStep?.(step.name, "installing", `Installing ${step.name}...`);
+        try {
+            step.install();
+            onStep?.(step.name, "ok", `${step.name} installed`);
+            results.push({ name: step.name, ok: true, installed: true });
+        } catch (err) {
+            const error = err instanceof Error ? err.message : String(err);
+            onStep?.(step.name, "failed", error);
+            results.push({
+                name: step.name,
+                ok: false,
+                installed: false,
+                error,
+                manualHint: step.manualHint,
+            });
+        }
+    }
+
+    return results;
 }
 
 // ---------------------------------------------------------------------------

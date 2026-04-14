@@ -57,6 +57,8 @@ export default defineConfig({
                 "**/index.ts",
                 "**/types.ts",
                 "**/encoding.ts",
+                // CLI is private and compiled via bun — exclude from coverage
+                "apps/cli/**",
                 // Integration-only: require real WebSocket/provider connections
                 "**/container.ts",
                 "**/providers.ts",

@@ -17,6 +17,7 @@ import {
     readReadme,
     hasContracts,
     getBuildCommand,
+    ensureToolchain,
 } from "../project.js";
 import { spinner, bold, dim, cyan, green, red, yellow } from "../ui.js";
 
@@ -280,6 +281,36 @@ export const deployCommand = new Command("deploy")
         let conn: Connection | undefined;
 
         try {
+            // ── Ensure toolchain (quiet — only prints when installing) ────────
+            {
+                let activeSpinner: ReturnType<typeof spinner> | null = null;
+                const results = ensureToolchain({
+                    onStep: (name, status, msg) => {
+                        if (status === "installing") {
+                            activeSpinner = spinner(name, msg ?? `Installing ${name}...`);
+                        } else if (status === "ok" && activeSpinner) {
+                            activeSpinner.succeed(msg ?? name);
+                            activeSpinner = null;
+                        } else if (status === "failed") {
+                            activeSpinner?.fail(msg ?? `Failed to install ${name}`);
+                            activeSpinner = null;
+                        }
+                    },
+                });
+                const failures = results.filter((r) => !r.ok);
+                if (failures.length > 0) {
+                    for (const f of failures) {
+                        console.log(`  ${red("✖")} ${f.name}: ${f.error}`);
+                        if (f.manualHint) console.log(`    ${dim(f.manualHint)}`);
+                    }
+                    console.log();
+                    console.log(
+                        `${red("Missing dependencies.")} Run ${bold("dot init")} to set up your environment.`,
+                    );
+                    process.exit(1);
+                }
+            }
+
             // ── Resolve config from package.json playground:* fields ─────────
             const config = loadPlaygroundConfig();
             const domain = opts.domain ?? config.domain;

@@ -6,8 +6,8 @@ import { resolve, basename } from "node:path";
 import { createInterface } from "node:readline";
 import { connect, fetchIpfs, unwrapOption } from "../connection.js";
 import { type AppMetadata } from "../config.js";
-import { detectPackageManager } from "../project.js";
-import { spinner, printTable, truncate, bold, green, dim, cyan, yellow } from "../ui.js";
+import { detectPackageManager, ensureToolchain } from "../project.js";
+import { spinner, printTable, truncate, bold, green, dim, cyan, yellow, red } from "../ui.js";
 
 /* @integration */
 function ask(prompt: string, fallback?: string): Promise<string> {
@@ -197,6 +197,32 @@ export const remixCommand = new Command("remix")
     .option("--ipfs-gateway-url <url>", "Override IPFS gateway URL")
     .option("--no-install", "Skip dependency installation")
     .action(async (rawDomain: string | undefined, opts) => {
+        // Ensure toolchain (quiet — only prints when installing)
+        {
+            let activeSpinner: ReturnType<typeof spinner> | null = null;
+            const results = ensureToolchain({
+                onStep: (name, status, msg) => {
+                    if (status === "installing") {
+                        activeSpinner = spinner(name, msg ?? `Installing ${name}...`);
+                    } else if (status === "ok" && activeSpinner) {
+                        activeSpinner.succeed(msg ?? name);
+                        activeSpinner = null;
+                    } else if (status === "failed") {
+                        activeSpinner?.fail(msg ?? `Failed to install ${name}`);
+                        activeSpinner = null;
+                    }
+                },
+            });
+            const failures = results.filter((r) => !r.ok);
+            if (failures.length > 0) {
+                for (const f of failures) {
+                    console.log(`  ${red("✖")} ${f.name}: ${f.error}`);
+                    if (f.manualHint) console.log(`    ${dim(f.manualHint)}`);
+                }
+                process.exit(1);
+            }
+        }
+
         let domain: string;
         let metadata: AppMetadata | undefined;
 

@@ -1,49 +1,6 @@
 import { Command } from "commander";
-import { execSync } from "node:child_process";
+import { ensureToolchain, commandExists, isGhAuthenticated } from "../project.js";
 import { spinner, bold, dim, green, yellow } from "../ui.js";
-
-function commandExists(cmd: string): boolean {
-    try {
-        execSync(`command -v ${cmd}`, { stdio: "pipe" });
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-function isGhAuthenticated(): boolean {
-    try {
-        execSync("gh auth status", { stdio: "pipe" });
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-function hasRustNightly(): boolean {
-    try {
-        const out = execSync("rustup toolchain list", { encoding: "utf-8", stdio: "pipe" });
-        return out.includes("nightly");
-    } catch {
-        return false;
-    }
-}
-
-function hasRustSrc(): boolean {
-    try {
-        const out = execSync("rustup component list --toolchain nightly", {
-            encoding: "utf-8",
-            stdio: "pipe",
-        });
-        return out.includes("rust-src (installed)");
-    } catch {
-        return false;
-    }
-}
-
-function hasCdm(): boolean {
-    return commandExists("cdm") && commandExists("cargo-pvm-contract");
-}
 
 if (import.meta.vitest) {
     const { test, expect, describe } = import.meta.vitest;
@@ -55,18 +12,6 @@ if (import.meta.vitest) {
         });
         test("returns false for nonexistent commands", () => {
             expect(commandExists("definitely-not-a-real-command-xyz")).toBe(false);
-        });
-    });
-
-    describe("hasRustNightly", () => {
-        test("returns a boolean", () => {
-            expect(typeof hasRustNightly()).toBe("boolean");
-        });
-    });
-
-    describe("hasRustSrc", () => {
-        test("returns a boolean", () => {
-            expect(typeof hasRustSrc()).toBe("boolean");
         });
     });
 
@@ -224,66 +169,27 @@ export const initCommand = new Command("init")
         console.log(`  ${bold("dot init")} — Setting up your development environment`);
         console.log();
 
-        // ── Step 1: Rust toolchain ────────────────────────────────────
+        // ── Step 1: Toolchain ────────────────────────────────────────
         if (!opts.skipToolchain) {
-            if (!commandExists("rustup")) {
-                const s = spinner("Rust", "Installing rustup...");
-                try {
-                    execSync(
-                        'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
-                        { stdio: "pipe", shell: "/bin/bash" },
-                    );
-                    s.succeed("rustup installed");
-                } catch {
-                    s.fail("Failed to install rustup");
-                    console.log(`    ${dim("Install manually: https://rustup.rs")}`);
-                }
-            } else {
-                console.log(`  ${green("✔")} rustup`);
-            }
+            let activeSpinner: ReturnType<typeof spinner> | null = null;
 
-            if (!hasRustNightly()) {
-                const s = spinner("Rust", "Installing nightly toolchain...");
-                try {
-                    execSync("rustup toolchain install nightly", { stdio: "pipe" });
-                    s.succeed("Rust nightly installed");
-                } catch {
-                    s.fail("Failed to install Rust nightly");
-                }
-            } else {
-                console.log(`  ${green("✔")} Rust nightly`);
-            }
+            ensureToolchain({
+                verbose: true,
+                onStep: (name, status, msg) => {
+                    if (status === "ok") {
+                        activeSpinner?.succeed(msg ?? name);
+                        activeSpinner = null;
+                        if (!msg) console.log(`  ${green("✔")} ${name}`);
+                    } else if (status === "installing") {
+                        activeSpinner = spinner(name, msg ?? `Installing ${name}...`);
+                    } else if (status === "failed") {
+                        activeSpinner?.fail(msg ?? `Failed to install ${name}`);
+                        activeSpinner = null;
+                    }
+                },
+            });
 
-            if (!hasRustSrc()) {
-                const s = spinner("Rust", "Installing rust-src...");
-                try {
-                    execSync("rustup component add rust-src --toolchain nightly", {
-                        stdio: "pipe",
-                    });
-                    s.succeed("rust-src installed");
-                } catch {
-                    s.fail("Failed to install rust-src");
-                }
-            } else {
-                console.log(`  ${green("✔")} rust-src`);
-            }
-
-            if (!hasCdm()) {
-                const s = spinner("CDM", "Installing cdm & cargo-pvm-contract...");
-                try {
-                    execSync(
-                        'curl -fsSL https://raw.githubusercontent.com/paritytech/contract-dependency-manager/main/install.sh | bash',
-                        { stdio: "pipe", shell: "/bin/bash" },
-                    );
-                    s.succeed("cdm & cargo-pvm-contract installed");
-                } catch {
-                    s.fail("Failed to install cdm");
-                    console.log(`    ${dim("Install manually: curl -fsSL https://raw.githubusercontent.com/paritytech/contract-dependency-manager/main/install.sh | bash")}`);
-                }
-            } else {
-                console.log(`  ${green("✔")} cdm & cargo-pvm-contract`);
-            }
-
+            // GitHub CLI check (advisory, not auto-installed)
             if (!commandExists("gh")) {
                 console.log(`  ${yellow("!")} GitHub CLI not found`);
                 console.log(`    ${dim("Install: https://cli.github.com")}`);
