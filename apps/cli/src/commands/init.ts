@@ -1,6 +1,21 @@
 import { Command } from "commander";
+import { ss58Encode } from "@polkadot-apps/address";
+import { getChainAPI } from "@polkadot-apps/chain-client";
+import { createTerminalAdapter, renderQrCode, createSessionSigner } from "@polkadot-apps/terminal";
+import type { PairingStatus, AttestationStatus } from "@polkadot-apps/terminal";
+import { formatBalance } from "@polkadot-apps/utils";
 import { ensureToolchain, commandExists, isGhAuthenticated } from "../project.js";
-import { spinner, bold, dim, green, yellow } from "../ui.js";
+import { spinner, bold, dim, green, red, yellow } from "../ui.js";
+import {
+    fetchAccountStatus,
+    needsFunding,
+    fundFromAlice,
+    mapAccount,
+    grantBulletinAllowance,
+    FUND_AMOUNT,
+    BULLETIN_TRANSACTIONS,
+    BULLETIN_BYTES,
+} from "../utils/account-handler.js";
 
 if (import.meta.vitest) {
     const { test, expect, describe } = import.meta.vitest;
@@ -30,11 +45,7 @@ const METADATA_URL =
     "https://gist.githubusercontent.com/ReinhardHatko/27415c91178d74196d7c1116d39056d5/raw/56e61d719251170828a80f12d34343a8617b9935/metadata.json";
 
 /* @integration */
-async function doQrLogin(): Promise<boolean> {
-    const { createTerminalAdapter, renderQrCode } = await import("@polkadot-apps/terminal");
-    type PairingStatus = import("@polkadot-apps/terminal").PairingStatus;
-    type AttestationStatus = import("@polkadot-apps/terminal").AttestationStatus;
-
+async function doQrLogin(): Promise<string | null> {
     const adapter = createTerminalAdapter({
         appId: "dot-cli",
         metadataUrl: METADATA_URL,
@@ -65,10 +76,11 @@ async function doQrLogin(): Promise<boolean> {
 
     if (existingSessions.length > 0) {
         const session = existingSessions[0];
-        const addr = "0x" + Buffer.from(session.remoteAccount.accountId).toString("hex");
+        const pubkey = new Uint8Array(session.remoteAccount.accountId);
+        const ss58 = ss58Encode(pubkey);
         console.log(`  ${green("✔")} Authenticated`);
-        console.log(`    ${dim("Address:")} ${addr}`);
-        return true;
+        console.log(`    ${dim("Address:")} ${ss58}`);
+        return ss58;
     }
 
     // No existing session — start QR pairing
@@ -109,13 +121,14 @@ async function doQrLogin(): Promise<boolean> {
     unsubPairing();
     unsubAttestation();
 
-    let success = false;
+    let address: string | null = null;
     result.match(
         (session) => {
             if (session) {
+                const pubkey = new Uint8Array(session.remoteAccount.accountId);
+                address = ss58Encode(pubkey);
                 console.log();
                 console.log(`  ${green("✔")} ${bold("Logged in successfully!")}`);
-                success = true;
             } else {
                 console.log(`  ${dim("Login cancelled.")}`);
             }
@@ -126,7 +139,7 @@ async function doQrLogin(): Promise<boolean> {
     );
 
     // Wait for session to persist to disk before destroying
-    if (success) {
+    if (address) {
         await new Promise<void>((resolve) => {
             let resolved = false;
             let unsub: (() => void) | null = null;
@@ -152,7 +165,81 @@ async function doQrLogin(): Promise<boolean> {
     // Note: adapter.destroy() has a bug where it disconnects the WebSocket
     // before unsubscribing statement store listeners, causing async
     // DestroyedError noise. Skip it — process.exit in the caller cleans up.
-    return success;
+    return address;
+}
+
+// ---------------------------------------------------------------------------
+// Account Setup
+// ---------------------------------------------------------------------------
+
+/* @integration */
+async function ensureAccountFunded(address: string): Promise<void> {
+    const s = spinner("Account", "Fetching account status...");
+
+    let client;
+    try {
+        client = await getChainAPI("paseo");
+        const { balance, mapped, auth } = await fetchAccountStatus(client, address);
+
+        s.succeed("Account status");
+
+        // ── Display ──────────────────────────────────────────────────
+        console.log(`  Address     ${bold(address)}`);
+        console.log(`  Asset Hub   ${balance.free > 0n ? green(formatBalance(balance.free, { symbol: "PAS", maxDecimals: 4 })) : red("0 PAS")}`);
+        console.log(`  Mapped      ${mapped ? green("yes") : red("no")}`);
+        if (auth.authorized) {
+            const mb = (Number(auth.remainingBytes) / 1_000_000).toFixed(1);
+            console.log(`  Bulletin    ${green(`${auth.remainingTransactions} txns`)}  ${green(`${mb} MB`)}`);
+        } else {
+            console.log(`  Bulletin    ${dim("no allowance")}`);
+        }
+
+        // ── Fund if needed ───────────────────────────────────────────
+        if (needsFunding(balance)) {
+            console.log();
+            const fundSpinner = spinner("Fund", `Transferring ${formatBalance(FUND_AMOUNT, { symbol: "PAS" })} from Alice...`);
+            try {
+                const newFree = await fundFromAlice(client, address);
+                fundSpinner.succeed(`Funded — ${formatBalance(newFree, { symbol: "PAS", maxDecimals: 4 })}`);
+            } catch (err) {
+                fundSpinner.fail("Failed to fund account");
+                console.log(`    ${dim(String(err))}`);
+                return;
+            }
+        }
+
+        // ── Map if needed ────────────────────────────────────────────
+        if (!mapped) {
+            console.log();
+            const mapSpinner = spinner("Map", "Mapping account for Revive pallet...");
+            try {
+                await mapAccount(client, address);
+                mapSpinner.succeed("Account mapped");
+            } catch (err) {
+                mapSpinner.fail("Failed to map account");
+                console.log(`    ${dim(String(err))}`);
+            }
+        }
+
+        // ── Bulletin allowance if needed ─────────────────────────────
+        if (!auth.authorized) {
+            console.log();
+            const blSpinner = spinner("Bulletin", "Granting bulletin allowance from Alice...");
+            try {
+                await grantBulletinAllowance(client, address);
+                const mb = (Number(BULLETIN_BYTES) / 1_000_000).toFixed(0);
+                blSpinner.succeed(`Authorized — ${BULLETIN_TRANSACTIONS} txns, ${mb} MB`);
+            } catch (err) {
+                blSpinner.fail("Failed to grant bulletin allowance");
+                console.log(`    ${dim(String(err))}`);
+            }
+        }
+    } catch (err) {
+        s.fail("Failed to fetch account status");
+        console.log(`    ${dim(String(err))}`);
+    } finally {
+        client?.destroy();
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -202,14 +289,22 @@ export const initCommand = new Command("init")
         }
 
         // ── Step 2: QR Authentication ─────────────────────────────────
+        let address: string | null = null;
         if (!opts.skipAuth) {
-            const authOk = await doQrLogin();
-            if (!authOk) {
+            address = await doQrLogin();
+            if (!address) {
                 process.exitCode = 1;
             }
+        }
+
+        // ── Step 3: Account Status ───────────────────────────────────
+        if (address) {
+            console.log();
+            await ensureAccountFunded(address);
         }
 
         console.log();
         console.log(`${green("✔")} ${bold("Setup complete")}`);
         console.log();
+        process.exit(process.exitCode ?? 0);
     });

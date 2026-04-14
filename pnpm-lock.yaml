@@ -117,6 +117,9 @@ importers:
       '@polkadot-api/sdk-ink':
         specifier: 'catalog:'
         version: 0.6.2(@polkadot-api/ink-contracts@0.6.0)(polkadot-api@1.23.3(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3))(rxjs@7.8.2)(typescript@5.9.3)
+      '@polkadot-apps/address':
+        specifier: workspace:*
+        version: link:../../packages/address
       '@polkadot-apps/bulletin':
         specifier: workspace:*
         version: link:../../packages/bulletin
@@ -132,6 +135,9 @@ importers:
       '@polkadot-apps/terminal':
         specifier: workspace:*
         version: link:../../packages/terminal
+      '@polkadot-apps/tx':
+        specifier: workspace:*
+        version: link:../../packages/tx
       '@polkadot-apps/utils':
         specifier: workspace:*
         version: link:../../packages/utils
