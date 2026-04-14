@@ -51,8 +51,8 @@ function hasRustSrc(): boolean {
     }
 }
 
-function hasCargoPvmContract(): boolean {
-    return commandExists("cargo-pvm-contract");
+function hasCdm(): boolean {
+    return commandExists("cdm") && commandExists("cargo-pvm-contract");
 }
 
 if (import.meta.vitest) {
@@ -278,28 +278,20 @@ export const initCommand = new Command("init")
                 console.log(`  ${green("✔")} rust-src`);
             }
 
-            if (!hasCargoPvmContract()) {
-                const s = spinner("Rust", "Installing cargo-pvm-contract...");
+            if (!hasCdm()) {
+                const s = spinner("CDM", "Installing cdm & cargo-pvm-contract...");
                 try {
-                    const hostTarget = execSync("rustc -vV", {
-                        encoding: "utf-8",
-                        stdio: "pipe",
-                    })
-                        .split("\n")
-                        .find((l) => l.startsWith("host:"))
-                        ?.split(" ")[1];
-
                     execSync(
-                        `cargo install --force --locked --target ${hostTarget} --git https://github.com/nicepaycode/cargo-pvm-contract.git`,
-                        { stdio: "pipe" },
+                        'curl -fsSL https://raw.githubusercontent.com/paritytech/contract-dependency-manager/main/install.sh | bash',
+                        { stdio: "pipe", shell: "/bin/bash" },
                     );
-                    s.succeed("cargo-pvm-contract installed");
+                    s.succeed("cdm & cargo-pvm-contract installed");
                 } catch {
-                    s.fail("Failed to install cargo-pvm-contract");
-                    console.log(`    ${dim("Install manually from GitHub")}`);
+                    s.fail("Failed to install cdm");
+                    console.log(`    ${dim("Install manually: curl -fsSL https://raw.githubusercontent.com/paritytech/contract-dependency-manager/main/install.sh | bash")}`);
                 }
             } else {
-                console.log(`  ${green("✔")} cargo-pvm-contract`);
+                console.log(`  ${green("✔")} cdm & cargo-pvm-contract`);
             }
 
             if (!commandExists("gh")) {
