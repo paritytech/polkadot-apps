@@ -25,6 +25,7 @@ function resolveEnvironment(chainName: string): Environment {
 
 export interface Connection {
     registry: any;
+    assetHub: any;
     ipfsGateway: string;
     destroy: () => void;
 }
@@ -45,6 +46,7 @@ export async function connect(chainName?: string): Promise<Connection> {
 
     return {
         registry,
+        assetHub: client.assetHub,
         ipfsGateway: chain.ipfsGateway,
         destroy: () => client.destroy(),
     };

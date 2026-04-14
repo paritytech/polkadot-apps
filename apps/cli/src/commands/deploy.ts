@@ -4,6 +4,7 @@ import { resolve, relative } from "node:path";
 import { execSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { computeCid, BulletinClient } from "@polkadot-apps/bulletin";
+import { getBalance, formatBalance } from "@polkadot-apps/utils";
 import type { PolkadotSigner } from "polkadot-api";
 import { connect } from "../connection.js";
 import { TAGS } from "../config.js";
@@ -15,6 +16,8 @@ import {
     readReadme,
 } from "../project.js";
 import { spinner, bold, dim, cyan, green, red, yellow } from "../ui.js";
+
+const MIN_BALANCE = 1_000_000_000n; // 0.1 PAS — enough for a few txs
 
 // ---------------------------------------------------------------------------
 // Read playground:* fields from package.json
@@ -305,19 +308,57 @@ export const deployCommand = new Command("deploy")
         }
         const fullDomain = domain.endsWith(".dot") ? domain : `${domain}.dot`;
 
+        console.log();
+        console.log(`  ${bold("dot deploy")}`);
+        console.log(`  ${dim("Chain:")}    ${chain}`);
+        console.log(`  ${dim("Domain:")}   ${bold(fullDomain)}`);
+        if (opts.playground) console.log(`  ${dim("Registry:")} enabled`);
+        console.log();
+
         // ── Resolve signer: QR session → --suri → mnemonic ──────────────
         const s0 = spinner("Signer", "Resolving...");
         let signer: PolkadotSigner;
         let origin: string;
+        let signerMethod: string;
         try {
+            if (opts.suri) {
+                signerMethod = `dev SURI (${opts.suri})`;
+            } else {
+                signerMethod = "auto";
+            }
             const resolved = await resolveDeploySigner(chain, opts.suri);
             signer = resolved.signer;
             origin = resolved.origin;
-            s0.succeed(`Signer ready (${dim(origin.slice(0, 10) + "…")})`);
+            s0.succeed(`Signer ready`);
+            console.log(`    ${dim("Address:")} ${cyan(origin)}`);
+            console.log(`    ${dim("Method:")}  ${signerMethod}`);
         } catch (err) {
             s0.fail(err instanceof Error ? err.message : "Failed to resolve signer");
             process.exit(1);
         }
+
+        // ── Balance check on Asset Hub ───────────────────────────────────
+        const s0b = spinner("Balance", "Checking Asset Hub balance...");
+        try {
+            const conn = await connect(chain);
+            const balance = await getBalance(conn.assetHub, origin);
+            // Don't destroy — client is cached and reused by later steps
+            const display = formatBalance(balance.free, { symbol: "PAS", maxDecimals: 4 });
+            if (balance.free === 0n) {
+                s0b.fail(`Account has no funds (${display})`);
+                console.log(`    ${dim("Fund this account on Asset Hub before deploying.")}`);
+                process.exit(1);
+            } else if (balance.free < MIN_BALANCE) {
+                s0b.fail(`Low balance: ${display}`);
+                console.log(`    ${yellow("!")} Balance may be insufficient for deployment fees.`);
+            } else {
+                s0b.succeed(`${display}`);
+            }
+        } catch (err) {
+            s0b.fail(`Could not check balance: ${err instanceof Error ? err.message : String(err)}`);
+            // Non-fatal — proceed with deploy, it will fail later if truly unfunded
+        }
+        console.log();
 
         // ── Step 1: Contracts ─────────────────────────────────────────────
         if (!opts.skipContracts && hasContracts()) {
@@ -480,7 +521,7 @@ export const deployCommand = new Command("deploy")
         } else if (!buildCmd) {
             console.log(`  ${dim("No frontend detected (no build script)")}`);
         } else {
-            const s = spinner("Frontend", "Building...");
+            const s = spinner("Frontend", `Building (${buildCmd})...`);
             try {
                 execSync(buildCmd, { stdio: "inherit" });
 
@@ -491,21 +532,25 @@ export const deployCommand = new Command("deploy")
                 s.update(`Deploying ${fullDomain} to Bulletin...`);
                 const { deploy: bulletinDeploy } = await import("bulletin-deploy");
 
+                const deployOpts: any = {};
+                let bulletinSignerMethod: string;
+
+                // Try mnemonic from accounts file first
                 let mnemonic: string | undefined;
                 try {
-                    mnemonic = opts.suri ? undefined : loadMnemonic(chain);
+                    mnemonic = loadMnemonic(chain);
                 } catch {}
 
-                const deployOpts: any = {};
-                if (opts.suri) {
+                if (mnemonic) {
                     deployOpts.mnemonic = mnemonic;
-                } else if (mnemonic) {
-                    deployOpts.mnemonic = mnemonic;
+                    bulletinSignerMethod = "mnemonic file";
                 } else {
-                    // QR session signer for DotNS (storage uses pool)
-                    deployOpts.signer = signer;
-                    deployOpts.signerAddress = origin;
+                    // Default to dev mnemonic (Alice) until QR signing is supported
+                    const { DEV_PHRASE } = await import("@polkadot-labs/hdkd-helpers");
+                    deployOpts.mnemonic = DEV_PHRASE;
+                    bulletinSignerMethod = "dev mnemonic (Alice)";
                 }
+                console.log(`    ${dim("Signer:")} ${bulletinSignerMethod}`);
 
                 const result = await bulletinDeploy(
                     "./dist",
@@ -515,6 +560,9 @@ export const deployCommand = new Command("deploy")
                 s.succeed(`Frontend deployed to ${bold(result.fullDomain)} (${dim(result.cid)})`);
             } catch (err) {
                 s.fail(err instanceof Error ? err.message : "Frontend deployment failed");
+                if (err instanceof Error && err.stack) {
+                    console.log(`    ${dim(err.stack.split("\n").slice(1, 4).join("\n    "))}`);
+                }
                 failed = true;
             }
         }
