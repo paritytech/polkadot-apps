@@ -65,5 +65,6 @@ fi
 export PATH="$DOT_DIR/bin:$HOME/.local/bin:$PATH"
 
 echo ""
-echo "dot is ready! Try:"
-echo -e "\033[1mdot --help\033[0m"
+echo -e "dot is ready! Running: \033[1mdot init\033[0m"
+echo ""
+"$DOT_DIR/bin/$BIN" init
