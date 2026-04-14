@@ -12,28 +12,28 @@ import { expect, type FrameLocator } from "@playwright/test";
  *   5. Controls enabled (set button)
  */
 export async function waitForAppReady(
-	testHost: TestHost,
-	options?: { timeout?: number },
+    testHost: TestHost,
+    options?: { timeout?: number },
 ): Promise<FrameLocator> {
-	const timeout = options?.timeout ?? 90_000;
-	const frame = testHost.productFrame();
+    const timeout = options?.timeout ?? 90_000;
+    const frame = testHost.productFrame();
 
-	await testHost.waitForConnection(timeout);
+    await testHost.waitForConnection(timeout);
 
-	await frame.locator('[data-testid="app-heading"]').waitFor({ state: "visible", timeout });
+    await frame.locator('[data-testid="app-heading"]').waitFor({ state: "visible", timeout });
 
-	await expect(frame.locator('[data-testid="connection-status"]')).toHaveText("connected", {
-		timeout,
-	});
-	await expect(frame.locator('[data-testid="account-address"]')).not.toHaveText("-", { timeout });
+    await expect(frame.locator('[data-testid="connection-status"]')).toHaveText("connected", {
+        timeout,
+    });
+    await expect(frame.locator('[data-testid="account-address"]')).not.toHaveText("-", { timeout });
 
-	// KvStore created and ready
-	await expect(frame.locator('[data-testid="store-status"]')).toHaveText("ready", {
-		timeout,
-	});
+    // KvStore created and ready
+    await expect(frame.locator('[data-testid="store-status"]')).toHaveText("ready", {
+        timeout,
+    });
 
-	// Controls should be enabled (set button not disabled)
-	await expect(frame.locator('[data-testid="btn-set"]')).toBeEnabled({ timeout });
+    // Controls should be enabled (set button not disabled)
+    await expect(frame.locator('[data-testid="btn-set"]')).toBeEnabled({ timeout });
 
-	return frame;
+    return frame;
 }
