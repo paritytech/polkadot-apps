@@ -8,33 +8,8 @@ permissions:
     contents: write
 
 jobs:
-    build-linux:
+    release:
         runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-            - uses: oven-sh/setup-bun@v2
-            - uses: pnpm/action-setup@v4
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: "22"
-
-            - run: pnpm install
-            - run: pnpm build
-
-            - name: Compile Linux binaries
-              run: |
-                  bun build --compile --target=bun-linux-x64 ./apps/cli/src/index.ts --outfile dot-linux-x64
-                  bun build --compile --target=bun-linux-arm64 ./apps/cli/src/index.ts --outfile dot-linux-arm64
-
-            - uses: actions/upload-artifact@v4
-              with:
-                  name: linux-binaries
-                  path: |
-                      dot-linux-x64
-                      dot-linux-arm64
-
-    build-macos:
-        runs-on: parity-macos
         steps:
             - uses: actions/checkout@v4
             - uses: oven-sh/setup-bun@v2
@@ -48,36 +23,18 @@ jobs:
             - run: pnpm install
             - run: pnpm build
 
-            - name: Compile macOS binaries
-              run: |
-                  bun build --compile --target=bun-darwin-x64 ./apps/cli/src/index.ts --outfile dot-darwin-x64
-                  bun build --compile --target=bun-darwin-arm64 ./apps/cli/src/index.ts --outfile dot-darwin-arm64
-
-            - uses: actions/upload-artifact@v4
-              with:
-                  name: macos-binaries
-                  path: |
-                      dot-darwin-x64
-                      dot-darwin-arm64
-
-    release:
-        needs: [build-linux, build-macos]
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-
-            - uses: actions/download-artifact@v4
-              with:
-                  name: linux-binaries
-            - uses: actions/download-artifact@v4
-              with:
-                  name: macos-binaries
-
             # Delete previous dev release so we can recreate it
             - name: Delete previous dev release
               run: gh release delete cli-dev --cleanup-tag -y 2>/dev/null || true
               env:
                   GH_TOKEN: ${{ github.token }}
+
+            - name: Compile CLI binaries
+              run: |
+                  bun build --compile --target=bun-linux-x64 ./apps/cli/src/index.ts --outfile dot-linux-x64
+                  bun build --compile --target=bun-linux-arm64 ./apps/cli/src/index.ts --outfile dot-linux-arm64
+                  bun build --compile --target=bun-darwin-x64 ./apps/cli/src/index.ts --outfile dot-darwin-x64
+                  bun build --compile --target=bun-darwin-arm64 ./apps/cli/src/index.ts --outfile dot-darwin-arm64
 
             - name: Create dev release
               uses: softprops/action-gh-release@v2
