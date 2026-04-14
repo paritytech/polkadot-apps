@@ -22,10 +22,10 @@
         "@polkadot-api/sdk-ink": "catalog:",
         "@polkadot-apps/terminal": "workspace:*",
         "@polkadot-apps/utils": "workspace:*",
-        "bulletin-deploy": "^0.6.1",
+        "bulletin-deploy": "catalog:",
         "@polkadot-labs/hdkd-helpers": "catalog:",
         "polkadot-api": "catalog:",
-        "ws": "^8.18.0"
+        "ws": "catalog:"
     },
     "devDependencies": {
         "typescript": "catalog:"

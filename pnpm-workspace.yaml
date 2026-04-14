@@ -26,3 +26,5 @@ catalog:
     "@polkadot-labs/hdkd": ^0.0.26
     "@polkadot-labs/hdkd-helpers": ^0.0.27
     commander: ^12.0.0
+    bulletin-deploy: ^0.6.2
+    ws: ^8.18.0

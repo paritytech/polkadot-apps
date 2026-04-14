@@ -45,6 +45,9 @@ catalogs:
     '@vitest/coverage-istanbul':
       specifier: ^3.1.4
       version: 3.2.4
+    bulletin-deploy:
+      specifier: ^0.6.2
+      version: 0.6.2
     commander:
       specifier: ^12.0.0
       version: 12.1.0
@@ -72,6 +75,9 @@ catalogs:
     vitest:
       specifier: ^3.1.4
       version: 3.2.4
+    ws:
+      specifier: ^8.18.0
+      version: 8.19.0
 
 overrides:
   picomatch@2: 2.3.2
@@ -133,8 +139,8 @@ importers:
         specifier: 'catalog:'
         version: 0.0.27
       bulletin-deploy:
-        specifier: ^0.6.1
-        version: 0.6.1(@polkadot-api/ink-contracts@0.6.0)(@polkadot/util@13.5.9)(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+        specifier: 'catalog:'
+        version: 0.6.2(@polkadot-api/ink-contracts@0.6.0)(@polkadot/util@13.5.9)(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
       commander:
         specifier: 'catalog:'
         version: 12.1.0
@@ -142,7 +148,7 @@ importers:
         specifier: 'catalog:'
         version: 1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
       ws:
-        specifier: ^8.18.0
+        specifier: 'catalog:'
         version: 8.19.0
     devDependencies:
       typescript:
@@ -2904,8 +2910,8 @@ packages:
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
     hasBin: true
 
-  bulletin-deploy@0.6.1:
-    resolution: {integrity: sha512-s7E4pCdWVlA563ohNl4aFoMiLWQ1OKBRLa81Y3jsMhdsQgTOF9X0wdbO4Wxe8GJAOEEeZ6Gj5hJGhv9DAFAj0g==}
+  bulletin-deploy@0.6.2:
+    resolution: {integrity: sha512-WWCtfmfImNGX/HVgsYq2B9CJs2kSp1tNfTP4VQx8naFNPgY+lyFqLQ1Hk7APpXvpHdAAAsA9pammMTRr5UMZiQ==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -7091,7 +7097,7 @@ snapshots:
       node-releases: 2.0.36
       update-browserslist-db: 1.2.3(browserslist@4.28.1)
 
-  bulletin-deploy@0.6.1(@polkadot-api/ink-contracts@0.6.0)(@polkadot/util@13.5.9)(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3):
+  bulletin-deploy@0.6.2(@polkadot-api/ink-contracts@0.6.0)(@polkadot/util@13.5.9)(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3):
     dependencies:
       '@dotdm/cdm': 0.5.4(@polkadot-api/ink-contracts@0.6.0)(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
       '@ipld/dag-pb': 4.1.5
