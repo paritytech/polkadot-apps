@@ -96,7 +96,7 @@ async function doQrLogin(): Promise<string | null> {
                 console.log(qr);
             });
         } else if (status.step === "finished") {
-            console.log(`  ${green("✔")} Paired with mobile wallet`);
+            console.log(`  ${green("✔")} Paired with Polkadot App`);
         } else if (status.step === "pairingError") {
             console.log(`  ${dim("Pairing error:")} ${status.message}`);
         }
