@@ -21,6 +21,7 @@
         "@polkadot-apps/keys": "workspace:*",
         "@polkadot-api/sdk-ink": "catalog:",
         "@polkadot-apps/terminal": "workspace:*",
+        "@polkadot-apps/utils": "workspace:*",
         "bulletin-deploy": "^0.6.1",
         "@polkadot-labs/hdkd-helpers": "catalog:",
         "polkadot-api": "catalog:",

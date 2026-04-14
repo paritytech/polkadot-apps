@@ -126,6 +126,9 @@ importers:
       '@polkadot-apps/terminal':
         specifier: workspace:*
         version: link:../../packages/terminal
+      '@polkadot-apps/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       '@polkadot-labs/hdkd-helpers':
         specifier: 'catalog:'
         version: 0.0.27
