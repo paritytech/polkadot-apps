@@ -40,7 +40,7 @@ const rpcs = {
             "wss://sys.ibp.network/asset-hub-paseo",
         ],
         bulletin: [...BULLETIN_RPCS.paseo],
-        individuality: ["wss://pop3-testnet.parity-lab.parity.io/people"],
+        individuality: ["wss://paseo-people-next-rpc.polkadot.io"],
     },
 } as const;
 
@@ -149,7 +149,7 @@ if (import.meta.vitest) {
         kusama_asset_hub: "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
         paseo_asset_hub: "0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2",
         bulletin: "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea",
-        individuality: "0xe583155e68c7b71e9d2443f846eaba0016d0c38aa807884923545a7003f5bef0",
+        individuality: "0xd01475fde5d0592989b7715ae1d2e89fdb4f8c7688c09c850d75e1d4bdb47d64",
     } as const;
 
     beforeEach(() => {

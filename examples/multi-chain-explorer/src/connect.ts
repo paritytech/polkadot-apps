@@ -15,7 +15,7 @@ export async function connect() {
         "wss://sys.ibp.network/asset-hub-paseo",
       ],
       bulletin: ["wss://paseo-bulletin-rpc.polkadot.io"],
-      individuality: ["wss://pop3-testnet.parity-lab.parity.io/people"],
+      individuality: ["wss://paseo-people-next-rpc.polkadot.io"],
     },
   });
   console.log("Connected to Paseo testnet.");
