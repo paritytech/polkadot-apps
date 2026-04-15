@@ -75,7 +75,7 @@ Identity and personhood chain.
 
 **Descriptor:** `@polkadot-apps/descriptors/individuality`
 
-**RPC endpoint (Paseo):** `wss://pop3-testnet.parity-lab.parity.io/people`
+**RPC endpoint (Paseo):** `wss://paseo-people-next-rpc.polkadot.io`
 
 ## Connection Modes
 
@@ -95,7 +95,7 @@ For advanced use (manual client creation):
 | Kusama Asset Hub | `0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a` |
 | Paseo Asset Hub | `0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2` |
 | Bulletin | `0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea` |
-| Individuality | `0xe583155e68c7b71e9d2443f846eaba0016d0c38aa807884923545a7003f5bef0` |
+| Individuality | `0xd01475fde5d0592989b7715ae1d2e89fdb4f8c7688c09c850d75e1d4bdb47d64` |
 
 ## Dev Accounts (Testnet Only)
 

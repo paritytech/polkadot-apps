@@ -290,4 +290,4 @@ Client connections are cached on `globalThis.__chainClientCache` to survive hot 
 |---|---|
 | Asset Hub | `wss://asset-hub-paseo-rpc.n.dwellir.com`, `wss://sys.ibp.network/asset-hub-paseo` |
 | Bulletin | `wss://paseo-bulletin-rpc.polkadot.io` |
-| Individuality | `wss://pop3-testnet.parity-lab.parity.io/people` |
+| Individuality | `wss://paseo-people-next-rpc.polkadot.io` |

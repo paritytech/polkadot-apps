@@ -3,10 +3,10 @@
     "descriptorPath": "generated",
     "entries": {
         "individuality": {
-            "wsUrl": "wss://pop3-testnet.parity-lab.parity.io/people",
+            "wsUrl": "wss://paseo-people-next-rpc.polkadot.io",
             "metadata": "../../.papi/metadata/individuality.scale",
-            "genesis": "0xe583155e68c7b71e9d2443f846eaba0016d0c38aa807884923545a7003f5bef0",
-            "codeHash": "0x99b35abc51f0ea903011f606d5564f4be93e2f81160f2c53bda3f02d026ba175"
+            "genesis": "0xd01475fde5d0592989b7715ae1d2e89fdb4f8c7688c09c850d75e1d4bdb47d64",
+            "codeHash": "0xee12eb3f12f8387448d2bf78c773dda08731483357a1b8fb773374f7b7bc417c"
         }
     }
 }
