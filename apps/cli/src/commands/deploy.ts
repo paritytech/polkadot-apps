@@ -208,7 +208,7 @@ export const deployCommand = new Command("deploy")
     .description("Deploy contracts, frontend, and optionally publish to playground registry")
     .option("-n, --name <chain>", "Target chain", "paseo")
     .option("--suri <suri>", "Signer secret URI (e.g. //Alice for dev)")
-    .option("--skip-contracts", "Skip contract build & deploy")
+    .option("--contracts", "Include contract build & deploy")
     .option("--skip-frontend", "Skip frontend build & deploy")
     .option("--playground", "Also publish metadata to the playground registry")
     .option("--bootstrap", "Also deploy the ContractRegistry (contracts only)")
@@ -347,7 +347,7 @@ export const deployCommand = new Command("deploy")
             console.log();
 
             // ── Step 1: Contracts ─────────────────────────────────────────────
-            if (!opts.skipContracts && hasContracts()) {
+            if (opts.contracts && hasContracts()) {
                 let skipContracts = false;
 
                 if (!opts.yes) {
@@ -381,7 +381,7 @@ export const deployCommand = new Command("deploy")
                         failed = true;
                     }
                 }
-            } else if (!opts.skipContracts) {
+            } else if (opts.contracts) {
                 console.log(`  ${dim("No contracts detected")}`);
             }
 
@@ -496,6 +496,13 @@ export const deployCommand = new Command("deploy")
                     );
                     failed = true;
                 }
+            }
+
+            // Close registry connection before the blocking frontend build so
+            // stale WebSocket messages don't cause JSON parse errors.
+            if (conn) {
+                conn.destroy();
+                conn = undefined;
             }
 
             // ── Step 3: Frontend build + deploy to Bulletin ───────────────────

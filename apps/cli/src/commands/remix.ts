@@ -305,8 +305,8 @@ export const remixCommand = new Command("remix")
         console.log();
         console.log(`  ${green("Next steps:")}`);
         console.log(`  ${dim("1.")} cd ${newDomain}`);
-        console.log(`  ${dim("2.")} claude`);
-        console.log(`  ${dim("3.")} dot deploy`);
+        console.log(`  ${dim("2.")} edit with claude`);
+        console.log(`  ${dim("3.")} dot deploy --playground`);
         console.log();
         process.exit(0);
     });
