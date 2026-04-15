@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/chain-client",
     "description": "Multi-chain Polkadot API client — BYOD descriptors or built-in presets for Asset Hub, Bulletin, and Individuality",
-    "version": "2.0.3",
+    "version": "2.0.4",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
