@@ -1,5 +1,11 @@
 # @polkadot-apps/terminal
 
+## 0.2.2
+
+### Patch Changes
+
+- 56b20bd: Fix WASM patch script on Linux — disable base64 line wrapping with -w 0
+
 ## 0.2.1
 
 ### Patch Changes
