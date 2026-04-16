@@ -10,7 +10,8 @@ BUNDLER_JS=$(find node_modules -path "*/verifiablejs/pkg-bundler/verifiablejs.js
 head -1 "$BUNDLER_JS" | grep -q "__wbg_set_wasm" && exit 0
 
 BUNDLER_DIR=$(dirname "$BUNDLER_JS")
-WASM_B64=$(base64 -i "$BUNDLER_DIR/verifiablejs_bg.wasm" 2>/dev/null || base64 "$BUNDLER_DIR/verifiablejs_bg.wasm")
+# -w 0 disables line wrapping on Linux; -i is macOS flag
+WASM_B64=$(base64 -w 0 "$BUNDLER_DIR/verifiablejs_bg.wasm" 2>/dev/null || base64 -i "$BUNDLER_DIR/verifiablejs_bg.wasm" 2>/dev/null || base64 "$BUNDLER_DIR/verifiablejs_bg.wasm")
 
 cat > "$BUNDLER_JS" << SHIM
 import { __wbg_set_wasm } from "./verifiablejs_bg.js";
