@@ -1,5 +1,11 @@
 # @polkadot-apps/terminal
 
+## 0.2.1
+
+### Patch Changes
+
+- f07621c: Initial publish of the terminal package
+
 ## 0.2.0
 
 ### Minor Changes
