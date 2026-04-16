@@ -127,12 +127,27 @@ export function wrapContract(
                     );
                     const data = positionalToNamed(argNames, positionalArgs);
                     const origin = resolveOrigin(defaults, overrides?.origin, true)!;
-
-                    const result = await inkContract.query(methodName, {
-                        origin,
+                    const queryOpts = {
                         data,
                         ...(overrides?.value !== undefined && { value: overrides.value }),
+                    };
+
+                    let result = await inkContract.query(methodName, {
+                        origin,
+                        ...queryOpts,
                     });
+
+                    // If the query failed and we used a signer-provided origin,
+                    // retry with the dev fallback. The signer's account may not
+                    // be mapped for the Revive pallet, which causes dry-runs to
+                    // fail even for read-only view calls.
+                    if (!result.success && origin !== QUERY_FALLBACK_ORIGIN && !overrides?.origin) {
+                        result = await inkContract.query(methodName, {
+                            origin: QUERY_FALLBACK_ORIGIN,
+                            ...queryOpts,
+                        });
+                    }
+
                     return {
                         success: result.success,
                         value: result.success ? result.value.response : undefined,

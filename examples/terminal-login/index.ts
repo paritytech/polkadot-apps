@@ -13,13 +13,11 @@ import {
     createTerminalAdapter,
     renderQrCode,
     waitForSessions,
+    DEFAULT_METADATA_URL,
     type PappAdapter,
     type PairingStatus,
     type AttestationStatus,
 } from "@polkadot-apps/terminal";
-
-const DEFAULT_METADATA_URL =
-    "https://gist.githubusercontent.com/ReinhardHatko/27415c91178d74196d7c1116d39056d5/raw/56e61d719251170828a80f12d34343a8617b9935/metadata.json";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

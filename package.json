@@ -13,15 +13,16 @@
         "format": "biome format --write .",
         "format:check": "biome format .",
         "generate-descriptors": "bash packages/descriptors/scripts/generate.sh",
-        "docs": "typedoc"
+        "docs": "typedoc",
+        "cli:install": "pnpm build && bun build --compile ./apps/cli/src/index.ts --outfile ~/.polkadot/bin/dot && bash ./scripts/cli-path.sh"
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
         "@changesets/cli": "^2.29.8",
+        "@vitest/coverage-istanbul": "catalog:",
         "turbo": "catalog:",
         "typedoc": "catalog:",
         "typescript": "catalog:",
-        "@vitest/coverage-istanbul": "catalog:",
         "vitest": "catalog:"
     },
     "pnpm": {

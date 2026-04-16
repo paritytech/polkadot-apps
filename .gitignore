@@ -7,3 +7,4 @@ coverage/
 .pnpm-store/
 reference-repos/
 docs/
+.cdm/

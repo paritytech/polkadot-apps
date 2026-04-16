@@ -1,0 +1,35 @@
+{
+    "name": "@polkadot-apps/cli",
+    "description": "CLI for building and managing Polkadot apps",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "bin": {
+        "dot": "./src/index.ts"
+    },
+    "scripts": {
+        "postinstall": "[ -d .cdm ] || (command -v cdm >/dev/null && cdm i || true)",
+        "build": "echo 'No build needed - compiled via bun'",
+        "compile": "bun build --compile src/index.ts --outfile dist/dot",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "commander": "catalog:",
+        "@polkadot-apps/address": "workspace:*",
+        "@polkadot-apps/bulletin": "workspace:*",
+        "@polkadot-apps/chain-client": "workspace:*",
+        "@polkadot-apps/contracts": "workspace:*",
+        "@polkadot-apps/keys": "workspace:*",
+        "@polkadot-api/sdk-ink": "catalog:",
+        "@polkadot-apps/terminal": "workspace:*",
+        "@polkadot-apps/tx": "workspace:*",
+        "@polkadot-apps/utils": "workspace:*",
+        "bulletin-deploy": "catalog:",
+        "@polkadot-labs/hdkd-helpers": "catalog:",
+        "polkadot-api": "catalog:",
+        "ws": "catalog:"
+    },
+    "devDependencies": {
+        "typescript": "catalog:"
+    }
+}
