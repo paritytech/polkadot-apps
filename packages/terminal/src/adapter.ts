@@ -64,11 +64,34 @@ export function createTerminalAdapter(options: TerminalAdapterOptions): Terminal
         },
     });
 
+    let destroyed = false;
     return {
         ...adapter,
         destroy() {
+            if (destroyed) return;
+            destroyed = true;
+
+            // The statement-store logs `console.error("Statement subscription error:", err)`
+            // when the WebSocket disconnects while subscriptions are still active.
+            // This is expected during teardown. Temporarily mute it.
+            const origError = console.error;
+            console.error = (...args: unknown[]) => {
+                if (typeof args[0] === "string" && args[0].includes("Statement subscription")) {
+                    return;
+                }
+                origError.apply(console, args);
+            };
+
             adapter.sessions.dispose();
-            lazyClient.disconnect();
+            try {
+                lazyClient.disconnect();
+            } catch {
+                // best-effort
+            }
+
+            setTimeout(() => {
+                console.error = origError;
+            }, 50);
         },
     };
 }
