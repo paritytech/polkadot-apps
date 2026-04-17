@@ -1,5 +1,12 @@
 # terminal-login-example
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [50c071e]
+  - @polkadot-apps/terminal@0.2.3
+
 ## 0.0.3
 
 ### Patch Changes
