@@ -13,4 +13,10 @@ export interface KvStoreOptions {
     prefix?: string;
     /** Override auto-detection. When provided, routes all ops through this host storage. */
     hostLocalStorage?: HostLocalStorage;
+    /**
+     * Directory for file-based storage in Node.js environments.
+     * Default: `~/.polkadot-apps/`.
+     * Ignored in browser environments where localStorage is available.
+     */
+    storageDir?: string;
 }

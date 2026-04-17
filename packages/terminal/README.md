@@ -35,7 +35,7 @@ Or in your `package.json` scripts:
 import { createTerminalAdapter, renderQrCode, waitForSessions } from "@polkadot-apps/terminal";
 
 // 1. Create the adapter
-const adapter = createTerminalAdapter({
+const adapter = await createTerminalAdapter({
     appId: "my-terminal-app",
     metadataUrl: "https://example.com/metadata.json",
 });
@@ -76,7 +76,7 @@ if (sessions.length > 0) {
 
 ## API
 
-### `createTerminalAdapter(options): PappAdapter`
+### `createTerminalAdapter(options): Promise<TerminalAdapter>`
 
 Creates a terminal adapter backed by the host-papp SDK.
 
@@ -86,17 +86,16 @@ Creates a terminal adapter backed by the host-papp SDK.
 - `endpoints?` -- statement store WebSocket endpoints (defaults to Paseo)
 - `hostMetadata?` -- optional host environment info
 
-**Returns** a `PappAdapter` with:
+**Returns** a `TerminalAdapter` (extends `PappAdapter`) with:
 - `sso` -- auth component (`.authenticate()`, `.abortAuthentication()`, status subscriptions)
 - `sessions` -- session manager (signing, disconnect)
+- `destroy()` -- disconnect WebSocket and release resources
+
+Storage is handled automatically via `@polkadot-apps/storage` (file-based in Node.js, localStorage in browsers).
 
 ### `renderQrCode(data, options?): Promise<string>`
 
 Render a string as a QR code using Unicode half-block characters for terminal display.
-
-### `createNodeStorageAdapter(appId): StorageAdapter`
-
-File-based storage adapter for Node.js. Data persists in `~/.polkadot-apps/`.
 
 ## Signing
 

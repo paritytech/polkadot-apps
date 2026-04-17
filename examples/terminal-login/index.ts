@@ -49,7 +49,7 @@ async function main(): Promise<void> {
     console.log(`  Endpoint: ${endpoint}`);
     console.log();
 
-    const adapter = createTerminalAdapter({
+    const adapter = await createTerminalAdapter({
         appId: "terminal-login-example",
         metadataUrl: DEFAULT_METADATA_URL,
         endpoints: [endpoint],

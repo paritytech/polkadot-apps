@@ -15,7 +15,7 @@ import {
 import { createLazyClient, createPapiStatementStoreAdapter } from "@novasamatech/statement-store";
 import { getWsProvider } from "@polkadot-api/ws-provider/node";
 
-import { createNodeStorageAdapter } from "./node-storage.js";
+import { createStorageAdapter } from "./node-storage.js";
 
 /** Options for creating a terminal adapter. */
 export interface TerminalAdapterOptions {
@@ -44,13 +44,27 @@ export type TerminalAdapter = PappAdapter & {
     destroy(): void;
 };
 
-export function createTerminalAdapter(options: TerminalAdapterOptions): TerminalAdapter {
+export async function createTerminalAdapter(
+    options: TerminalAdapterOptions,
+): Promise<TerminalAdapter> {
     const endpoints = options.endpoints ?? SS_PASEO_STABLE_STAGE_ENDPOINTS;
 
-    const storage = createNodeStorageAdapter(options.appId);
-    const lazyClient = createLazyClient(
-        getWsProvider({ endpoints, heartbeatTimeout: Number.POSITIVE_INFINITY }),
-    );
+    const storage = await createStorageAdapter(options.appId);
+
+    // The `@polkadot-api/ws-provider@0.7.5` used by `polkadot-api@1.23.3` returns
+    // a `JsonRpcProvider` typed against `@polkadot-api/json-rpc-provider@0.0.4`
+    // (string messages), whereas `@novasamatech/statement-store@0.6.17`'s
+    // `createLazyClient` expects the same interface from `json-rpc-provider@0.2.0`
+    // (typed `JsonRpcMessage` objects). The two declarations are structurally
+    // incompatible in TypeScript but behaviorally identical at runtime — both
+    // serialize to JSON strings over the WebSocket. The cast bridges the type
+    // split until the upstream packages agree on a single json-rpc-provider
+    // version.
+    const wsProvider = getWsProvider({
+        endpoints,
+        heartbeatTimeout: Number.POSITIVE_INFINITY,
+    }) as unknown as Parameters<typeof createLazyClient>[0];
+    const lazyClient = createLazyClient(wsProvider);
     const statementStore = createPapiStatementStoreAdapter(lazyClient);
 
     const adapter = createPappAdapter({

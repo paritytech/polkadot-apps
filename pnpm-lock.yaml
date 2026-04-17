@@ -727,6 +727,9 @@ importers:
         specifier: 'catalog:'
         version: 4.4.2
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.12.2
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -745,6 +748,9 @@ importers:
       '@polkadot-api/ws-provider':
         specifier: ^0.7.5
         version: 0.7.5
+      '@polkadot-apps/storage':
+        specifier: workspace:*
+        version: link:../storage
       neverthrow:
         specifier: ^8.2.0
         version: 8.2.0

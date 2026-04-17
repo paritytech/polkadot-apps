@@ -30,9 +30,10 @@ const settings = await store.getJSON<{ fontSize: number; lang: string }>("settin
 
 1. **Explicit host storage** -- if `options.hostLocalStorage` is provided, all operations route through it.
 2. **Auto-detect container** -- if running inside a container host (e.g. a native app shell), the host's `localStorage` bridge is used automatically.
-3. **Browser localStorage** -- fallback for standard browser environments.
+3. **Browser localStorage** -- for standard browser environments.
+4. **Node.js filesystem** -- when `localStorage` is unavailable but `node:fs` is, data is persisted as JSON files under `~/.polkadot-apps/` (override with `storageDir`). Each key becomes a single file; the filename is percent-encoded so distinct keys never collide on disk.
 
-In SSR or Node environments where `localStorage` is unavailable, read operations return `null` and write operations are silent no-ops.
+In edge runtimes where neither `localStorage` nor `node:fs` are available (e.g. Cloudflare Workers, Deno without `--allow-read`), reads return `null` and writes are dropped silently.
 
 ```typescript
 // Force host storage
@@ -128,6 +129,8 @@ interface KvStoreOptions {
   prefix?: string;
   /** Override auto-detection. Routes all operations through this host storage. */
   hostLocalStorage?: HostLocalStorage;
+  /** Directory for the Node.js file backend. Default: ~/.polkadot-apps. Ignored outside the file backend. */
+  storageDir?: string;
 }
 
 interface HostLocalStorage {
