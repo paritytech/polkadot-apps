@@ -612,6 +612,28 @@ importers:
         specifier: 'catalog:'
         version: 1.23.3(jiti@2.6.1)(postcss@8.5.9)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
 
+  packages/events:
+    dependencies:
+      '@polkadot-api/sdk-ink':
+        specifier: 'catalog:'
+        version: 0.6.2(@polkadot-api/ink-contracts@0.4.6)(polkadot-api@1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3))(rxjs@7.8.2)(typescript@5.9.3)
+      '@polkadot-apps/chain-client':
+        specifier: workspace:*
+        version: link:../chain-client
+      '@polkadot-apps/descriptors':
+        specifier: workspace:*
+        version: link:../descriptors
+      '@polkadot-apps/logger':
+        specifier: workspace:*
+        version: link:../logger
+      polkadot-api:
+        specifier: 'catalog:'
+        version: 1.23.3(jiti@2.6.1)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.3)
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   packages/host:
     dependencies:
       polkadot-api:
