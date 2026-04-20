@@ -67,7 +67,7 @@ This is the convenience path. For production, prefer `createContract` with an ex
 
 ## Contract Handle Methods
 
-Every ABI function becomes a property with `.query()` and `.tx()`:
+Every ABI function becomes a property with `.query()`, `.tx()`, and `.prepare()`:
 
 ```ts
 // Query (read-only dry-run)
@@ -87,7 +87,31 @@ const result = await handle.methodName.tx(arg1, arg2, {
     onStatus?,         // (status: TxStatus) => void
 });
 // result: TxResult from @polkadot-apps/tx
+
+// Prepare (for batching — does not sign or submit)
+const call = handle.methodName.prepare(arg1, arg2, {
+    origin?, value?, gasLimit?, storageDepositLimit?,
+});
+// call: BatchableCall — pass to batchSubmitAndWatch from @polkadot-apps/tx
 ```
+
+### Batching contract calls
+
+Combine multiple contract calls (or contract calls with other transactions on
+the same chain) into a single atomic `Utility.batch_all`:
+
+```ts
+import { batchSubmitAndWatch } from "@polkadot-apps/tx";
+
+const a = contract.transfer.prepare(addr1, 100n);
+const b = contract.transfer.prepare(addr2, 200n);
+const result = await batchSubmitAndWatch([a, b], api, signer);
+// result: single TxResult for the whole batch
+```
+
+Note: `.prepare()` omits signer/lifecycle options — those belong to the batch
+submission. Parallel reads don't need `.prepare()`: use
+`Promise.all([handle.a.query(...), handle.b.query(...)])`.
 
 ## generateContractTypes
 
