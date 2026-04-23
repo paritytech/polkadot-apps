@@ -28,7 +28,7 @@ import { bulletin } from "@polkadot-apps/descriptors/bulletin";
 const client = await createChainClient({
     chains: { assetHub: paseo_asset_hub, bulletin },
     rpcs: {
-        assetHub: ["wss://sys.ibp.network/asset-hub-paseo"],
+        assetHub: ["wss://asset-hub-paseo.ibp.network"],
         bulletin: ["wss://paseo-bulletin-rpc.polkadot.io"],
     },
 });

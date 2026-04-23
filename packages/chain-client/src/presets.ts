@@ -36,8 +36,10 @@ const rpcs = {
     },
     paseo: {
         assetHub: [
+            "wss://asset-hub-paseo.ibp.network",
+            "wss://asset-hub-paseo.dotters.network",
+            "wss://sys.turboflakes.io/asset-hub-paseo",
             "wss://asset-hub-paseo-rpc.n.dwellir.com",
-            "wss://sys.ibp.network/asset-hub-paseo",
         ],
         bulletin: [...BULLETIN_RPCS.paseo],
         individuality: ["wss://paseo-people-next-rpc.polkadot.io"],
