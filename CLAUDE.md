@@ -38,6 +38,7 @@ Follow the contributor guidelines in `README.md`.
 - `@polkadot-api/sdk-ink` is **not** a dependency of chain-client. Consumers who need contracts create `InkSdk` themselves: `createInkSdk(client.raw.assetHub, { atBest: true })`.
 - `isInsideContainerSync()` is available from both `@polkadot-apps/host` and `@polkadot-apps/chain-client` for synchronous container detection in performance-critical code paths. The async `isInsideContainer()` (which uses product-sdk) remains the primary API.
 - Bulletin RPC endpoints are imported from `@polkadot-apps/host`'s shared chain config (`BULLETIN_RPCS`), not hardcoded in presets.
+- Preset RPC endpoint lists in `packages/chain-client/src/presets.ts` are ordered **live-first**. `@polkadot-api/ws-provider` walks the array on connect and on unclean reconnects, so healthy providers belong at the top and recently-degraded ones at the bottom as fallbacks. Each dead entry at the top costs one "Unable to connect" log line per cold start; rotate rather than remove when a provider is transiently unhealthy so failover redundancy is preserved when it recovers.
 
 ## Contracts
 
