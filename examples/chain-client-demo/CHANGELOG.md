@@ -1,5 +1,12 @@
 # @polkadot-apps/chain-client-demo
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [cfd1325]
+  - @polkadot-apps/chain-client@2.0.5
+
 ## 0.0.3
 
 ### Patch Changes

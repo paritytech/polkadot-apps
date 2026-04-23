@@ -1,6 +1,6 @@
 {
     "name": "@polkadot-apps/contracts-demo",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "private": true,
     "type": "module",
     "description": "E2E demo for @polkadot-apps/contracts — exercises ContractManager query/tx via the Host API path",

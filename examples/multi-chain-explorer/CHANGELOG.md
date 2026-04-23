@@ -1,5 +1,13 @@
 # multi-chain-explorer
 
+## 0.0.15
+
+### Patch Changes
+
+- Updated dependencies [cfd1325]
+  - @polkadot-apps/chain-client@2.0.5
+  - @polkadot-apps/bulletin@0.6.10
+
 ## 0.0.14
 
 ### Patch Changes

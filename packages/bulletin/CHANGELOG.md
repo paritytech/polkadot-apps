@@ -1,5 +1,12 @@
 # @polkadot-apps/bulletin
 
+## 0.6.10
+
+### Patch Changes
+
+- Updated dependencies [cfd1325]
+  - @polkadot-apps/chain-client@2.0.5
+
 ## 0.6.9
 
 ### Patch Changes
