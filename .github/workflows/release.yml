@@ -1,6 +1,8 @@
 name: Release
 
 on:
+    push:
+        branches: [main]
     workflow_run:
         workflows: [CI]
         types: [completed]
@@ -8,115 +10,137 @@ on:
 
 permissions:
     contents: write
+    pull-requests: write
 
 jobs:
-    release:
-        if: github.event.workflow_run.conclusion == 'success'
+    # Runs on every main push in parallel to CI. If there are pending
+    # changesets, opens (or updates) a "chore: version packages" PR on
+    # the `changeset-release/main` branch. That PR goes through CI and
+    # the normal review flow like any other PR — no direct pushes to main.
+    open-release-pr:
+        if: github.event_name == 'push'
+        name: Open release PR
         runs-on: parity-default
         steps:
             - uses: actions/checkout@v4
               with:
                   fetch-depth: 0
 
-            # Skip if the triggering commit was a version bump by the bot
-            - name: Check if bot commit
-              id: bot
-              run: |
-                  author=$(git log -1 --format='%an')
-                  if [ "$author" = "github-actions[bot]" ]; then
-                    echo "skip=true" >> $GITHUB_OUTPUT
-                  else
-                    echo "skip=false" >> $GITHUB_OUTPUT
-                  fi
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  registry-url: "https://registry.npmjs.org"
+            - run: pnpm install
 
-            # Check for pending changesets before doing anything expensive
-            - name: Check for changesets
-              id: changesets
-              run: |
-                  if ls .changeset/*.md 2>/dev/null | grep -qv README.md; then
-                    echo "found=true" >> $GITHUB_OUTPUT
-                  else
-                    echo "found=false" >> $GITHUB_OUTPUT
-                  fi
+            # `version` runs on the PR branch. Strip the descriptors
+            # `file:generated` dep (re-added by `changeset version`) and run
+            # biome so the PR diff is clean before CI runs on it.
+            - name: Open or update release PR
+              uses: changesets/action@v1
+              with:
+                  version: |
+                      pnpm changeset version
+                      node -e 'const p=require("./packages/descriptors/package.json");delete p.dependencies;require("fs").writeFileSync("./packages/descriptors/package.json",JSON.stringify(p,null,4)+"\n")'
+                      pnpm format
+                  commit: "chore: version packages"
+                  title: "chore: version packages"
+              env:
+                  # Default GITHUB_TOKEN won't trigger other workflows on the
+                  # PR it opens (GitHub's anti-recursion rule). If CI should
+                  # auto-run on the version PR, swap this to a PAT or GitHub
+                  # App token with contents + pull-requests write scopes.
+                  # Otherwise close+reopen the PR to manually trigger CI.
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+    # Runs after CI passes on main. If the latest commit bumped any package
+    # version (i.e., a "chore: version packages" PR just merged), tags,
+    # packs, and dispatches the publish to npm_publish_automation.
+    # Idempotent: publishPackages.ts skips already-published versions, so
+    # reruns are safe.
+    publish:
+        if: >-
+            github.event_name == 'workflow_run'
+            && github.event.workflow_run.conclusion == 'success'
+        name: Publish
+        runs-on: parity-default
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+                  ref: ${{ github.event.workflow_run.head_sha }}
+
+            # Publish only if the triggering commit changed a package version.
+            # Diff-based so reruns on the same commit keep reporting true.
+            - name: Detect version bump
+              id: bump
+              run: |
+                  publish=false
+                  changed=$(git diff HEAD^ HEAD --name-only | grep -E '^packages/.*/package\.json$' || true)
+                  for pkg in $changed; do
+                      old=$(git show HEAD^:"$pkg" 2>/dev/null | jq -r '.version // empty')
+                      new=$(jq -r '.version // empty' "$pkg")
+                      if [ -n "$new" ] && [ "$old" != "$new" ]; then
+                          publish=true
+                          break
+                      fi
+                  done
+                  echo "publish=$publish" >> "$GITHUB_OUTPUT"
+
+            - if: steps.bump.outputs.publish == 'true'
               uses: pnpm/action-setup@v4
-            - if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+            - if: steps.bump.outputs.publish == 'true'
               uses: actions/setup-node@v4
               with:
                   node-version: "22"
                   registry-url: "https://registry.npmjs.org"
-
-            - if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+            - if: steps.bump.outputs.publish == 'true'
               run: pnpm install
 
-            # Version packages (consumes changesets, bumps versions)
-            - name: Version packages
-              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
-              run: pnpm changeset version
-
-            # Build all publishable packages
-            - name: Build packages
-              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+            - if: steps.bump.outputs.publish == 'true'
+              name: Build packages
               run: pnpm build
 
-            # Format everything right before committing
-            - name: Format
-              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
-              run: pnpm format
-
-            # Strip file:generated dep AFTER build and format — both
-            # changeset version and papi (called by build) re-add it
-            - name: Strip descriptors file:generated dep
-              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+            # papi (invoked by build) re-adds the descriptors `file:generated`
+            # dep; strip again before packing so consumers don't receive it.
+            - if: steps.bump.outputs.publish == 'true'
+              name: Strip descriptors file:generated dep
               run: node -e 'const p=require("./packages/descriptors/package.json");delete p.dependencies;require("fs").writeFileSync("./packages/descriptors/package.json",JSON.stringify(p,null,4)+"\n")'
 
-            # Commit version bumps
-            - name: Commit version changes
-              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+            - if: steps.bump.outputs.publish == 'true'
+              name: Create and push tags
               run: |
                   git config user.name "github-actions[bot]"
                   git config user.email "github-actions[bot]@users.noreply.github.com"
-                  git add -A
-                  git diff --cached --quiet || git commit -m "chore: version packages"
-                  git pull --rebase
-                  git push
-
-            # Create git tags for versioned packages
-            - name: Create and push tags
-              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
-              run: |
                   for pkg in packages/*/package.json; do
-                    name=$(jq -r '.name' "$pkg")
-                    version=$(jq -r '.version' "$pkg")
-                    tag="${name}@${version}"
-                    if ! git tag -l "$tag" | grep -q .; then
-                      git tag "$tag"
-                    fi
+                      name=$(jq -r '.name' "$pkg")
+                      version=$(jq -r '.version' "$pkg")
+                      tag="${name}@${version}"
+                      if ! git tag -l "$tag" | grep -q .; then
+                          git tag "$tag"
+                      fi
                   done
                   git push --tags
 
-            # Pack all workspace packages for publishing
-            - name: Pack packages
-              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+            - if: steps.bump.outputs.publish == 'true'
+              name: Pack packages
               run: |
                   mkdir -p artifacts
                   for dir in packages/*/; do
-                    if [ -f "$dir/package.json" ]; then
-                      (cd "$dir" && pnpm pack --pack-destination ../../artifacts/)
-                    fi
+                      if [ -f "$dir/package.json" ]; then
+                          (cd "$dir" && pnpm pack --pack-destination ../../artifacts/)
+                      fi
                   done
 
-            - name: Upload package artifacts
-              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+            - if: steps.bump.outputs.publish == 'true'
+              name: Upload package artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: packages
                   path: artifacts/*.tgz
 
-            # Dispatch to npm_publish_automation for publishing
-            - name: Publish via npm_publish_automation
-              if: steps.bot.outputs.skip != 'true' && steps.changesets.outputs.found == 'true'
+            - if: steps.bump.outputs.publish == 'true'
+              name: Publish via npm_publish_automation
               uses: octokit/request-action@v2.x
               with:
                   route: POST /repos/paritytech/npm_publish_automation/actions/workflows/publish.yml/dispatches
