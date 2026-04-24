@@ -15,6 +15,11 @@
             "source": "./src/register.ts",
             "types": "./dist/register.d.ts",
             "import": "./dist/register.js"
+        },
+        "./testing": {
+            "source": "./src/testing.ts",
+            "types": "./dist/testing.d.ts",
+            "import": "./dist/testing.js"
         }
     },
     "files": ["dist", "scripts"],
@@ -27,16 +32,24 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
+        "@noble/ciphers": "catalog:",
+        "@noble/curves": "catalog:",
+        "@noble/hashes": "catalog:",
         "@novasamatech/host-papp": "0.6.17",
         "@novasamatech/statement-store": "0.6.17",
         "@novasamatech/storage-adapter": "0.6.17",
+        "@polkadot-api/utils": "^0.2.0",
         "@polkadot-api/ws-provider": "^0.7.5",
+        "@polkadot-labs/hdkd-helpers": "catalog:",
+        "nanoid": "^5.1.7",
         "neverthrow": "^8.2.0",
         "polkadot-api": "^1.23.3",
-        "qrcode": "^1.5.4"
+        "qrcode": "^1.5.4",
+        "scale-ts": "^1.6.1"
     },
     "devDependencies": {
         "@types/qrcode": "^1.5.5",
-        "typescript": "catalog:"
+        "typescript": "catalog:",
+        "vitest": "catalog:"
     }
 }

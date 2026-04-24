@@ -13,7 +13,14 @@ import { homedir } from "node:os";
 
 const DEFAULT_STORAGE_DIR = join(homedir(), ".polkadot-apps");
 
-function sanitizeKey(appId: string, key: string): string {
+/**
+ * Compute the storage filename for a given appId+key pair.
+ *
+ * Exposed (rather than kept private) so the test-session helper in
+ * `./testing.ts` can target the same file the live adapter reads from
+ * without having to duplicate the sanitization rule.
+ */
+export function sanitizeKey(appId: string, key: string): string {
     return `${appId}_${key}`.replace(/[^a-zA-Z0-9_.-]/g, "_");
 }
 
