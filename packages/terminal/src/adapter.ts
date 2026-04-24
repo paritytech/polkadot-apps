@@ -27,6 +27,13 @@ export interface TerminalAdapterOptions {
     endpoints?: string[];
     /** Optional host metadata for the Sign-In screen. */
     hostMetadata?: HostMetadata;
+    /**
+     * Directory where session files are persisted. Defaults to
+     * `~/.polkadot-apps/`. Override in tests to point at a temporary
+     * directory populated with `createTestSession` from
+     * `@polkadot-apps/terminal/testing`.
+     */
+    storageDir?: string;
 }
 
 /**
@@ -47,7 +54,7 @@ export type TerminalAdapter = PappAdapter & {
 export function createTerminalAdapter(options: TerminalAdapterOptions): TerminalAdapter {
     const endpoints = options.endpoints ?? SS_PASEO_STABLE_STAGE_ENDPOINTS;
 
-    const storage = createNodeStorageAdapter(options.appId);
+    const storage = createNodeStorageAdapter(options.appId, options.storageDir);
     const lazyClient = createLazyClient(
         getWsProvider({ endpoints, heartbeatTimeout: Number.POSITIVE_INFINITY }),
     );

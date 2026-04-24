@@ -94,9 +94,42 @@ Creates a terminal adapter backed by the host-papp SDK.
 
 Render a string as a QR code using Unicode half-block characters for terminal display.
 
-### `createNodeStorageAdapter(appId): StorageAdapter`
+### `createNodeStorageAdapter(appId, storageDir?): StorageAdapter`
 
-File-based storage adapter for Node.js. Data persists in `~/.polkadot-apps/`.
+File-based storage adapter for Node.js. Data persists in `storageDir` (defaults to `~/.polkadot-apps/`).
+
+## Testing
+
+The `@polkadot-apps/terminal/testing` subpath exports `createTestSession`, a helper that synthesizes a valid persisted session on disk. E2E tests can inject a known-good session without going through QR pairing + attestation:
+
+```ts
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createTerminalAdapter, waitForSessions } from "@polkadot-apps/terminal";
+import { createTestSession } from "@polkadot-apps/terminal/testing";
+
+const storageDir = mkdtempSync(join(tmpdir(), "e2e-"));
+const { sessionId } = await createTestSession({
+    appId: "my-terminal-app",
+    storageDir,
+});
+
+const adapter = createTerminalAdapter({
+    appId: "my-terminal-app",
+    metadataUrl: "https://example.com/metadata.json",
+    storageDir,
+});
+const sessions = await waitForSessions(adapter);
+// sessions[0].id === sessionId
+```
+
+**Limits and usage notes.**
+
+- **Signing does not round-trip.** `session.signRaw` goes out over the statement store and expects a real phone to respond. Use this helper for flows that test session discovery, persistence, and logout — not happy-path signing.
+- **Expiry tests still work.** The synthesized local account was never registered on the People chain, so any statement-store write from this session fails with `NoAllowanceError`. That's the same error the CLI sees when a previously valid session's on-chain attestation has expired, so tests that assert "CLI handles an expired session" can be written against a synthesized session even though there's no `expiresAt` knob.
+- **No `expiresAt` option.** The on-disk codec has no expiry field; validity lives on chain. See above.
+- **Corrupted-session cases** don't need a helper — `fs.writeFile("<storageDir>/<appId>_SsoSessions.json", "not-hex")` from the test is enough.
 
 ## Signing
 
