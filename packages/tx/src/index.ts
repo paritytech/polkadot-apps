@@ -16,9 +16,11 @@ export {
     TxDryRunError,
     TxSigningRejectedError,
     TxBatchError,
+    TxInvalidError,
     formatDispatchError,
     formatDryRunError,
     isSigningRejection,
+    extractInvalidKind,
 } from "./errors.js";
 export type {
     TxStatus,

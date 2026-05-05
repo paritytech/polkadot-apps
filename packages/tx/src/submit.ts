@@ -3,8 +3,10 @@ import { createLogger } from "@polkadot-apps/logger";
 
 import {
     TxDispatchError,
+    TxInvalidError,
     TxSigningRejectedError,
     TxTimeoutError,
+    extractInvalidKind,
     formatDispatchError,
     isSigningRejection,
 } from "./errors.js";
@@ -195,25 +197,43 @@ export async function submitAndWatch(
                         }
                     }
                 },
-                error: (err: Error) => {
-                    log.error("Transaction subscription error", { error: err.message });
+                error: (err: unknown) => {
+                    log.error("Transaction subscription error", {
+                        error: err instanceof Error ? err.message : String(err),
+                    });
+
+                    const invalidKind = extractInvalidKind(err);
+                    if (invalidKind !== undefined) {
+                        settleReject(new TxInvalidError(invalidKind, err));
+                        return;
+                    }
 
                     if (isSigningRejection(err)) {
                         settleReject(new TxSigningRejectedError());
-                    } else {
-                        settleReject(err);
+                        return;
                     }
+
+                    settleReject(err instanceof Error ? err : new Error(String(err)));
                 },
             });
         } catch (err) {
-            log.error("Failed to start transaction", { error: (err as Error).message });
+            log.error("Failed to start transaction", {
+                error: err instanceof Error ? err.message : String(err),
+            });
             teardown();
+
+            const invalidKind = extractInvalidKind(err);
+            if (invalidKind !== undefined) {
+                settleReject(new TxInvalidError(invalidKind, err));
+                return;
+            }
 
             if (isSigningRejection(err)) {
                 settleReject(new TxSigningRejectedError());
-            } else {
-                settleReject(err as Error);
+                return;
             }
+
+            settleReject(err instanceof Error ? err : new Error(String(err)));
         }
     });
 }
@@ -425,6 +445,46 @@ if (import.meta.vitest) {
                 },
             };
             await expect(submitAndWatch(tx, mockSigner)).rejects.toThrow("Signer not available");
+        });
+
+        test("wraps Invalid: Stale from observable error into TxInvalidError", async () => {
+            // polkadot-api throws raw {type:"Invalid",...} objects, not Error instances —
+            // cast through unknown to mimic that runtime reality through the typed mock.
+            const tx = createMockTx((h) => {
+                h.error({ type: "Invalid", value: { type: "Stale" } } as unknown as Error);
+            });
+            const err = await submitAndWatch(tx, mockSigner).catch((e) => e);
+            expect(err).toBeInstanceOf(TxInvalidError);
+            expect((err as TxInvalidError).kind).toBe("Stale");
+        });
+
+        test("wraps Invalid: BadProof from observable error into TxInvalidError", async () => {
+            const tx = createMockTx((h) => {
+                h.error({ type: "Invalid", value: { type: "BadProof" } } as unknown as Error);
+            });
+            const err = await submitAndWatch(tx, mockSigner).catch((e) => e);
+            expect(err).toBeInstanceOf(TxInvalidError);
+            expect((err as TxInvalidError).kind).toBe("BadProof");
+        });
+
+        test("wraps Invalid: Stale thrown synchronously from signSubmitAndWatch", async () => {
+            const tx: SubmittableTransaction = {
+                signSubmitAndWatch: () => {
+                    throw { type: "Invalid", value: { type: "Stale" } };
+                },
+            };
+            const err = await submitAndWatch(tx, mockSigner).catch((e) => e);
+            expect(err).toBeInstanceOf(TxInvalidError);
+            expect((err as TxInvalidError).kind).toBe("Stale");
+        });
+
+        test("non-Invalid raw object errors are wrapped as Error, not TxInvalidError", async () => {
+            const tx = createMockTx((h) => {
+                h.error({ type: "Unknown", value: { type: "CannotLookup" } } as unknown as Error);
+            });
+            const err = await submitAndWatch(tx, mockSigner).catch((e) => e);
+            expect(err).toBeInstanceOf(Error);
+            expect(err).not.toBeInstanceOf(TxInvalidError);
         });
 
         test("calls onStatus error on dispatch failure", async () => {

@@ -1,6 +1,12 @@
 import { createLogger } from "@polkadot-apps/logger";
 
-import { TxBatchError, TxDispatchError, TxSigningRejectedError, TxTimeoutError } from "./errors.js";
+import {
+    TxBatchError,
+    TxDispatchError,
+    TxInvalidError,
+    TxSigningRejectedError,
+    TxTimeoutError,
+} from "./errors.js";
 import type { RetryOptions } from "./types.js";
 
 const log = createLogger("tx:retry");
@@ -15,6 +21,8 @@ function sleep(ms: number): Promise<void> {
  * - Batch errors are deterministic input validation failures (e.g., empty calls array).
  * - Dispatch errors are on-chain failures (e.g., insufficient balance) that will
  *   produce the same result on retry.
+ * - Invalid errors are tx-pool rejections of the signed payload (Stale, BadProof,
+ *   AncientBirthBlock, etc.); the same payload won't become valid by retrying.
  * - Signing rejections are explicit user intent.
  * - Timeouts mean we already waited the full duration; retrying would double the wait.
  */
@@ -22,6 +30,7 @@ function isNonRetryable(error: unknown): boolean {
     return (
         error instanceof TxBatchError ||
         error instanceof TxDispatchError ||
+        error instanceof TxInvalidError ||
         error instanceof TxSigningRejectedError ||
         error instanceof TxTimeoutError
     );
@@ -175,6 +184,25 @@ if (import.meta.vitest) {
                     { maxAttempts: 3, baseDelayMs: 1 },
                 ),
             ).rejects.toThrow(TxBatchError);
+            expect(calls).toBe(1);
+        });
+
+        test("does NOT retry TxInvalidError", async () => {
+            let calls = 0;
+            await expect(
+                withRetry(
+                    () => {
+                        calls++;
+                        return Promise.reject(
+                            new TxInvalidError("Stale", {
+                                type: "Invalid",
+                                value: { type: "Stale" },
+                            }),
+                        );
+                    },
+                    { maxAttempts: 3, baseDelayMs: 1 },
+                ),
+            ).rejects.toThrow(TxInvalidError);
             expect(calls).toBe(1);
         });
 
