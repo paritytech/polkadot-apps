@@ -44,6 +44,25 @@ export class TxSigningRejectedError extends TxError {
 }
 
 /**
+ * The transaction was rejected by the pool before inclusion (e.g., Stale nonce, BadProof,
+ * AncientBirthBlock). The same signed payload will not become valid on retry — callers
+ * should re-fetch state and re-sign if they want to recover.
+ */
+export class TxInvalidError extends TxError {
+    /** Inner Invalid sub-type, e.g., "Stale", "BadProof", "AncientBirthBlock", "Future", "BadSigner", "ExhaustsResources", "Custom". */
+    readonly kind: string;
+    /** Raw `{ type: "Invalid", value: { type: ... } }` for full inspection (e.g., Custom u8 code). */
+    readonly raw: unknown;
+
+    constructor(kind: string, raw: unknown) {
+        super(`Transaction rejected as Invalid: ${kind}`);
+        this.name = "TxInvalidError";
+        this.kind = kind;
+        this.raw = raw;
+    }
+}
+
+/**
  * Extract a human-readable error from a transaction result's dispatch error.
  *
  * PAPI dispatch errors for pallet modules are nested:
@@ -223,6 +242,26 @@ function extractErrorFromValue(value: unknown): string | undefined {
 }
 
 /**
+ * Extract the inner sub-type from a polkadot-api `{ type: "Invalid", value: { type: ... } }`
+ * thrown via `signSubmitAndWatch`'s observable. Returns `undefined` for any other shape so
+ * callers can fall through to generic error handling.
+ *
+ * @example
+ * ```ts
+ * extractInvalidKind({ type: "Invalid", value: { type: "Stale" } }); // "Stale"
+ * extractInvalidKind(new Error("Network down"));                     // undefined
+ * ```
+ */
+export function extractInvalidKind(err: unknown): string | undefined {
+    if (err == null || typeof err !== "object") return undefined;
+    const e = err as { type?: unknown; value?: unknown };
+    if (e.type !== "Invalid") return undefined;
+    if (e.value == null || typeof e.value !== "object") return undefined;
+    const inner = e.value as { type?: unknown };
+    return typeof inner.type === "string" ? inner.type : undefined;
+}
+
+/**
  * Check if an error looks like a user-rejected signing request.
  *
  * Different wallets use different error messages when the user rejects signing:
@@ -273,6 +312,17 @@ if (import.meta.vitest) {
             const err = new TxSigningRejectedError();
             expect(err).toBeInstanceOf(TxError);
             expect(err.name).toBe("TxSigningRejectedError");
+        });
+
+        test("TxInvalidError", () => {
+            const raw = { type: "Invalid", value: { type: "Stale" } };
+            const err = new TxInvalidError("Stale", raw);
+            expect(err).toBeInstanceOf(TxError);
+            expect(err).toBeInstanceOf(Error);
+            expect(err.name).toBe("TxInvalidError");
+            expect(err.kind).toBe("Stale");
+            expect(err.raw).toBe(raw);
+            expect(err.message).toContain("Stale");
         });
 
         test("TxBatchError", () => {
@@ -486,6 +536,49 @@ if (import.meta.vitest) {
                     },
                 }),
             ).toBe("OwnableUnauthorizedAccount");
+        });
+    });
+
+    describe("extractInvalidKind", () => {
+        test("extracts Stale", () => {
+            expect(extractInvalidKind({ type: "Invalid", value: { type: "Stale" } })).toBe("Stale");
+        });
+
+        test("extracts BadProof", () => {
+            expect(extractInvalidKind({ type: "Invalid", value: { type: "BadProof" } })).toBe(
+                "BadProof",
+            );
+        });
+
+        test("extracts Custom (preserves type name; raw value lives on the error's .raw)", () => {
+            expect(
+                extractInvalidKind({ type: "Invalid", value: { type: "Custom", value: 42 } }),
+            ).toBe("Custom");
+        });
+
+        test("returns undefined for non-Invalid type", () => {
+            expect(extractInvalidKind({ type: "Unknown", value: { type: "CannotLookup" } })).toBe(
+                undefined,
+            );
+        });
+
+        test("returns undefined for missing value", () => {
+            expect(extractInvalidKind({ type: "Invalid" })).toBe(undefined);
+        });
+
+        test("returns undefined for missing inner type", () => {
+            expect(extractInvalidKind({ type: "Invalid", value: {} })).toBe(undefined);
+        });
+
+        test("returns undefined for null and primitives", () => {
+            expect(extractInvalidKind(null)).toBe(undefined);
+            expect(extractInvalidKind(undefined)).toBe(undefined);
+            expect(extractInvalidKind("Stale")).toBe(undefined);
+            expect(extractInvalidKind(42)).toBe(undefined);
+        });
+
+        test("returns undefined for plain Error", () => {
+            expect(extractInvalidKind(new Error("Network down"))).toBe(undefined);
         });
     });
 
