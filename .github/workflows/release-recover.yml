@@ -1,0 +1,63 @@
+name: Release Recover
+
+# Manual recovery path when the automated `Release` workflow fails to push
+# the version-bump commit (e.g., when branch protection rejects the bot's
+# direct push to main). Run AFTER landing a manual "chore: version packages"
+# PR. Builds, packs every workspace package, uploads them as a `packages`
+# artifact, and dispatches `paritytech/npm_publish_automation` — which is
+# idempotent, so already-published versions are skipped automatically.
+
+on:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    actions: read
+
+jobs:
+    recover:
+        runs-on: parity-default
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  registry-url: "https://registry.npmjs.org"
+
+            - run: pnpm install
+
+            - name: Build packages
+              run: pnpm build
+
+            # Match release.yml: strip descriptors file:generated dep AFTER build,
+            # since papi (called by build) re-adds it.
+            - name: Strip descriptors file:generated dep
+              run: node -e 'const p=require("./packages/descriptors/package.json");delete p.dependencies;require("fs").writeFileSync("./packages/descriptors/package.json",JSON.stringify(p,null,4)+"\n")'
+
+            - name: Pack packages
+              run: |
+                  mkdir -p artifacts
+                  for dir in packages/*/; do
+                    if [ -f "$dir/package.json" ]; then
+                      (cd "$dir" && pnpm pack --pack-destination ../../artifacts/)
+                    fi
+                  done
+
+            - name: Upload package artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: packages
+                  path: artifacts/*.tgz
+
+            - name: Publish via npm_publish_automation
+              uses: octokit/request-action@v2.x
+              with:
+                  route: POST /repos/paritytech/npm_publish_automation/actions/workflows/publish.yml/dispatches
+                  ref: main
+                  inputs: '${{ format(''{{ "repo": "{0}", "run_id": "{1}" }}'', github.repository, github.run_id) }}'
+              env:
+                  GITHUB_TOKEN: ${{ secrets.NPM_PUBLISH_AUTOMATION_TOKEN }}
