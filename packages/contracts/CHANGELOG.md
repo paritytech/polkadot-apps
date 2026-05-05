@@ -1,5 +1,12 @@
 # @polkadot-apps/contracts
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [50828e8]
+  - @polkadot-apps/tx@0.3.6
+
 ## 0.4.0
 
 ### Minor Changes
