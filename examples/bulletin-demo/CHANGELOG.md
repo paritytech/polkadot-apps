@@ -1,5 +1,11 @@
 # @polkadot-apps/bulletin-demo
 
+## 0.0.5
+
+### Patch Changes
+
+- @polkadot-apps/bulletin@0.6.11
+
 ## 0.0.4
 
 ### Patch Changes

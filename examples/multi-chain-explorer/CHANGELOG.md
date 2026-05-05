@@ -1,5 +1,13 @@
 # multi-chain-explorer
 
+## 0.0.16
+
+### Patch Changes
+
+- Updated dependencies [50828e8]
+  - @polkadot-apps/tx@0.3.6
+  - @polkadot-apps/bulletin@0.6.11
+
 ## 0.0.15
 
 ### Patch Changes

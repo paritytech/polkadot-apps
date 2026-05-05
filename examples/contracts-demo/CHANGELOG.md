@@ -1,5 +1,11 @@
 # @polkadot-apps/contracts-demo
 
+## 0.0.6
+
+### Patch Changes
+
+- @polkadot-apps/contracts@0.4.1
+
 ## 0.0.5
 
 ### Patch Changes
