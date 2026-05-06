@@ -1,7 +1,7 @@
 {
     "name": "@polkadot-apps/descriptors",
     "description": "Pre-generated Polkadot API descriptors for Asset Hub, Bulletin, and Individuality chains",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "type": "module",
     "exports": {
         "./polkadot-asset-hub": {

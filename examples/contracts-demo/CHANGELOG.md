@@ -1,5 +1,11 @@
 # @polkadot-apps/contracts-demo
 
+## 0.0.7
+
+### Patch Changes
+
+- @polkadot-apps/chain-client@2.0.6
+
 ## 0.0.6
 
 ### Patch Changes
