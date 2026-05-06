@@ -6,31 +6,31 @@
             "chain": "polkadot_asset_hub",
             "metadata": ".papi/metadata/polkadot_asset_hub.scale",
             "genesis": "0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f",
-            "codeHash": "0x04fa38c2fb117fbd73302c23b339ef18c4f3a200a0b487803208bf279161f1d7"
+            "codeHash": "0xb160d880adc0954728ebd255ba4d8b28266fae3b564d82670a486c5c63028778"
         },
         "kusama_asset_hub": {
             "chain": "ksmcc3_asset_hub",
             "metadata": ".papi/metadata/kusama_asset_hub.scale",
             "genesis": "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
-            "codeHash": "0xdefa3628d113f815fda8bbf9874c879adec02779df43737d77473347e72138c6"
+            "codeHash": "0x75086dc1a829e7a39bef2398d082e29adb23511defe35fd26a829798af49942b"
         },
         "paseo_asset_hub": {
             "chain": "paseo_asset_hub",
             "metadata": ".papi/metadata/paseo_asset_hub.scale",
             "genesis": "0xd6eec26135305a8ad257a20d003357284c8aa03d0bdb2b357ab0a22371e11ef2",
-            "codeHash": "0x3b36085f46d6213d6f5a2fb26415d7c46da8e397977f2f7404ac431931ab5ae6"
+            "codeHash": "0xfddf30fb88912790c5c7efd5918a9498821a80e22d5604ae115f4ed4b3580048"
         },
         "bulletin": {
             "wsUrl": "wss://paseo-bulletin-rpc.polkadot.io",
             "metadata": ".papi/metadata/bulletin.scale",
             "genesis": "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea",
-            "codeHash": "0x1a82e5143be3211ded412b0368b486ce83bd41a80ec95eb267f6c204adda8365"
+            "codeHash": "0x9d2f0d4c898762de437a255cb0cb8f784b183915cecb2cf105e829b4846df4ad"
         },
         "individuality": {
             "wsUrl": "wss://paseo-people-next-rpc.polkadot.io",
             "metadata": ".papi/metadata/individuality.scale",
-            "genesis": "0xd01475fde5d0592989b7715ae1d2e89fdb4f8c7688c09c850d75e1d4bdb47d64",
-            "codeHash": "0xee12eb3f12f8387448d2bf78c773dda08731483357a1b8fb773374f7b7bc417c"
+            "genesis": "0xa22a2424d2cbf561eaecf7da8b1b548fa9d1939f60265e942b1049616a012f71",
+            "codeHash": "0x9832cf84444d783d9b3fe3f4fe4a0e45f94c2a82b6bb27b900465ba3be384748"
         }
     }
 }
