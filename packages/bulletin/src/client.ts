@@ -278,7 +278,13 @@ if (import.meta.vitest) {
                     TransactionStorage: {
                         Authorizations: {
                             getValue: vi.fn().mockResolvedValue({
-                                extent: { transactions: 5, bytes: 2000n },
+                                extent: {
+                                    transactions: 0,
+                                    transactions_allowance: 5,
+                                    bytes: 0n,
+                                    bytes_permanent: 0n,
+                                    bytes_allowance: 2000n,
+                                },
                                 expiration: 100,
                             }),
                         },
