@@ -41,7 +41,7 @@
         "@polkadot-api/utils": "^0.2.0",
         "@polkadot-api/ws-provider": "^0.7.5",
         "@polkadot-labs/hdkd-helpers": "catalog:",
-        "nanoid": "^5.1.7",
+        "nanoid": "^5.1.16",
         "neverthrow": "^8.2.0",
         "polkadot-api": "^1.23.3",
         "qrcode": "^1.5.4",
